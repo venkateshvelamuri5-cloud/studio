@@ -19,11 +19,24 @@ import {
   ShieldAlert,
   LogOut
 } from 'lucide-react';
+import Image from 'next/image';
+import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 import { useUser, useDoc, useFirestore, useAuth } from '@/firebase';
 import { doc, updateDoc, serverTimestamp, collection, addDoc, onSnapshot, query, where } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+
+// Helper to map Lat/Lng to % positions on the visualization map
+function getMarkerPos(lat?: number, lng?: number) {
+  if (!lat || !lng) return { top: '50%', left: '50%' };
+  const top = 100 - ((lat - 17.6) / (17.8 - 17.6)) * 100;
+  const left = ((lng - 83.1) / (83.4 - 83.1)) * 100;
+  return { 
+    top: `${Math.max(5, Math.min(95, top))}%`, 
+    left: `${Math.max(5, Math.min(95, left))}%` 
+  };
+}
 
 export default function DriverConsole() {
   const { user, loading: authLoading } = useUser();
@@ -42,6 +55,8 @@ export default function DriverConsole() {
   const [activeTrip, setActiveTrip] = useState<any>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  const mapImage = PlaceHolderImages.find(img => img.id === 'live-map');
+
   // Sync active trip if any
   useEffect(() => {
     if (!db || !user?.uid) return;
@@ -56,14 +71,13 @@ export default function DriverConsole() {
     return unsubscribe;
   }, [db, user?.uid]);
 
-  // Mock Geolocation sync
+  // GPS Movement Simulation
   useEffect(() => {
     if (!userRef || profile?.status !== 'on-trip') return;
 
     const interval = setInterval(() => {
-      // Mock subtle movement for testing
-      const lat = (profile.currentLat || 17.6868) + (Math.random() - 0.5) * 0.001;
-      const lng = (profile.currentLng || 83.2185) + (Math.random() - 0.5) * 0.001;
+      const lat = (profile.currentLat || 17.6868) + (Math.random() - 0.5) * 0.002;
+      const lng = (profile.currentLng || 83.2185) + (Math.random() - 0.5) * 0.002;
       
       updateDoc(userRef, {
         currentLat: lat,
@@ -105,7 +119,7 @@ export default function DriverConsole() {
       await updateDoc(userRef!, { 
         status: 'on-trip', 
         activeTripId: tripRef.id,
-        currentLat: 17.6868, // Start at a default Vizag point
+        currentLat: 17.6868,
         currentLng: 83.2185
       });
       toast({ title: "Trip Started", description: `Route: ${routeName}` });
@@ -231,31 +245,50 @@ export default function DriverConsole() {
           </div>
         ) : (
           <div className="space-y-6 pb-24">
-            {/* Active Navigation Card */}
-            <Card className="bg-primary text-white border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
-              <CardHeader className="pb-2">
+            {/* Active GPS Navigation View */}
+            <Card className="bg-primary text-white border-none shadow-2xl rounded-[2.5rem] overflow-hidden relative">
+              <div className="relative h-64 w-full bg-slate-900">
+                <Image 
+                  src={mapImage?.imageUrl || "https://picsum.photos/seed/driver-nav/800/600"} 
+                  fill 
+                  className="object-cover opacity-40" 
+                  alt="Navigation Map"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-primary via-transparent to-transparent" />
+                
+                {/* Real-time self-marker */}
+                <div 
+                  className="absolute transition-all duration-1000" 
+                  style={getMarkerPos(profile.currentLat, profile.currentLng)}
+                >
+                   <div className="bg-white p-3 rounded-full shadow-2xl animate-pulse">
+                      <Navigation className="h-6 w-6 text-primary fill-primary" />
+                   </div>
+                </div>
+                
+                <div className="absolute top-6 left-6 flex items-center gap-2 bg-black/40 backdrop-blur px-3 py-1.5 rounded-full border border-white/10">
+                   <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                   <span className="text-[10px] font-black uppercase tracking-widest italic">Live GPS Signal</span>
+                </div>
+              </div>
+
+              <CardContent className="p-8 space-y-6 bg-primary relative -mt-4">
                 <div className="flex justify-between items-start">
                   <div>
                     <Badge className="bg-white/20 text-white mb-3 font-black uppercase tracking-widest text-[10px]">Active Region: AP-HIGHWAY</Badge>
-                    <CardTitle className="text-3xl font-black font-headline italic uppercase tracking-tighter">{activeTrip.routeName}</CardTitle>
+                    <CardTitle className="text-3xl font-black font-headline italic uppercase tracking-tighter leading-none">{activeTrip.routeName}</CardTitle>
+                    <p className="text-primary-foreground/60 font-bold text-xs mt-2 flex items-center gap-2">
+                       <MapPin className="h-3 w-3 text-accent" /> {profile.currentLat?.toFixed(4)}, {profile.currentLng?.toFixed(4)}
+                    </p>
                   </div>
-                  <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-xl h-10 px-4 font-bold text-xs">
-                    <AlertCircle className="h-4 w-4 mr-2" /> Report SOS
+                  <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-xl h-10 px-4 font-bold text-xs shrink-0">
+                    <AlertCircle className="h-4 w-4 mr-2" /> SOS
                   </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="bg-black/20 rounded-[2rem] p-8 flex flex-col items-center justify-center text-center space-y-3 border border-white/10">
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground/60 italic">Live Tracking Active</p>
-                  <h4 className="text-4xl font-black font-headline italic uppercase tracking-tighter">On Route</h4>
-                  <p className="text-primary-foreground/80 font-bold flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-accent" /> Coordinates Synced to Command Center
-                  </p>
                 </div>
                 
                 <div className="flex gap-4">
                   <Button className="flex-1 bg-white text-primary hover:bg-white/90 font-black h-16 rounded-[1.5rem] uppercase italic tracking-tighter text-lg shadow-xl">
-                    <Navigation className="h-6 w-6 mr-2" /> Open GPS
+                    <Navigation className="h-6 w-6 mr-2" /> Waze Link
                   </Button>
                   <Button 
                     onClick={endTrip} 
@@ -263,7 +296,7 @@ export default function DriverConsole() {
                     variant="outline" 
                     className="flex-1 border-white/40 text-white hover:bg-white/10 font-black h-16 rounded-[1.5rem] uppercase italic tracking-tighter text-lg"
                   >
-                    {isUpdating ? <Loader2 className="animate-spin" /> : "Complete"}
+                    {isUpdating ? <Loader2 className="animate-spin" /> : "Finish"}
                   </Button>
                 </div>
               </CardContent>
@@ -273,18 +306,18 @@ export default function DriverConsole() {
             <section className="space-y-4">
               <div className="flex items-center justify-between px-2">
                 <h3 className="text-lg font-black font-headline uppercase italic tracking-tighter flex items-center gap-3">
-                  <Users className="h-6 w-6 text-accent" /> Student Manifest
+                  <Users className="h-6 w-6 text-accent" /> Scholar Manifest
                 </h3>
                 <Badge variant="outline" className="text-slate-400 border-slate-800 font-bold px-4 py-1.5 rounded-full">{activeTrip.riderCount || 0} / 24 Seats</Badge>
               </div>
               
               <div className="space-y-3">
                 {activeTrip.riderCount > 0 ? (
-                   <p className="text-sm text-slate-500 font-bold italic p-4 text-center border-2 border-dashed border-slate-800 rounded-[2rem]">Active students tracked via ID-QR</p>
+                   <p className="text-sm text-slate-500 font-bold italic p-4 text-center border-2 border-dashed border-slate-800 rounded-[2rem]">Active scholars tracked via QR Link</p>
                 ) : (
                   <div className="p-8 text-center bg-slate-900/50 rounded-[2rem] border border-white/5 space-y-2">
                     <Users className="h-10 w-10 mx-auto text-slate-700 opacity-50" />
-                    <p className="font-bold text-slate-500 italic">No student boardings recorded yet.</p>
+                    <p className="font-bold text-slate-500 italic">No boardings recorded yet.</p>
                   </div>
                 )}
               </div>
@@ -301,7 +334,7 @@ export default function DriverConsole() {
         </Button>
         <Button variant="ghost" className="flex-col gap-1.5 h-auto py-2 text-slate-500">
           <Phone className="h-7 w-7" />
-          <span className="text-[10px] font-black uppercase tracking-widest italic">Dispatcher</span>
+          <span className="text-[10px] font-black uppercase tracking-widest italic">Hub Desk</span>
         </Button>
         <Button variant="ghost" onClick={handleSignOut} className="flex-col gap-1.5 h-auto py-2 text-slate-500 hover:text-red-500">
           <LogOut className="h-7 w-7" />

@@ -22,7 +22,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/select";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { 
@@ -45,6 +45,7 @@ import {
   Trash2,
   Truck
 } from 'lucide-react';
+import Image from 'next/image';
 import { 
   BarChart, 
   Bar, 
@@ -59,6 +60,7 @@ import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebas
 import { collection, query, where, limit, doc, updateDoc, addDoc, deleteDoc, getDocs, orderBy, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
+import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 
 const ridershipData = [
   { name: 'Vizag', riders: 8500 },
@@ -67,6 +69,20 @@ const ridershipData = [
   { name: 'Gitam', riders: 5100 },
   { name: 'AU', riders: 3800 },
 ];
+
+// Helper to map Lat/Lng to % positions on the visualization map
+function getMarkerPos(lat?: number, lng?: number) {
+  if (!lat || !lng) return { top: '50%', left: '50%' };
+  // Vizag Region Bounds (Approx)
+  // Lat: 17.6 to 17.8
+  // Lng: 83.1 to 83.4
+  const top = 100 - ((lat - 17.6) / (17.8 - 17.6)) * 100;
+  const left = ((lng - 83.1) / (83.4 - 83.1)) * 100;
+  return { 
+    top: `${Math.max(5, Math.min(95, top))}%`, 
+    left: `${Math.max(5, Math.min(95, left))}%` 
+  };
+}
 
 export default function AdminDashboard() {
   const db = useFirestore();
@@ -97,6 +113,9 @@ export default function AdminDashboard() {
     useMemo(() => db ? query(collection(db, 'routes'), orderBy('createdAt', 'desc')) : null, [db])
   );
 
+  // Images
+  const mapImage = PlaceHolderImages.find(img => img.id === 'live-map');
+
   // Dashboard Stats
   const availableDrivers = drivers?.filter(d => d.status === 'available') || [];
   const onTripDrivers = drivers?.filter(d => d.status === 'on-trip') || [];
@@ -122,13 +141,10 @@ export default function AdminDashboard() {
     setIsRegistering(true);
     try {
       const formattedPhone = newDriverPhone.startsWith('+91') ? newDriverPhone : `+91${newDriverPhone}`;
-      
-      // Check if user already exists
       const q = query(collection(db, 'users'), where('phoneNumber', '==', formattedPhone), limit(1));
       const snap = await getDocs(q);
       
       if (!snap.empty) {
-        // Update existing user to driver
         await updateDoc(doc(db, 'users', snap.docs[0].id), { 
           role: 'driver',
           fullName: newDriverName,
@@ -137,7 +153,6 @@ export default function AdminDashboard() {
         });
         toast({ title: "Workforce Updated", description: `${newDriverName} is now an official driver.` });
       } else {
-        // Create a placeholder profile (they will link via phone auth later)
         const driverId = `DRV_${Date.now()}`;
         await setDoc(doc(db, 'users', driverId), {
           uid: driverId,
@@ -255,7 +270,7 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('fleet')}
             className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'fleet' ? 'bg-white/10' : 'hover:bg-white/5'}`}
           >
-            <Navigation className="mr-2 h-4 w-4" /> Fleet Tracking
+            <Navigation className="mr-2 h-4 w-4" /> Fleet Intelligence
           </Button>
           <Button 
             variant="ghost" 
@@ -319,50 +334,45 @@ export default function AdminDashboard() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Active Trips Monitor */}
-                <Card className="border-none shadow-xl rounded-[2.5rem] bg-white">
-                  <CardHeader>
-                    <CardTitle className="font-black font-headline text-xl italic uppercase tracking-tighter text-primary">Live Regional Movement</CardTitle>
-                    <CardDescription className="font-bold text-muted-foreground">Real-time GPS tracking across AP hubs</CardDescription>
+                {/* Visual Radar */}
+                <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
+                   <CardHeader>
+                    <CardTitle className="font-black font-headline text-xl italic uppercase tracking-tighter text-primary">Regional Radar</CardTitle>
+                    <CardDescription className="font-bold">Real-time hub activity across AP</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {tripsLoading ? (
-                        <div className="py-6 text-center animate-pulse">Scanning Hubs...</div>
-                      ) : activeTrips?.length === 0 ? (
-                        <div className="py-10 text-center border-2 border-dashed rounded-3xl opacity-50">
-                          <Bus className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
-                          <p className="font-bold text-muted-foreground italic uppercase text-xs">No active movement detected</p>
-                        </div>
-                      ) : (
-                        activeTrips?.map((trip: any) => (
-                          <div key={trip.id} className="p-4 bg-secondary/50 rounded-2xl flex items-center justify-between border border-secondary group hover:border-primary/20 transition-colors">
-                            <div className="flex items-center gap-4">
-                              <div className="bg-primary/10 p-3 rounded-xl">
-                                <Navigation className="h-5 w-5 text-primary" />
-                              </div>
-                              <div>
-                                <h4 className="font-black text-primary text-sm uppercase italic tracking-tighter">{trip.routeName}</h4>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase">
-                                  {trip.riderCount || 0} Scholars • {trip.driverName}
-                                </p>
-                              </div>
+                  <CardContent className="p-0 h-[400px] relative">
+                    <Image 
+                      src={mapImage?.imageUrl || "https://picsum.photos/seed/radar/800/400"} 
+                      fill 
+                      className="object-cover opacity-60" 
+                      alt="Regional Map"
+                    />
+                    {/* Live Driver Markers */}
+                    {drivers?.filter(d => d.status === 'on-trip').map((driver: any) => {
+                      const pos = getMarkerPos(driver.currentLat, driver.currentLng);
+                      return (
+                        <div key={driver.id} className="absolute transition-all duration-1000" style={pos}>
+                          <div className="relative">
+                            <div className="bg-primary p-2 rounded-full shadow-2xl animate-pulse">
+                              <Bus className="h-4 w-4 text-white" />
                             </div>
-                            <Badge className="bg-accent/10 text-accent border-none font-black text-[8px] uppercase px-3">Live</Badge>
+                            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white px-2 py-0.5 rounded-full shadow border border-primary/20 text-[8px] font-black uppercase italic">
+                              {driver.fullName?.split(' ')[0]}
+                            </div>
                           </div>
-                        ))
-                      )}
-                    </div>
+                        </div>
+                      );
+                    })}
                   </CardContent>
                 </Card>
 
-                {/* Hub Context */}
+                {/* Hub Performance */}
                 <Card className="border-none shadow-xl rounded-[2.5rem] bg-white">
                   <CardHeader>
                     <CardTitle className="font-black font-headline text-xl italic uppercase tracking-tighter text-primary">Hub Scholarship Volume</CardTitle>
                     <CardDescription className="font-bold">Daily scholars served per hub</CardDescription>
                   </CardHeader>
-                  <CardContent className="h-64">
+                  <CardContent className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={ridershipData}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
@@ -383,54 +393,79 @@ export default function AdminDashboard() {
 
           {activeTab === 'fleet' && (
             <div className="space-y-6">
-              <div className="flex justify-between items-center px-2">
-                <h3 className="text-2xl font-black font-headline italic uppercase text-primary">GPS Fleet Intelligence</h3>
-                <p className="font-bold text-muted-foreground text-sm uppercase">Regional Workforce Active: {drivers?.length || 0}</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {drivers?.map((driver: any) => (
-                  <Card key={driver.id} className="border-none shadow-xl rounded-[2rem] bg-white overflow-hidden">
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-3">
-                          <div className="h-12 w-12 rounded-2xl bg-primary text-white flex items-center justify-center font-black">
-                            {driver.fullName?.[0]}
-                          </div>
-                          <div>
-                            <h4 className="font-black text-primary uppercase italic text-sm leading-none">{driver.fullName}</h4>
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">{driver.phoneNumber}</p>
-                          </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Master Fleet Map */}
+                <Card className="lg:col-span-2 border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-slate-100 h-[600px] relative">
+                  <Image 
+                    src={mapImage?.imageUrl || "https://picsum.photos/seed/fleet-map/1200/800"} 
+                    fill 
+                    className="object-cover opacity-80" 
+                    alt="Master Map"
+                  />
+                   {/* GPS Overlays */}
+                   {drivers?.map((driver: any) => {
+                      const pos = getMarkerPos(driver.currentLat, driver.currentLng);
+                      return (
+                        <div key={driver.id} className="absolute transition-all duration-1000" style={pos}>
+                           <div className={`p-2 rounded-full shadow-2xl ${
+                             driver.status === 'on-trip' ? 'bg-accent animate-bounce' : 
+                             driver.status === 'available' ? 'bg-green-500' : 'bg-slate-400'
+                           }`}>
+                             <Bus className="h-5 w-5 text-white" />
+                           </div>
                         </div>
-                        <Badge className={`rounded-full px-3 text-[8px] font-black uppercase ${
-                          driver.status === 'available' ? 'bg-green-100 text-green-700' : 
-                          driver.status === 'on-trip' ? 'bg-accent/10 text-accent' : 'bg-secondary text-muted-foreground'
-                        }`}>
-                          {driver.status || 'offline'}
-                        </Badge>
+                      );
+                   })}
+                   <div className="absolute top-6 left-6 bg-white/90 backdrop-blur p-4 rounded-3xl shadow-xl border border-white/20">
+                      <h4 className="font-black text-primary uppercase italic text-xs mb-2">GPS Legend</h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-[8px] font-black uppercase">
+                          <div className="h-2 w-2 rounded-full bg-accent" /> Mission Active
+                        </div>
+                        <div className="flex items-center gap-2 text-[8px] font-black uppercase">
+                          <div className="h-2 w-2 rounded-full bg-green-500" /> Hub Ready
+                        </div>
+                        <div className="flex items-center gap-2 text-[8px] font-black uppercase">
+                          <div className="h-2 w-2 rounded-full bg-slate-400" /> Stationed
+                        </div>
                       </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="p-4 bg-secondary/50 rounded-2xl space-y-3 border border-secondary">
-                        <div className="flex items-center justify-between text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                          <span className="flex items-center gap-1 text-primary"><MapPin className="h-3 w-3" /> GPS LOCK</span>
-                          <span className="text-primary">{driver.currentLat?.toFixed(4) || '0.0000'}, {driver.currentLng?.toFixed(4) || '0.0000'}</span>
+                   </div>
+                </Card>
+
+                {/* Live Logs */}
+                <div className="space-y-4">
+                  <h3 className="text-xl font-black font-headline italic uppercase text-primary">Live Operations Log</h3>
+                  <div className="space-y-3 h-[540px] overflow-y-auto pr-2">
+                    {drivers?.map((driver: any) => (
+                      <Card key={driver.id} className="border-none shadow-lg bg-white rounded-2xl p-4 group">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">
+                              {driver.fullName?.[0]}
+                            </div>
+                            <div>
+                              <p className="font-black text-primary uppercase italic text-[10px]">{driver.fullName}</p>
+                              <p className="text-[8px] font-bold text-muted-foreground uppercase">{driver.status || 'offline'}</p>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="text-[8px] font-bold border-none bg-secondary">
+                            {driver.currentLat?.toFixed(4)}, {driver.currentLng?.toFixed(4)}
+                          </Badge>
                         </div>
-                        <div className="flex items-center justify-between text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                          <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> TOTAL MISSIONS</span>
-                          <span className="text-primary">{driver.totalTrips || 0}</span>
+                        <div className="flex items-center gap-4 text-[8px] font-black uppercase text-muted-foreground pt-3 border-t">
+                           <span>{driver.totalTrips || 0} Trips</span>
+                           <span className="text-primary">{driver.city || 'AP Region'}</span>
                         </div>
-                      </div>
-                      <Button variant="outline" className="w-full rounded-xl font-bold border-2 text-[10px] uppercase h-10 tracking-widest">Access Logs</Button>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </Card>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
           {activeTab === 'routes' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Route Engine Controller */}
               <Card className="border-none shadow-2xl bg-primary text-white rounded-[2.5rem] overflow-hidden lg:col-span-1">
                 <CardHeader>
                   <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mb-4">
@@ -458,7 +493,6 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
 
-              {/* Saved Routes List */}
               <div className="lg:col-span-2 space-y-6">
                 <div className="flex justify-between items-center px-2">
                   <h3 className="text-2xl font-black font-headline italic uppercase text-primary">Regional Network Registry</h3>

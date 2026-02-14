@@ -40,6 +40,20 @@ import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 
+// Helper to map Lat/Lng to % positions on the visualization map
+function getMarkerPos(lat?: number, lng?: number) {
+  if (!lat || !lng) return { top: '50%', left: '50%' };
+  // Vizag Region Bounds (Approx)
+  // Lat: 17.6 to 17.8
+  // Lng: 83.1 to 83.4
+  const top = 100 - ((lat - 17.6) / (17.8 - 17.6)) * 100;
+  const left = ((lng - 83.1) / (83.4 - 83.1)) * 100;
+  return { 
+    top: `${Math.max(5, Math.min(95, top))}%`, 
+    left: `${Math.max(5, Math.min(95, left))}%` 
+  };
+}
+
 export default function RiderDashboard() {
   const { user } = useUser();
   const auth = useAuth();
@@ -64,6 +78,11 @@ export default function RiderDashboard() {
   // Active Trips (Started by Drivers)
   const tripsQuery = useMemo(() => db ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db]);
   const { data: activeTrips, loading: tripsLoading } = useCollection(tripsQuery);
+
+  // Driver Locations (for Live Map)
+  const { data: activeDrivers } = useCollection(
+    useMemo(() => db ? query(collection(db, 'users'), where('status', '==', 'on-trip')) : null, [db])
+  );
 
   const liveMapImage = PlaceHolderImages.find(img => img.id === 'live-map');
 
@@ -105,7 +124,6 @@ export default function RiderDashboard() {
     setIsBooking(true);
     try {
       const tripRef = doc(db, 'trips', tripId);
-      // Join trip and deduct fare
       await updateDoc(tripRef, {
         riderCount: increment(1)
       });
@@ -198,7 +216,7 @@ export default function RiderDashboard() {
                     <div className="space-y-1">
                       <h4 className="font-black text-primary uppercase italic text-sm">{trip.routeName}</h4>
                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <Bus className="h-3 w-3" /> {trip.driverName} • {24 - (trip.riderCount || 0)} Seats Left
+                        <Bus className="h-3 w-3" /> {trip.driverName} &bull; {24 - (trip.riderCount || 0)} Seats Left
                       </p>
                     </div>
                     <Button 
@@ -270,41 +288,47 @@ export default function RiderDashboard() {
         {/* Live Tracking Map Card */}
         <section className="space-y-4">
           <div className="flex items-center justify-between px-1">
-            <h4 className="text-xs font-black uppercase tracking-widest text-slate-500">Live Status</h4>
-            <Badge variant="outline" className="border-slate-200 text-[8px] font-black uppercase text-green-600 bg-green-50">Region Secure</Badge>
+            <h4 className="text-xs font-black uppercase tracking-widest text-slate-500">Live GPS Intelligence</h4>
+            <Badge variant="outline" className="border-slate-200 text-[8px] font-black uppercase text-green-600 bg-green-50">Fleet Secure</Badge>
           </div>
           <Card className="overflow-hidden border-none shadow-lg bg-white rounded-[2rem] relative group cursor-pointer">
-            <div className="relative h-48 w-full">
+            <div className="relative h-64 w-full bg-slate-100">
               <Image 
                 src={liveMapImage?.imageUrl || "https://picsum.photos/seed/map-ap/800/400"} 
                 fill 
                 className="object-cover opacity-80" 
                 alt="Live Map"
-                data-ai-hint="andhra map"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-white/90 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-white/40 via-transparent to-transparent" />
               
-              {/* Show all actual moving shuttles */}
-              {activeTrips.map((trip: any, i: number) => (
-                <div key={trip.id} className="absolute" style={{ top: `${20 + (i * 15)}%`, left: `${15 + (i * 20)}%` }}>
-                  <div className="bg-primary p-2 rounded-full shadow-2xl animate-pulse flex flex-col items-center">
-                    <Bus className="h-4 w-4 text-white" />
+              {/* Actual Live Driver Markers from Users Collection */}
+              {activeDrivers?.map((driver: any) => {
+                const pos = getMarkerPos(driver.currentLat, driver.currentLng);
+                return (
+                  <div key={driver.id} className="absolute transition-all duration-1000" style={pos}>
+                    <div className="relative group">
+                      <div className="bg-primary p-2 rounded-full shadow-2xl animate-pulse ring-4 ring-primary/20">
+                        <Bus className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur px-2 py-0.5 rounded-full shadow-lg border border-primary/10 scale-75">
+                        <p className="text-[7px] font-black text-primary uppercase italic whitespace-nowrap">
+                          {driver.fullName?.split(' ')[0]} Hub
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="mt-1 bg-white px-2 py-0.5 rounded-full shadow-lg border border-primary/10">
-                    <p className="text-[7px] font-black text-primary uppercase italic whitespace-nowrap">{trip.routeName}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-            <CardContent className="p-6 relative">
+            <CardContent className="p-6 relative bg-white">
                <div className="flex items-center justify-between">
                  <div>
-                    <p className="text-[10px] font-black text-primary uppercase tracking-widest italic">Live Regional Intelligence</p>
+                    <p className="text-[10px] font-black text-primary uppercase tracking-widest italic">Regional Movement Feed</p>
                     <h5 className="font-black text-slate-900 text-lg">
-                      {activeTrips.length > 0 ? `${activeTrips.length} Shuttles Active` : 'Scanning Network...'}
+                      {activeTrips.length > 0 ? `${activeTrips.length} Shuttles Active` : 'Scanning Hubs...'}
                     </h5>
                  </div>
-                 <Button size="sm" variant="secondary" className="rounded-xl font-bold text-[10px] uppercase h-10 px-6">View Global Map</Button>
+                 <Button size="sm" variant="secondary" className="rounded-xl font-bold text-[10px] uppercase h-10 px-6">Open Global Radar</Button>
                </div>
             </CardContent>
           </Card>
