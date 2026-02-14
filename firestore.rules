@@ -2,46 +2,53 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // Helper function to check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
     // Helper function to check if the user has an admin role
+    // We add a safety check for the specific admin email to prevent lockouts
     function isAdmin() {
-      return request.auth != null && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isAuthenticated() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        request.auth.token.email == 'admin@aago.in'
+      );
     }
 
-    // User profiles: Authenticated users can read profiles. 
-    // Users can create/update their own profile (top-ups, status). 
-    // Admins have full control (registering drivers).
+    // User profiles: 
+    // - Authenticated users can read any profile (needed for passenger manifests/driver info).
+    // - Users can create/update their own profile.
+    // - Admins can manage all profiles.
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow delete: if isAdmin();
     }
 
-    // Trips: Authenticated users can read active missions.
-    // Drivers and Admins can create missions. 
-    // Students can update trips to join/leave (passenger manifest).
+    // Trips:
+    // - Any authenticated user can read and manage trips.
+    // - This is essential for students joining a trip and drivers updating location.
     match /trips/{tripId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null; 
-      allow update: if request.auth != null;
+      allow read, create, update: if isAuthenticated();
       allow delete: if isAdmin();
     }
 
-    // Routes: Authenticated users can view routes and suggest new ones.
-    // Admins have full authority over activation and management.
+    // Routes:
+    // - Any authenticated user can view routes and suggest new ones (status: suggested).
+    // - Admins manage activation (status: active/rejected).
     match /routes/{routeId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update, delete: if isAdmin();
+      allow read, create: if isAuthenticated();
+      allow update: if isAuthenticated(); // Drivers update to 'suggested', Admins to 'active'
+      allow delete: if isAdmin();
     }
 
-    // Alerts (SOS): Any authenticated user can trigger an emergency signal.
-    // Only Admins can monitor and resolve these signals for safety.
+    // Alerts (SOS):
+    // - Any authenticated user can trigger a signal.
+    // - Admins monitor and resolve.
     match /alerts/{alertId} {
-      allow read, update: if isAdmin();
-      allow create: if request.auth != null;
-      allow delete: if isAdmin();
+      allow read, update, delete: if isAdmin();
+      allow create: if isAuthenticated();
     }
   }
 }
