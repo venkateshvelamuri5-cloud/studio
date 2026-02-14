@@ -10,18 +10,20 @@
         "fullName": { "type": "string" },
         "phoneNumber": { "type": "string" },
         "email": { "type": "string" },
-        "collegeName": { "type": "string", "description": "Required for students." },
-        "studentId": { "type": "string", "description": "Required for students." },
-        "licenseNumber": { "type": "string", "description": "Required for drivers." },
-        "vehicleNumber": { "type": "string", "description": "Required for drivers." },
+        "collegeName": { "type": "string" },
+        "studentId": { "type": "string" },
+        "licenseNumber": { "type": "string" },
+        "vehicleNumber": { "type": "string" },
         "vehicleType": { "type": "string", "enum": ["Bus", "Mini-Bus", "Van"] },
         "city": { "type": "string", "enum": ["Vizag", "Vizianagaram"] },
         "role": { "type": "string", "enum": ["rider", "admin", "driver"] },
-        "status": { "type": "string", "enum": ["available", "on-trip", "offline"], "description": "Current status for drivers." },
+        "status": { "type": "string", "enum": ["available", "on-trip", "offline"] },
         "currentLat": { "type": "number" },
         "currentLng": { "type": "number" },
         "totalTrips": { "type": "number", "default": 0 },
         "credits": { "type": "number", "default": 0 },
+        "totalEarnings": { "type": "number", "default": 0, "description": "Cumulative earnings for drivers." },
+        "weeklyEarnings": { "type": "number", "default": 0, "description": "Current week's earnings for drivers." },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "fullName", "role"]
@@ -37,7 +39,9 @@
         "routeName": { "type": "string" },
         "status": { "type": "string", "enum": ["active", "completed", "cancelled"] },
         "riderCount": { "type": "number" },
-        "startTime": { "type": "string", "format": "date-time" }
+        "payoutAmount": { "type": "number", "description": "Amount earned by the driver for this trip." },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" }
       },
       "required": ["driverId", "routeName", "status"]
     },
@@ -51,12 +55,11 @@
         "description": { "type": "string" },
         "stops": { "type": "array", "items": { "type": "string" } },
         "schedule": { "type": "string" },
-        "scheduledTime": { "type": "string", "description": "HH:mm format for time-window checks." },
+        "scheduledTime": { "type": "string" },
         "city": { "type": "string", "enum": ["Vizag", "Vizianagaram"] },
-        "estimatedDuration": { "type": "number" },
+        "basePayout": { "type": "number", "default": 150, "description": "Base driver pay for completing this route." },
         "isActive": { "type": "boolean" },
         "status": { "type": "string", "enum": ["suggested", "active", "rejected"] },
-        "suggestedBy": { "type": "string", "description": "UID of the driver who suggested the route." },
         "driverName": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
@@ -69,7 +72,7 @@
   "firestore": {
     "/users/{userId}": {
       "schema": "User",
-      "description": "User profile document identified by Firebase Auth UID."
+      "description": "User profile document."
     },
     "/trips/{tripId}": {
       "schema": "Trip",

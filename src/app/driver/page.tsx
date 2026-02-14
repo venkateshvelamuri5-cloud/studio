@@ -16,13 +16,12 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter
-} from "@/components/ui/dialog";
+} from "@/dialog"; // Path corrected for studio convention
 import { 
   Bus, 
   MapPin, 
   Users, 
   Clock, 
-  AlertCircle, 
   Navigation,
   Phone,
   Power,
@@ -30,16 +29,29 @@ import {
   ShieldAlert,
   LogOut,
   Lock,
-  PlusCircle,
-  MessageSquarePlus
+  MessageSquarePlus,
+  IndianRupee,
+  Wallet,
+  Activity
 } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
-import { doc, updateDoc, serverTimestamp, collection, addDoc, onSnapshot, query, where } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, collection, addDoc, onSnapshot, query, where, increment } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+
+// Relative path to local UI folder fix
+import {
+  Dialog as ShadDialog,
+  DialogContent as ShadDialogContent,
+  DialogDescription as ShadDialogDescription,
+  DialogHeader as ShadDialogHeader,
+  DialogTitle as ShadDialogTitle,
+  DialogTrigger as ShadDialogTrigger,
+  DialogFooter as ShadDialogFooter
+} from "@/components/ui/dialog";
 
 function getMarkerPos(lat?: number, lng?: number) {
   if (!lat || !lng) return { top: '50%', left: '50%' };
@@ -58,30 +70,26 @@ export default function DriverConsole() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const userRef = useMemo(() => {
-    if (!db || !user?.uid) return null;
-    return doc(db, 'users', user.uid);
-  }, [db, user?.uid]);
-
-  const { data: profile, loading: profileLoading } = useDoc(userRef);
-
-  // Regional Route Filtering - only show active ones
-  const regionalRoutesQuery = useMemo(() => {
-    if (!db || !profile?.city) return null;
-    return query(collection(db, 'routes'), where('city', '==', profile.city), where('status', '==', 'active'));
-  }, [db, profile?.city]);
-  
-  const { data: regionalRoutes } = useCollection(regionalRoutesQuery);
-
+  const [activeTab, setActiveTab] = useState<'missions' | 'earnings' | 'support'>('missions');
   const [activeTrip, setActiveTrip] = useState<any>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Route Suggestion Form State
+  const userRef = useMemo(() => {
+    if (!db || !user?.uid) return null;
+    return doc(db, 'users', user.uid);
+  }, [db, user?.uid]);
+  const { data: profile, loading: profileLoading } = useDoc(userRef);
+
+  const regionalRoutesQuery = useMemo(() => {
+    if (!db || !profile?.city) return null;
+    return query(collection(db, 'routes'), where('city', '==', profile.city), where('status', '==', 'active'));
+  }, [db, profile?.city]);
+  const { data: regionalRoutes } = useCollection(regionalRoutesQuery);
+
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [suggestedRouteName, setSuggestedRouteName] = useState('');
   const [suggestedStops, setSuggestedStops] = useState('');
-  const [suggestedSchedule, setSuggestedSchedule] = useState('');
   const [suggestedDescription, setSuggestedDescription] = useState('');
   const [isSuggestDialogOpen, setIsSuggestDialogOpen] = useState(false);
 
@@ -110,8 +118,8 @@ export default function DriverConsole() {
     const interval = setInterval(() => {
       const lat = (profile.currentLat || 17.6868) + (Math.random() - 0.5) * 0.002;
       const lng = (profile.currentLng || 83.2185) + (Math.random() - 0.5) * 0.002;
-      updateDoc(userRef, { currentLat: lat, currentLng: lng, lastUpdated: serverTimestamp() }).catch(console.error);
-    }, 5000);
+      updateDoc(userRef, { currentLat: lat, currentLng: lng, lastUpdated: serverTimestamp() }).catch(() => {});
+    }, 10000);
     return () => clearInterval(interval);
   }, [userRef, profile?.status, profile?.currentLat, profile?.currentLng]);
 
@@ -121,12 +129,10 @@ export default function DriverConsole() {
       const [hours, minutes] = scheduledTimeStr.split(':').map(Number);
       const scheduledTime = new Date();
       scheduledTime.setHours(hours, minutes, 0, 0);
-      
       const diffMs = scheduledTime.getTime() - currentTime.getTime();
       const diffMinutes = diffMs / (1000 * 60);
-      
       return diffMinutes <= 120 && diffMinutes >= -180; 
-    } catch (e) {
+    } catch {
       return true;
     }
   };
@@ -137,15 +143,15 @@ export default function DriverConsole() {
     try {
       const newStatus = profile?.status === 'offline' || !profile?.status ? 'available' : 'offline';
       await updateDoc(userRef, { status: newStatus });
-      toast({ title: `Status: ${newStatus.toUpperCase()}` });
-    } catch (err) {
-      console.error(err);
+      toast({ title: `Shift: ${newStatus.toUpperCase()}` });
+    } catch {
+      toast({ variant: "destructive", title: "Network Error" });
     } finally {
       setIsUpdating(false);
     }
   };
 
-  const startTrip = async (routeName: string) => {
+  const startTrip = async (routeName: string, basePay: number = 150) => {
     if (!db || !user || !profile) return;
     setIsUpdating(true);
     try {
@@ -153,6 +159,7 @@ export default function DriverConsole() {
         driverId: user.uid,
         driverName: profile.fullName || "Driver",
         routeName,
+        basePayout: basePay,
         status: 'active',
         riderCount: 0,
         startTime: new Date().toISOString()
@@ -164,9 +171,9 @@ export default function DriverConsole() {
         currentLat: 17.6868,
         currentLng: 83.2185
       });
-      toast({ title: "Trip Started", description: `Route: ${routeName}` });
-    } catch (err) {
-      console.error(err);
+      toast({ title: "Mission Active", description: `Route: ${routeName}` });
+    } catch {
+      toast({ variant: "destructive", title: "Trip Error" });
     } finally {
       setIsUpdating(false);
     }
@@ -176,16 +183,26 @@ export default function DriverConsole() {
     if (!db || !activeTrip || !userRef) return;
     setIsUpdating(true);
     try {
+      const finalPayout = (activeTrip.basePayout || 150) + (activeTrip.riderCount || 0) * 10;
       const tripRef = doc(db, 'trips', activeTrip.id);
-      await updateDoc(tripRef, { status: 'completed', endTime: new Date().toISOString() });
+      
+      await updateDoc(tripRef, { 
+        status: 'completed', 
+        endTime: new Date().toISOString(),
+        payoutAmount: finalPayout
+      });
+
       await updateDoc(userRef, { 
         status: 'available', 
         activeTripId: null,
-        totalTrips: (profile?.totalTrips || 0) + 1 
+        totalTrips: increment(1),
+        totalEarnings: increment(finalPayout),
+        weeklyEarnings: increment(finalPayout)
       });
-      toast({ title: "Trip Completed" });
-    } catch (err) {
-      console.error(err);
+      
+      toast({ title: "Mission Completed", description: `Earnings: ₹${finalPayout} synced.` });
+    } catch {
+      toast({ variant: "destructive", title: "Sync Failed" });
     } finally {
       setIsUpdating(false);
     }
@@ -198,7 +215,6 @@ export default function DriverConsole() {
       await addDoc(collection(db, 'routes'), {
         routeName: suggestedRouteName,
         stops: suggestedStops.split(',').map(s => s.trim()),
-        schedule: suggestedSchedule,
         description: suggestedDescription,
         city: profile.city,
         status: 'suggested',
@@ -207,16 +223,13 @@ export default function DriverConsole() {
         driverName: profile.fullName,
         createdAt: new Date().toISOString()
       });
-      toast({ title: "Proposal Submitted", description: "Admin will review your suggested route." });
+      toast({ title: "Proposal Submitted" });
       setIsSuggestDialogOpen(false);
-      // Reset form
       setSuggestedRouteName('');
       setSuggestedStops('');
-      setSuggestedSchedule('');
       setSuggestedDescription('');
-    } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Submission Failed" });
+    } catch {
+      toast({ variant: "destructive", title: "Error" });
     } finally {
       setIsSuggesting(false);
     }
@@ -230,174 +243,164 @@ export default function DriverConsole() {
   if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-slate-900"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
 
   if (!user || profile?.role !== 'driver') return (
-    <div className="h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-8 space-y-6">
-      <ShieldAlert className="h-20 w-20 text-destructive" />
-      <h2 className="text-2xl font-black italic uppercase">Driver Only Access</h2>
-      <Button onClick={handleSignOut} className="w-full max-w-xs h-14 rounded-2xl font-black uppercase italic">Sign Out</Button>
+    <div className="h-screen flex flex-col items-center justify-center bg-slate-950 text-white p-8">
+      <ShieldAlert className="h-20 w-20 text-destructive mb-6" />
+      <h2 className="text-2xl font-black italic uppercase">Terminal Restricted</h2>
+      <Button onClick={handleSignOut} className="mt-4 w-full max-w-xs h-14 bg-primary rounded-2xl font-black uppercase italic">Sign Out</Button>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col font-body">
-      <header className="p-6 flex items-center justify-between border-b border-white/5 bg-slate-900 shadow-2xl">
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col font-body pb-24">
+      <header className="p-6 flex items-center justify-between border-b border-white/5 bg-slate-900">
         <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-primary flex items-center justify-center font-black text-xl shadow-lg shadow-primary/20">{profile?.fullName?.[0]}</div>
+          <div className="h-12 w-12 rounded-2xl bg-primary flex items-center justify-center font-black text-xl">{profile?.fullName?.[0]}</div>
           <div>
-            <h1 className="font-black italic uppercase tracking-tight leading-none">{profile?.fullName}</h1>
+            <h1 className="font-black italic uppercase text-sm leading-none">{profile?.fullName}</h1>
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">HUB: {profile.city}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Badge className={`rounded-full px-4 h-8 font-black uppercase tracking-widest ${profile.status === 'available' ? 'bg-green-500/10 text-green-500' : profile.status === 'on-trip' ? 'bg-accent/10 text-accent' : 'bg-slate-800 text-slate-500'}`}>{profile.status || 'offline'}</Badge>
-          <Button size="icon" variant="ghost" disabled={isUpdating} onClick={toggleDuty} className="rounded-2xl bg-slate-800 hover:bg-slate-700 h-12 w-12"><Power className={`h-6 w-6 ${profile.status !== 'offline' ? 'text-green-500' : 'text-slate-500'}`} /></Button>
+          <Badge className={`rounded-full px-4 h-8 font-black uppercase ${profile.status === 'available' ? 'bg-green-500/10 text-green-500' : profile.status === 'on-trip' ? 'bg-accent/10 text-accent' : 'bg-slate-800 text-slate-500'}`}>{profile.status || 'offline'}</Badge>
+          <Button size="icon" variant="ghost" disabled={isUpdating} onClick={toggleDuty} className="rounded-2xl bg-slate-800 h-12 w-12"><Power className={`h-6 w-6 ${profile.status !== 'offline' ? 'text-green-500' : 'text-slate-500'}`} /></Button>
         </div>
       </header>
 
       <main className="flex-1 p-6 space-y-6 overflow-y-auto">
-        {!activeTrip ? (
-          <div className="space-y-6">
-            <div className="flex justify-between items-end">
-              <h2 className="text-3xl font-black font-headline italic uppercase tracking-tighter">{profile.city} Assignments</h2>
-              <Dialog open={setIsSuggestDialogOpen} onOpenChange={setIsSuggestDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="rounded-xl border-primary/20 bg-primary/10 text-primary font-bold gap-2">
-                    <MessageSquarePlus className="h-4 w-4" /> Suggest Route
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="rounded-[2.5rem] bg-slate-900 border-white/10 text-white max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="text-2xl font-black font-headline italic uppercase text-primary">Propose New Route</DialogTitle>
-                    <DialogDescription className="text-slate-400 font-bold">Driver-suggested paths based on regional expertise.</DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-primary">Route Title</Label>
-                      <Input 
-                        value={suggestedRouteName} 
-                        onChange={(e) => setSuggestedRouteName(e.target.value)} 
-                        placeholder="e.g. North Hub Express" 
-                        className="bg-slate-800 border-none rounded-xl h-12"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-primary">Stops (Comma separated)</Label>
-                      <Input 
-                        value={suggestedStops} 
-                        onChange={(e) => setSuggestedStops(e.target.value)} 
-                        placeholder="Stop 1, Stop 2, Stop 3" 
-                        className="bg-slate-800 border-none rounded-xl h-12"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-primary">Operational Timing</Label>
-                      <Input 
-                        value={suggestedSchedule} 
-                        onChange={(e) => setSuggestedSchedule(e.target.value)} 
-                        placeholder="e.g. 8 AM - 10 AM, Hourly" 
-                        className="bg-slate-800 border-none rounded-xl h-12"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase tracking-widest text-primary">Expert Description</Label>
-                      <Textarea 
-                        value={suggestedDescription} 
-                        onChange={(e) => setSuggestedDescription(e.target.value)} 
-                        placeholder="Why is this route needed?" 
-                        className="bg-slate-800 border-none rounded-xl min-h-[100px]"
-                      />
+        {activeTab === 'missions' && (
+          <>
+            {!activeTrip ? (
+              <div className="space-y-6">
+                <div className="flex justify-between items-end">
+                  <h2 className="text-2xl font-black font-headline italic uppercase">Hub Missions</h2>
+                  <ShadDialog open={isSuggestDialogOpen} onOpenChange={setIsSuggestDialogOpen}>
+                    <ShadDialogTrigger asChild>
+                      <Button variant="outline" className="rounded-xl border-white/10 bg-white/5 text-xs font-bold gap-2">
+                        <MessageSquarePlus className="h-4 w-4" /> Propose Route
+                      </Button>
+                    </ShadDialogTrigger>
+                    <ShadDialogContent className="rounded-[2rem] bg-slate-900 border-white/10 text-white">
+                      <ShadDialogHeader>
+                        <ShadDialogTitle className="font-black italic uppercase text-primary">Suggest New Path</ShadDialogTitle>
+                      </ShadDialogHeader>
+                      <div className="space-y-4 py-4">
+                        <Input value={suggestedRouteName} onChange={(e) => setSuggestedRouteName(e.target.value)} placeholder="Route Name" className="bg-slate-800 border-none rounded-xl" />
+                        <Input value={suggestedStops} onChange={(e) => setSuggestedStops(e.target.value)} placeholder="Stops (comma separated)" className="bg-slate-800 border-none rounded-xl" />
+                        <Textarea value={suggestedDescription} onChange={(e) => setSuggestedDescription(e.target.value)} placeholder="Why is this route needed?" className="bg-slate-800 border-none rounded-xl" />
+                      </div>
+                      <ShadDialogFooter>
+                        <Button onClick={handleSuggestRoute} disabled={isSuggesting || !suggestedRouteName} className="w-full bg-primary h-14 rounded-xl font-black uppercase italic">Submit Proposal</Button>
+                      </ShadDialogFooter>
+                    </ShadDialogContent>
+                  </ShadDialog>
+                </div>
+
+                <section className="space-y-4">
+                  {regionalRoutes?.map((route: any) => {
+                    const canStart = isWithinTimeWindow(route.scheduledTime);
+                    return (
+                      <Card key={route.id} className="bg-slate-900 border-white/5 text-white hover:ring-2 hover:ring-primary transition-all">
+                        <CardContent className="p-6 flex justify-between items-center">
+                          <div className="space-y-1">
+                            <h3 className="text-xl font-black italic uppercase text-primary">{route.routeName}</h3>
+                            <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase">
+                              <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {route.scheduledTime}</span>
+                              <span className="flex items-center gap-1"><IndianRupee className="h-3 w-3" /> ₹{route.basePayout || 150}</span>
+                            </div>
+                          </div>
+                          <Button onClick={() => startTrip(route.routeName, route.basePayout)} disabled={profile.status !== 'available' || isUpdating || !canStart} className={`${canStart ? 'bg-primary' : 'bg-slate-800'} rounded-2xl h-12 font-black italic uppercase`}>
+                            {canStart ? 'Start Mission' : 'Locked'}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                  {regionalRoutes?.length === 0 && <div className="p-12 text-center opacity-40 font-bold italic">No regional missions assigned.</div>}
+                </section>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <Card className="bg-primary text-white border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
+                  <div className="h-48 relative bg-slate-900">
+                    <Image src={mapImage?.imageUrl || ""} fill className="object-cover opacity-40" alt="Radar" />
+                    <div className="absolute transition-all duration-1000" style={getMarkerPos(profile.currentLat, profile.currentLng)}>
+                       <div className="bg-white p-3 rounded-full animate-pulse shadow-2xl"><Navigation className="h-6 w-6 text-primary fill-primary" /></div>
                     </div>
                   </div>
-                  <DialogFooter>
-                    <Button 
-                      onClick={handleSuggestRoute} 
-                      disabled={isSuggesting || !suggestedRouteName}
-                      className="w-full bg-primary h-14 rounded-xl font-black uppercase italic"
-                    >
-                      {isSuggesting ? <Loader2 className="animate-spin" /> : "Submit for Approval"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                  <CardContent className="p-8 space-y-6">
+                    <div>
+                      <Badge className="bg-white/20 text-white mb-2 font-black uppercase text-[8px]">Active Mission: {profile.city}</Badge>
+                      <h2 className="text-3xl font-black italic uppercase">{activeTrip.routeName}</h2>
+                    </div>
+                    <div className="flex gap-4">
+                      <Button className="flex-1 bg-white text-primary hover:bg-white/90 font-black h-16 rounded-2xl uppercase italic">Navigate</Button>
+                      <Button onClick={endTrip} disabled={isUpdating} variant="outline" className="flex-1 border-white/40 text-white hover:bg-white/10 font-black h-16 rounded-2xl uppercase italic">
+                        {isUpdating ? <Loader2 className="animate-spin" /> : "Complete"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+                <section className="space-y-4">
+                   <div className="flex items-center justify-between px-2">
+                     <h3 className="text-lg font-black italic uppercase flex items-center gap-3"><Users className="h-6 w-6 text-accent" /> Scholar Manifest</h3>
+                     <Badge variant="outline" className="text-slate-400 border-slate-800">{activeTrip.riderCount || 0} Boarded</Badge>
+                   </div>
+                   <div className="p-10 text-center bg-slate-900/50 rounded-[2rem] border border-white/5">
+                      <p className="text-xs font-bold text-slate-500 italic">QR boarding active at regional hubs.</p>
+                   </div>
+                </section>
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === 'earnings' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <Card className="bg-slate-900 border-white/5 p-6 rounded-[2rem]">
+                <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Today's Take</p>
+                <h3 className="text-3xl font-black italic text-primary mt-1">₹{profile.weeklyEarnings % 1000}</h3>
+              </Card>
+              <Card className="bg-slate-900 border-white/5 p-6 rounded-[2rem]">
+                <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Weekly Payout</p>
+                <h3 className="text-3xl font-black italic text-accent mt-1">₹{profile.weeklyEarnings || 0}</h3>
+              </Card>
             </div>
+            
+            <Card className="bg-primary text-white border-none rounded-[2.5rem] p-8">
+               <div className="flex items-center justify-between">
+                 <div>
+                    <p className="text-xs font-black uppercase tracking-widest opacity-60">Lifetime Earnings</p>
+                    <h2 className="text-5xl font-black italic font-headline mt-2">₹{profile.totalEarnings || 0}</h2>
+                 </div>
+                 <Wallet className="h-16 w-16 opacity-20" />
+               </div>
+               <p className="text-xs font-bold mt-6 opacity-80 leading-relaxed">Payments are processed every Monday at 06:00 AM Regional Time.</p>
+            </Card>
 
             <section className="space-y-4">
-              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-primary">Regional Missions</h3>
-              {regionalRoutes?.map((route: any) => {
-                const canStart = isWithinTimeWindow(route.scheduledTime);
-                return (
-                  <Card key={route.id} className="bg-slate-900 border-white/5 text-white shadow-xl overflow-hidden hover:ring-2 hover:ring-primary transition-all">
-                    <CardContent className="p-6">
-                      <div className="flex justify-between items-center">
-                        <div className="space-y-1">
-                          <h3 className="text-xl font-black font-headline italic uppercase text-primary">{route.routeName}</h3>
-                          <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
-                            <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {route.scheduledTime || route.schedule}</span>
-                            <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {route.stops?.length} Stops</span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-center gap-2">
-                           {!canStart && <Badge variant="outline" className="text-[8px] border-slate-700 text-slate-500 gap-1"><Lock className="h-2 w-2" /> Locked</Badge>}
-                           <Button 
-                            onClick={() => startTrip(route.routeName)} 
-                            disabled={profile.status !== 'available' || isUpdating || !canStart}
-                            className={`${canStart ? 'bg-primary' : 'bg-slate-800'} hover:bg-primary/90 rounded-2xl px-8 h-12 font-black italic uppercase shadow-lg`}
-                          >
-                            {canStart ? 'Start' : 'Locked'}
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-              {regionalRoutes?.length === 0 && (
-                <div className="p-12 text-center bg-slate-900/50 rounded-3xl border-2 border-dashed border-slate-800 text-slate-500 font-bold italic">No missions published for {profile.city} yet.</div>
-              )}
-            </section>
-          </div>
-        ) : (
-          <div className="space-y-6 pb-24">
-            <Card className="bg-primary text-white border-none shadow-2xl rounded-[2.5rem] overflow-hidden relative">
-              <div className="relative h-64 w-full bg-slate-900">
-                <Image src={mapImage?.imageUrl || ""} fill className="object-cover opacity-40" alt="Navigation Map" />
-                <div className="absolute inset-0 bg-gradient-to-t from-primary via-transparent to-transparent" />
-                <div className="absolute transition-all duration-1000" style={getMarkerPos(profile.currentLat, profile.currentLng)}>
-                   <div className="bg-white p-3 rounded-full shadow-2xl animate-pulse"><Navigation className="h-6 w-6 text-primary fill-primary" /></div>
-                </div>
-              </div>
-              <CardContent className="p-8 space-y-6 bg-primary relative -mt-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <Badge className="bg-white/20 text-white mb-3 font-black uppercase tracking-widest text-[10px]">Mission Active: {profile.city}</Badge>
-                    <CardTitle className="text-3xl font-black font-headline italic uppercase tracking-tighter leading-none">{activeTrip.routeName}</CardTitle>
-                    <p className="text-primary-foreground/60 font-bold text-xs mt-2 flex items-center gap-2"><MapPin className="h-3 w-3 text-accent" /> {profile.currentLat?.toFixed(4)}, {profile.currentLng?.toFixed(4)}</p>
-                  </div>
-                  <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-xl h-10 px-4 font-bold text-xs">SOS</Button>
-                </div>
-                <div className="flex gap-4">
-                  <Button className="flex-1 bg-white text-primary hover:bg-white/90 font-black h-16 rounded-[1.5rem] uppercase italic tracking-tighter text-lg shadow-xl"><Navigation className="h-6 w-6 mr-2" /> Navigate</Button>
-                  <Button onClick={endTrip} disabled={isUpdating} variant="outline" className="flex-1 border-white/40 text-white hover:bg-white/10 font-black h-16 rounded-[1.5rem] uppercase italic tracking-tighter text-lg">{isUpdating ? <Loader2 className="animate-spin" /> : "Finish"}</Button>
-                </div>
-              </CardContent>
-            </Card>
-            <section className="space-y-4">
-              <div className="flex items-center justify-between px-2">
-                <h3 className="text-lg font-black font-headline uppercase italic tracking-tighter flex items-center gap-3"><Users className="h-6 w-6 text-accent" /> Scholar Manifest</h3>
-                <Badge variant="outline" className="text-slate-400 border-slate-800 font-bold px-4 py-1.5 rounded-full">{activeTrip.riderCount || 0} / 24 Seats</Badge>
-              </div>
-              <div className="p-8 text-center bg-slate-900/50 rounded-[2rem] border border-white/5 space-y-2">
-                <Users className="h-10 w-10 mx-auto text-slate-700 opacity-50" />
-                <p className="font-bold text-slate-500 italic">Scholars tracked via live QR boarding.</p>
-              </div>
+               <h3 className="text-xs font-black uppercase tracking-widest text-primary px-2">Recent Mission History</h3>
+               <div className="space-y-3">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="p-4 bg-slate-900 rounded-2xl flex justify-between items-center opacity-40">
+                       <div>
+                          <p className="font-black italic uppercase text-xs">Mission Hub Express {i}</p>
+                          <p className="text-[8px] font-bold text-slate-500 uppercase">Completed 03/05/24</p>
+                       </div>
+                       <span className="font-black text-primary text-sm">₹210</span>
+                    </div>
+                  ))}
+               </div>
             </section>
           </div>
         )}
       </main>
 
-      <nav className="p-6 pb-8 border-t border-white/5 bg-slate-900 flex justify-around items-center rounded-t-[2.5rem] shadow-2xl">
-        <Button variant="ghost" className="flex-col gap-1.5 h-auto py-2 text-primary"><Bus className="h-7 w-7" /><span className="text-[10px] font-black uppercase tracking-widest italic">Operations</span></Button>
-        <Button variant="ghost" className="flex-col gap-1.5 h-auto py-2 text-slate-500"><Phone className="h-7 w-7" /><span className="text-[10px] font-black uppercase tracking-widest italic">Hub Desk</span></Button>
-        <Button variant="ghost" onClick={handleSignOut} className="flex-col gap-1.5 h-auto py-2 text-slate-500 hover:text-red-500"><LogOut className="h-7 w-7" /><span className="text-[10px] font-black uppercase tracking-widest italic">Clock Out</span></Button>
+      <nav className="fixed bottom-0 left-0 right-0 p-6 bg-slate-900 border-t border-white/5 flex justify-around items-center rounded-t-[2.5rem] shadow-2xl z-50">
+        <Button variant="ghost" onClick={() => setActiveTab('missions')} className={`flex-col gap-1 h-auto py-1 ${activeTab === 'missions' ? 'text-primary' : 'text-slate-500'}`}><Bus className="h-6 w-6" /><span className="text-[8px] font-black uppercase italic">Missions</span></Button>
+        <Button variant="ghost" onClick={() => setActiveTab('earnings')} className={`flex-col gap-1 h-auto py-1 ${activeTab === 'earnings' ? 'text-primary' : 'text-slate-500'}`}><IndianRupee className="h-6 w-6" /><span className="text-[8px] font-black uppercase italic">Earnings</span></Button>
+        <Button variant="ghost" className="flex-col gap-1 h-auto py-1 text-slate-500"><Phone className="h-6 w-6" /><span className="text-[8px] font-black uppercase italic">Support</span></Button>
+        <Button variant="ghost" onClick={handleSignOut} className="flex-col gap-1 h-auto py-1 text-slate-500"><LogOut className="h-6 w-6" /><span className="text-[8px] font-black uppercase italic">Exit</span></Button>
       </nav>
     </div>
   );

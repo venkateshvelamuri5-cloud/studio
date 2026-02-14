@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,8 +13,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-  DialogFooter
+  DialogTrigger
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -37,13 +36,14 @@ import {
   UserPlus,
   Settings2,
   Clock,
-  MapPin,
   Trash2,
   Truck,
   Map as MapIcon,
   CheckCircle2,
   XCircle,
-  MessageSquareShare
+  MessageSquareShare,
+  IndianRupee,
+  Wallet
 } from 'lucide-react';
 import Image from 'next/image';
 import { 
@@ -87,7 +87,7 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useUser();
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'drivers' | 'suggestions'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'drivers' | 'suggestions' | 'finance'>('dashboard');
   
   const userRef = useMemo(() => {
     if (!db || !user?.uid) return null;
@@ -103,7 +103,7 @@ export default function AdminDashboard() {
     useMemo(() => db ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db])
   );
 
-  const { data: savedRoutes, loading: routesLoading } = useCollection(
+  const { data: savedRoutes } = useCollection(
     useMemo(() => db ? query(collection(db, 'routes'), where('status', '==', 'active'), orderBy('createdAt', 'desc')) : null, [db])
   );
 
@@ -124,6 +124,8 @@ export default function AdminDashboard() {
   const [newDriverPhone, setNewDriverPhone] = useState("");
   const [newDriverName, setNewDriverName] = useState("");
   const [newDriverCity, setNewDriverCity] = useState("Vizag");
+
+  const totalRegionalDebt = drivers?.reduce((acc, d) => acc + (d.weeklyEarnings || 0), 0) || 0;
 
   const handleSignOut = async () => {
     if (!auth) return;
@@ -157,6 +159,8 @@ export default function AdminDashboard() {
           city: newDriverCity,
           status: 'offline',
           totalTrips: 0,
+          totalEarnings: 0,
+          weeklyEarnings: 0,
           createdAt: new Date().toISOString()
         });
         toast({ title: "Driver Registered", description: "Profile created in the regional workforce." });
@@ -187,6 +191,7 @@ export default function AdminDashboard() {
           ...route,
           city: targetCity,
           scheduledTime: "08:00", 
+          basePayout: 150,
           isActive: true,
           status: 'active',
           createdAt: new Date().toISOString()
@@ -207,13 +212,11 @@ export default function AdminDashboard() {
       await updateDoc(doc(db, 'routes', id), {
         status: action === 'approve' ? 'active' : 'rejected',
         isActive: action === 'approve',
+        basePayout: 150,
         approvedAt: action === 'approve' ? new Date().toISOString() : null,
-        scheduledTime: action === 'approve' ? "08:00" : null // Default time for approved routes
+        scheduledTime: action === 'approve' ? "08:00" : null
       });
-      toast({ 
-        title: action === 'approve' ? "Route Approved" : "Suggestion Rejected",
-        description: action === 'approve' ? "Now available in the regional network." : "Removed from consideration."
-      });
+      toast({ title: action === 'approve' ? "Route Approved" : "Suggestion Rejected" });
     } catch (err) {
       console.error(err);
       toast({ variant: "destructive", title: "Operation Failed" });
@@ -230,12 +233,22 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleUpdateRole = async (id: string, newRole: string) => {
+    if (!db) return;
+    try {
+      await updateDoc(doc(db, 'users', id), { role: newRole });
+      toast({ title: "Role Updated" });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   if (authLoading || profileLoading) {
     return (
       <div className="h-screen flex items-center justify-center bg-primary font-body">
         <div className="flex flex-col items-center gap-4 text-white">
           <Loader2 className="h-12 w-12 animate-spin text-accent" />
-          <p className="font-black uppercase tracking-widest text-xs italic">Verifying Access...</p>
+          <p className="font-black uppercase tracking-widest text-xs italic">Verifying Terminal Access...</p>
         </div>
       </div>
     );
@@ -246,9 +259,9 @@ export default function AdminDashboard() {
       <div className="h-screen flex items-center justify-center bg-white p-8">
         <div className="text-center space-y-6 max-w-sm">
           <ShieldAlert className="h-20 w-20 text-destructive mx-auto" />
-          <h2 className="text-2xl font-black font-headline uppercase italic">Security Alert</h2>
-          <p className="font-bold text-muted-foreground">Administrative credentials required for this terminal.</p>
-          <Button onClick={() => router.push('/')} className="w-full h-14 rounded-2xl font-black uppercase italic">Exit Terminal</Button>
+          <h2 className="text-2xl font-black font-headline uppercase italic">Security Restricted</h2>
+          <p className="font-bold text-muted-foreground">Admin credentials required.</p>
+          <Button onClick={() => router.push('/')} className="w-full h-14 rounded-2xl font-black uppercase italic">Exit</Button>
         </div>
       </div>
     );
@@ -260,7 +273,7 @@ export default function AdminDashboard() {
         <div className="p-6 h-20 flex items-center border-b border-white/10">
           <div className="flex items-center gap-2">
             <Bus className="h-6 w-6 text-accent" />
-            <span className="text-2xl font-black font-headline italic tracking-tighter uppercase">AAGO HUB</span>
+            <span className="text-2xl font-black font-headline italic tracking-tighter uppercase">AAGO OPS</span>
           </div>
         </div>
         <nav className="flex-1 p-4 space-y-2">
@@ -268,10 +281,10 @@ export default function AdminDashboard() {
             <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
           </Button>
           <Button variant="ghost" onClick={() => setActiveTab('fleet')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'fleet' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
-            <Navigation className="mr-2 h-4 w-4" /> Fleet Intelligence
+            <Navigation className="mr-2 h-4 w-4" /> Fleet Tracking
           </Button>
           <Button variant="ghost" onClick={() => setActiveTab('routes')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'routes' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
-            <MapIcon className="mr-2 h-4 w-4" /> Route Registry
+            <MapIcon className="mr-2 h-4 w-4" /> Route Engine
           </Button>
           <Button variant="ghost" onClick={() => setActiveTab('suggestions')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'suggestions' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
             <MessageSquareShare className="mr-2 h-4 w-4" /> Suggestions 
@@ -280,9 +293,12 @@ export default function AdminDashboard() {
           <Button variant="ghost" onClick={() => setActiveTab('drivers')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'drivers' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
             <Truck className="mr-2 h-4 w-4" /> Workforce
           </Button>
+          <Button variant="ghost" onClick={() => setActiveTab('finance')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'finance' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
+            <Wallet className="mr-2 h-4 w-4" /> Finance & Payouts
+          </Button>
           <div className="pt-4 border-t border-white/10 mt-4">
             <Button variant="ghost" className="w-full justify-start text-red-300 hover:text-red-400 hover:bg-red-500/10 rounded-xl font-bold" onClick={handleSignOut}>
-              <LogOut className="mr-2 h-4 w-4" /> Log Out
+              <LogOut className="mr-2 h-4 w-4" /> Sign Out
             </Button>
           </div>
         </nav>
@@ -291,22 +307,22 @@ export default function AdminDashboard() {
       <main className="flex-1 flex flex-col overflow-hidden">
         <header className="h-20 bg-white border-b px-8 flex items-center justify-between shadow-sm">
           <h2 className="text-2xl font-black font-headline text-primary italic uppercase tracking-tight">
-            {activeTab.toUpperCase()} Operations
+            {activeTab.toUpperCase()}
           </h2>
           <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-4 py-1.5 font-black text-[10px] rounded-full uppercase tracking-widest">
-            Fleet Online: {drivers?.length || 0}
+            Hub Active: {profile.city}
           </Badge>
         </header>
 
         <div className="flex-1 overflow-y-auto p-8 space-y-8">
           {activeTab === 'dashboard' && (
-            <>
+            <div className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
-                  { label: 'Available Drivers', value: availableDrivers.length, trend: 'READY', icon: Activity, color: 'text-green-600' },
-                  { label: 'Drivers On Route', value: onTripDrivers.length, trend: 'ACTIVE', icon: Navigation, color: 'text-accent' },
-                  { label: 'Active Trips', value: activeTrips?.length || 0, trend: 'LIVE', icon: Bus, color: 'text-primary' },
-                  { label: 'Network Routes', value: savedRoutes?.length || 0, trend: 'SYNCED', icon: MapIcon, color: 'text-blue-600' },
+                  { label: 'Available Fleet', value: availableDrivers.length, trend: 'READY', icon: Activity, color: 'text-green-600' },
+                  { label: 'On Route', value: onTripDrivers.length, trend: 'ACTIVE', icon: Navigation, color: 'text-accent' },
+                  { label: 'Regional Debt', value: `₹${totalRegionalDebt}`, trend: 'PAYOUTS', icon: IndianRupee, color: 'text-primary' },
+                  { label: 'Routes Live', value: savedRoutes?.length || 0, trend: 'SYNCED', icon: MapIcon, color: 'text-blue-600' },
                 ].map((metric, i) => (
                   <Card key={i} className="border-none shadow-xl rounded-[2rem] bg-white overflow-hidden group">
                     <CardContent className="p-6">
@@ -318,7 +334,7 @@ export default function AdminDashboard() {
                       </div>
                       <div>
                         <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-1">{metric.label}</p>
-                        <h3 className="text-4xl font-black text-primary font-headline italic">{metric.value}</h3>
+                        <h3 className="text-3xl font-black text-primary font-headline italic">{metric.value}</h3>
                       </div>
                     </CardContent>
                   </Card>
@@ -326,23 +342,23 @@ export default function AdminDashboard() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
+                 <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
                    <CardHeader>
-                    <CardTitle className="font-black font-headline text-xl italic uppercase tracking-tighter text-primary">Regional Radar</CardTitle>
-                    <CardDescription className="font-bold">Real-time hub activity across AP</CardDescription>
+                    <CardTitle className="font-black font-headline text-xl italic uppercase tracking-tighter text-primary">Master Radar</CardTitle>
+                    <CardDescription className="font-bold">Real-time GPS tracking across the network</CardDescription>
                   </CardHeader>
-                  <CardContent className="p-0 h-[400px] relative">
-                    <Image src={mapImage?.imageUrl || "https://picsum.photos/seed/radar/800/400"} fill className="object-cover opacity-60" alt="Regional Map" />
+                  <CardContent className="p-0 h-[400px] relative bg-slate-900">
+                    <Image src={mapImage?.imageUrl || "https://picsum.photos/seed/radar/800/400"} fill className="object-cover opacity-50" alt="Map" />
                     {drivers?.filter(d => d.status === 'on-trip').map((driver: any) => {
                       const pos = getMarkerPos(driver.currentLat, driver.currentLng);
                       return (
-                        <div key={driver.id} className="absolute transition-all duration-1000" style={pos}>
-                          <div className="relative">
-                            <div className="bg-primary p-2 rounded-full shadow-2xl animate-pulse">
+                        <div key={driver.uid} className="absolute transition-all duration-1000 z-10" style={pos}>
+                          <div className="relative group">
+                            <div className="bg-primary p-2 rounded-full shadow-2xl animate-pulse ring-4 ring-primary/20">
                               <Bus className="h-4 w-4 text-white" />
                             </div>
-                            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white px-2 py-0.5 rounded-full shadow border border-primary/20 text-[8px] font-black uppercase italic">
-                              {driver.fullName?.split(' ')[0]}
+                            <div className="absolute top-10 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white px-2 py-0.5 rounded-full shadow border border-primary/20 text-[8px] font-black uppercase italic">
+                              {driver.fullName}
                             </div>
                           </div>
                         </div>
@@ -350,11 +366,11 @@ export default function AdminDashboard() {
                     })}
                   </CardContent>
                 </Card>
-
+                
                 <Card className="border-none shadow-xl rounded-[2.5rem] bg-white">
                   <CardHeader>
-                    <CardTitle className="font-black font-headline text-xl italic uppercase tracking-tighter text-primary">Hub Scholarship Volume</CardTitle>
-                    <CardDescription className="font-bold">Daily scholars served per hub</CardDescription>
+                    <CardTitle className="font-black font-headline text-xl italic uppercase tracking-tighter text-primary">Scholar Volume</CardTitle>
+                    <CardDescription className="font-bold">Weekly commuters by region</CardDescription>
                   </CardHeader>
                   <CardContent className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
@@ -369,7 +385,87 @@ export default function AdminDashboard() {
                   </CardContent>
                 </Card>
               </div>
-            </>
+            </div>
+          )}
+
+          {activeTab === 'fleet' && (
+            <div className="space-y-6">
+              <Card className="border-none shadow-2xl bg-white rounded-[3rem] overflow-hidden">
+                <div className="relative h-[600px] bg-slate-900">
+                   <Image src={mapImage?.imageUrl || ""} fill className="object-cover opacity-40" alt="Regional Radar" />
+                   {drivers?.map((driver: any) => {
+                     const pos = getMarkerPos(driver.currentLat, driver.currentLng);
+                     return (
+                       <div key={driver.uid} className="absolute transition-all duration-1000" style={pos}>
+                         <div className={`p-3 rounded-full shadow-2xl flex flex-col items-center gap-2 group cursor-pointer ${driver.status === 'on-trip' ? 'bg-primary' : driver.status === 'available' ? 'bg-green-500' : 'bg-slate-700'}`}>
+                           <Bus className="h-5 w-5 text-white" />
+                           <div className="absolute top-12 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity bg-white text-primary p-2 rounded-xl shadow-xl font-black text-[10px] uppercase">
+                             {driver.fullName} &bull; {driver.status}
+                           </div>
+                         </div>
+                       </div>
+                     );
+                   })}
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {activeTab === 'finance' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                 <Card className="bg-primary text-white rounded-[2rem] border-none shadow-xl p-8">
+                    <p className="text-xs font-black uppercase tracking-widest opacity-60">Weekly Regional Payout</p>
+                    <h3 className="text-5xl font-black italic font-headline mt-2 uppercase tracking-tighter">₹{totalRegionalDebt}</h3>
+                    <p className="text-xs font-bold mt-4">Total pending for {drivers?.length} mobility partners</p>
+                 </Card>
+                 <Card className="bg-white rounded-[2rem] border-none shadow-xl p-8 flex flex-col justify-center">
+                    <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">Total Trips Today</p>
+                    <h3 className="text-4xl font-black italic font-headline text-primary mt-1 uppercase">{activeTrips?.length || 0} Missions</h3>
+                 </Card>
+                 <Card className="bg-accent text-white rounded-[2rem] border-none shadow-xl p-8 flex flex-col justify-center">
+                    <p className="text-xs font-black uppercase tracking-widest opacity-60">Avg Pay Per Trip</p>
+                    <h3 className="text-4xl font-black italic font-headline mt-1 uppercase">₹210</h3>
+                 </Card>
+              </div>
+
+              <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
+                <CardHeader className="bg-secondary/20 border-b p-8">
+                  <CardTitle className="font-black uppercase italic text-primary">Regional Payout Registry</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                   <table className="w-full text-left">
+                     <thead>
+                       <tr className="bg-secondary/50 border-b text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+                         <th className="py-6 pl-8">Worker</th>
+                         <th className="py-6">Hub</th>
+                         <th className="py-6">Status</th>
+                         <th className="py-6">Total Earnings</th>
+                         <th className="py-6 pr-8 text-right">Weekly Pending</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y">
+                       {drivers?.map((driver: any) => (
+                         <tr key={driver.uid} className="hover:bg-secondary/20 transition-colors">
+                           <td className="py-6 pl-8">
+                             <div className="flex items-center gap-3">
+                               <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black text-xs uppercase">{driver.fullName?.[0]}</div>
+                               <span className="font-black text-primary uppercase italic text-sm">{driver.fullName}</span>
+                             </div>
+                           </td>
+                           <td className="py-6 font-bold text-xs uppercase">{driver.city}</td>
+                           <td className="py-6">
+                             <Badge className={driver.status === 'on-trip' ? 'bg-accent/10 text-accent' : 'bg-green-100 text-green-700'}>{driver.status}</Badge>
+                           </td>
+                           <td className="py-6 font-black text-primary">₹{driver.totalEarnings || 0}</td>
+                           <td className="py-6 pr-8 text-right font-black text-accent">₹{driver.weeklyEarnings || 0}</td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                </CardContent>
+              </Card>
+            </div>
           )}
 
           {activeTab === 'routes' && (
@@ -379,8 +475,8 @@ export default function AdminDashboard() {
                   <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mb-4">
                     <Zap className="h-8 w-8 text-accent" />
                   </div>
-                  <CardTitle className="font-black font-headline text-3xl italic uppercase text-white">Route AI Engine</CardTitle>
-                  <CardDescription className="text-white/60 font-bold">Smart regional route deployment</CardDescription>
+                  <CardTitle className="font-black font-headline text-3xl italic uppercase text-white">Route Engine</CardTitle>
+                  <CardDescription className="text-white/60 font-bold">AI route deployment & optimization</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
@@ -397,33 +493,26 @@ export default function AdminDashboard() {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase tracking-widest text-accent">Optimization Logic</Label>
-                    <Textarea 
-                      value={demandPatterns} 
-                      onChange={(e) => setDemandPatterns(e.target.value)}
-                      className="bg-white/5 border-white/20 text-white focus-visible:ring-accent rounded-2xl font-bold min-h-[120px]"
-                    />
+                    <Textarea value={demandPatterns} onChange={(e) => setDemandPatterns(e.target.value)} className="bg-white/5 border-white/20 text-white rounded-2xl font-bold min-h-[120px]" />
                   </div>
-                  <Button onClick={handleOptimize} disabled={isOptimizing} className="w-full bg-accent hover:bg-accent/90 text-white h-14 rounded-2xl font-black uppercase italic">
-                    {isOptimizing ? <Loader2 className="animate-spin h-5 w-5" /> : "Deploy AI Routes"}
+                  <Button onClick={handleOptimize} disabled={isOptimizing} className="w-full bg-accent hover:bg-accent/90 h-14 rounded-2xl font-black uppercase italic">
+                    {isOptimizing ? <Loader2 className="animate-spin h-5 w-5" /> : "Deploy Regional Routes"}
                   </Button>
                 </CardContent>
               </Card>
 
               <div className="lg:col-span-2 space-y-6">
                 <div className="flex justify-between items-center px-2">
-                  <h3 className="text-2xl font-black font-headline italic uppercase text-primary">Regional Network Registry</h3>
+                  <h3 className="text-2xl font-black font-headline italic uppercase text-primary">Active Registry</h3>
                   <Badge variant="outline" className="font-bold border-2">{savedRoutes?.length || 0} DEPLOYED</Badge>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {savedRoutes?.map((route: any) => (
-                    <Card key={route.id} className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden group">
+                    <Card key={route.id} className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden">
                       <CardHeader className="pb-2">
                         <div className="flex justify-between items-start">
                           <div>
-                            <div className="flex items-center gap-2 mb-1">
-                               <Badge className="bg-primary/10 text-primary text-[8px] font-black border-none uppercase">{route.city}</Badge>
-                               <Badge className="bg-secondary text-muted-foreground text-[8px] font-black border-none uppercase">{route.scheduledTime}</Badge>
-                            </div>
+                            <Badge className="bg-primary/10 text-primary text-[8px] font-black border-none uppercase mb-1">{route.city}</Badge>
                             <h4 className="font-black text-primary uppercase italic text-lg leading-none">{route.routeName}</h4>
                           </div>
                           <Button variant="ghost" size="icon" onClick={() => handleDeleteRoute(route.id)} className="text-muted-foreground hover:text-red-500">
@@ -434,12 +523,12 @@ export default function AdminDashboard() {
                       <CardContent>
                         <div className="flex flex-wrap gap-2 mb-4">
                           {route.stops?.map((stop: string, i: number) => (
-                            <Badge key={i} variant="secondary" className="text-[8px] font-black uppercase tracking-tighter">{stop}</Badge>
+                            <Badge key={i} variant="secondary" className="text-[8px] font-black uppercase">{stop}</Badge>
                           ))}
                         </div>
                         <div className="flex items-center gap-4 text-[10px] font-black uppercase text-muted-foreground pt-4 border-t border-secondary">
-                          <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {route.estimatedDurationMinutes} Mins</span>
-                          <span className="flex items-center gap-1 text-primary"><Activity className="h-3 w-3" /> MISSION CRITICAL</span>
+                          <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {route.scheduledTime}</span>
+                          <span className="flex items-center gap-1 text-primary"><IndianRupee className="h-3 w-3" /> Payout: ₹{route.basePayout}</span>
                         </div>
                       </CardContent>
                     </Card>
@@ -452,56 +541,31 @@ export default function AdminDashboard() {
           {activeTab === 'suggestions' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center px-2">
-                <div>
-                  <h3 className="text-2xl font-black font-headline italic uppercase text-primary">Driver Route Proposals</h3>
-                  <p className="font-bold text-muted-foreground">Review and approve paths suggested by the workforce</p>
-                </div>
+                <h3 className="text-2xl font-black font-headline italic uppercase text-primary">Worker Proposals</h3>
                 <Badge variant="outline" className="font-bold border-2">{suggestions?.length || 0} PENDING</Badge>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {suggestions?.map((route: any) => (
                   <Card key={route.id} className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden">
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <Badge className="bg-accent/10 text-accent text-[8px] font-black border-none uppercase mb-1">PROPOSAL: {route.city}</Badge>
-                          <h4 className="font-black text-primary uppercase italic text-xl leading-none">{route.routeName}</h4>
-                          <p className="text-[10px] font-bold text-muted-foreground mt-2">Proposed by: <span className="text-primary">{route.driverName}</span></p>
-                        </div>
-                      </div>
+                    <CardHeader>
+                      <Badge className="bg-accent/10 text-accent text-[8px] font-black border-none uppercase mb-1">PROPOSAL: {route.city}</Badge>
+                      <h4 className="font-black text-primary uppercase italic text-xl">{route.routeName}</h4>
+                      <p className="text-[10px] font-bold text-muted-foreground mt-2">By: {route.driverName}</p>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <p className="text-xs font-bold text-slate-600 italic line-clamp-3">"{route.description}"</p>
+                      <p className="text-xs font-bold text-slate-600 italic">"{route.description}"</p>
                       <div className="flex flex-wrap gap-2">
                         {route.stops?.map((stop: string, i: number) => (
                           <Badge key={i} variant="secondary" className="text-[8px] font-black uppercase">{stop}</Badge>
                         ))}
                       </div>
                       <div className="pt-4 border-t border-secondary flex gap-3">
-                        <Button 
-                          onClick={() => handleReviewSuggestion(route.id, 'approve')}
-                          className="flex-1 bg-green-500 hover:bg-green-600 h-10 rounded-xl font-black uppercase italic text-[10px] gap-2"
-                        >
-                          <CheckCircle2 className="h-3 w-3" /> Approve
-                        </Button>
-                        <Button 
-                          onClick={() => handleReviewSuggestion(route.id, 'reject')}
-                          variant="outline" 
-                          className="flex-1 border-red-200 text-red-500 hover:bg-red-50 rounded-xl font-black uppercase italic text-[10px] gap-2"
-                        >
-                          <XCircle className="h-3 w-3" /> Reject
-                        </Button>
+                        <Button onClick={() => handleReviewSuggestion(route.id, 'approve')} className="flex-1 bg-green-500 hover:bg-green-600 h-10 rounded-xl font-black uppercase italic text-[10px]">Approve</Button>
+                        <Button onClick={() => handleReviewSuggestion(route.id, 'reject')} variant="outline" className="flex-1 border-red-200 text-red-500 hover:bg-red-50 h-10 rounded-xl font-black uppercase italic text-[10px]">Reject</Button>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
-                {suggestions?.length === 0 && (
-                  <div className="col-span-full py-20 text-center bg-white/50 rounded-[3rem] border-4 border-dashed border-secondary">
-                    <MessageSquareShare className="h-16 w-16 text-muted-foreground/20 mx-auto mb-4" />
-                    <p className="text-xl font-black text-muted-foreground uppercase italic">No pending driver proposals</p>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -509,44 +573,40 @@ export default function AdminDashboard() {
           {activeTab === 'drivers' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-2xl font-black font-headline italic uppercase text-primary">AAGO Workforce Registry</h3>
-                  <p className="font-bold text-muted-foreground">Official regional driver management</p>
-                </div>
+                <h3 className="text-2xl font-black font-headline italic uppercase text-primary">Workforce Registry</h3>
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button className="rounded-xl font-bold gap-2 h-12 px-6 shadow-xl shadow-primary/20 bg-primary">
+                    <Button className="rounded-xl font-bold gap-2 h-12 bg-primary">
                       <UserPlus className="h-5 w-5" /> Add Regional Driver
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="rounded-[2.5rem] max-w-md bg-white">
+                  <DialogContent className="rounded-[2.5rem] bg-white">
                     <DialogHeader>
                       <DialogTitle className="font-headline font-black italic uppercase text-2xl">Onboard Driver</DialogTitle>
-                      <DialogDescription className="font-bold">Register a new official mobility partner.</DialogDescription>
                     </DialogHeader>
                     <div className="py-6 space-y-6">
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
-                        <Input placeholder="Driver's Full Name" value={newDriverName} onChange={(e) => setNewDriverName(e.target.value)} className="rounded-xl h-12 border-2 font-bold" />
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Full Name</Label>
+                        <Input placeholder="Driver Name" value={newDriverName} onChange={(e) => setNewDriverName(e.target.value)} className="rounded-xl h-12 border-2 font-bold" />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number (+91)</Label>
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Phone (+91)</Label>
                         <Input placeholder="+91 9876543210" value={newDriverPhone} onChange={(e) => setNewDriverPhone(e.target.value)} className="rounded-xl h-12 border-2 font-bold" />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Assigned Hub</Label>
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Hub</Label>
                         <Select value={newDriverCity} onValueChange={setNewDriverCity}>
                           <SelectTrigger className="rounded-xl h-12 border-2 font-bold">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Vizag">Visakhapatnam (Vizag)</SelectItem>
-                            <SelectItem value="Vizianagaram">Vizianagaram (VZM)</SelectItem>
+                            <SelectItem value="Vizag">Visakhapatnam</SelectItem>
+                            <SelectItem value="Vizianagaram">Vizianagaram</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
-                      <Button onClick={handleRegisterDriver} disabled={isRegistering || !newDriverPhone || !newDriverName} className="w-full bg-accent hover:bg-accent/90 h-14 rounded-xl font-black uppercase italic">
-                        {isRegistering ? "Registering..." : "Commit to Workforce"}
+                      <Button onClick={handleRegisterDriver} disabled={isRegistering || !newDriverPhone} className="w-full bg-accent h-14 rounded-xl font-black uppercase italic">
+                        Commit to Workforce
                       </Button>
                     </div>
                   </DialogContent>
@@ -554,77 +614,40 @@ export default function AdminDashboard() {
               </div>
 
               <Card className="border-none shadow-2xl rounded-[2.5rem] bg-white overflow-hidden">
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="bg-secondary/50 border-b text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-                          <th className="py-6 pl-8">Worker Profile</th>
-                          <th className="py-6">Status</th>
-                          <th className="py-6">Regional Hub</th>
-                          <th className="py-6 text-center">Missions</th>
-                          <th className="py-6 text-right pr-8">Registry</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {drivers?.map((driver: any) => (
-                          <tr key={driver.id} className="group hover:bg-secondary/30 transition-colors">
-                            <td className="py-6 pl-8">
-                              <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-black text-sm">{driver.fullName?.[0]}</div>
-                                <div>
-                                  <p className="font-black text-primary uppercase italic text-sm leading-none">{driver.fullName || 'Unnamed'}</p>
-                                  <p className="text-[10px] font-bold text-muted-foreground mt-1 uppercase">{driver.phoneNumber}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-6">
-                              <Badge className={`rounded-full px-4 text-[8px] font-black uppercase border-none ${driver.status === 'available' ? 'bg-green-100 text-green-700' : driver.status === 'on-trip' ? 'bg-accent/10 text-accent' : 'bg-secondary text-muted-foreground'}`}>{driver.status || 'offline'}</Badge>
-                            </td>
-                            <td className="py-6">
-                              <Badge variant="secondary" className="bg-secondary border-none uppercase font-black text-[8px] px-3">{driver.city || 'AP REGION'}</Badge>
-                            </td>
-                            <td className="py-6 text-center">
-                              <span className="font-black text-primary text-lg">{driver.totalTrips || 0}</span>
-                            </td>
-                            <td className="py-6 text-right pr-8">
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10">
-                                    <Settings2 className="h-5 w-5 text-primary" />
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="rounded-[2rem] bg-white">
-                                  <DialogHeader>
-                                    <DialogTitle className="font-headline font-black italic uppercase text-2xl">Worker Registry</DialogTitle>
-                                    <DialogDescription className="font-bold">Modify permissions for {driver.fullName}.</DialogDescription>
-                                  </DialogHeader>
-                                  <div className="py-6 space-y-6">
-                                    <div className="space-y-2">
-                                      <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Classification</Label>
-                                      <Select defaultValue={driver.role} onValueChange={(val) => handleUpdateRole(driver.id, val)}>
-                                        <SelectTrigger className="rounded-xl h-12 border-2 font-bold">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="rider">Decommission to Rider</SelectItem>
-                                          <SelectItem value="driver">Regional Driver</SelectItem>
-                                          <SelectItem value="admin">Hub Administrator</SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                  </div>
-                                  <DialogFooter>
-                                    <Button variant="destructive" className="w-full rounded-xl font-black uppercase italic h-14">Revoke Registry Access</Button>
-                                  </DialogFooter>
-                                </DialogContent>
-                              </Dialog>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                <CardContent className="p-0 overflow-x-auto">
+                   <table className="w-full text-left">
+                     <thead>
+                       <tr className="bg-secondary/50 border-b text-[10px] font-black uppercase text-muted-foreground">
+                         <th className="py-6 pl-8">Profile</th>
+                         <th className="py-6">Status</th>
+                         <th className="py-6">Hub</th>
+                         <th className="py-6 text-center">Trips</th>
+                         <th className="py-6 text-right pr-8">Actions</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y">
+                       {drivers?.map((driver: any) => (
+                         <tr key={driver.uid} className="hover:bg-secondary/30 transition-colors">
+                           <td className="py-6 pl-8">
+                             <div>
+                               <p className="font-black text-primary uppercase italic text-sm">{driver.fullName}</p>
+                               <p className="text-[10px] font-bold text-muted-foreground uppercase">{driver.phoneNumber}</p>
+                             </div>
+                           </td>
+                           <td className="py-6">
+                             <Badge className={driver.status === 'on-trip' ? 'bg-accent/10 text-accent' : 'bg-green-100 text-green-700'}>{driver.status}</Badge>
+                           </td>
+                           <td className="py-6 font-bold text-xs uppercase">{driver.city}</td>
+                           <td className="py-6 text-center font-black">{driver.totalTrips || 0}</td>
+                           <td className="py-6 text-right pr-8">
+                             <Button variant="ghost" size="icon" onClick={() => handleUpdateRole(driver.uid, 'rider')}>
+                               <Settings2 className="h-5 w-5 text-primary" />
+                             </Button>
+                           </td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
                 </CardContent>
               </Card>
             </div>
