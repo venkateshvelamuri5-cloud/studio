@@ -56,7 +56,7 @@ export default function RiderDashboard() {
   
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
+    googleMapsApiKey: "AIzaSyD_zDTswXAQsW62BC1hSsW24zPs675qv78"
   });
 
   const [isBooking, setIsBooking] = useState(false);
@@ -326,7 +326,7 @@ export default function RiderDashboard() {
                 {activeDrivers?.map((driver: any) => (
                   driver.currentLat && driver.currentLng && (
                     <Marker 
-                      key={driver.id} 
+                      key={driver.uid} 
                       position={{ lat: driver.currentLat, lng: driver.currentLng }}
                       title={driver.fullName}
                       icon="https://maps.google.com/mapfiles/ms/icons/blue-dot.png"

@@ -51,7 +51,7 @@ export default function DriverConsole() {
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
+    googleMapsApiKey: "AIzaSyD_zDTswXAQsW62BC1hSsW24zPs675qv78"
   });
 
   const [activeTab, setActiveTab] = useState<'missions' | 'earnings' | 'support'>('missions');

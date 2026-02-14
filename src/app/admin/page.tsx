@@ -77,7 +77,7 @@ export default function AdminDashboard() {
   
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
+    googleMapsApiKey: "AIzaSyD_zDTswXAQsW62BC1hSsW24zPs675qv78"
   });
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'drivers' | 'scholars' | 'suggestions' | 'finance' | 'safety'>('dashboard');
@@ -116,7 +116,7 @@ export default function AdminDashboard() {
   const onTripDrivers = drivers?.filter(d => d.status === 'on-trip') || [];
 
   const [isOptimizing, setIsOptimizing] = useState(false);
-  const [demandPatterns, setDemandPatterns] = useState("High demand from Vizianagaram to campuses between 7-9 AM.");
+  const [demandPatterns, setDemandPatterns] = useState("Analyzing demand patterns...");
   const [targetCity, setTargetCity] = useState("Vizag");
   
   const [isRegistering, setIsRegistering] = useState(false);
@@ -193,10 +193,10 @@ export default function AdminDashboard() {
     setIsOptimizing(true);
     try {
       const result = await generateShuttleRoutes({
-        studentDemandPatterns: demandPatterns,
-        historicalTrafficData: "Heavy congestion at Maddilapalem and VZM Highway junctions.",
-        preferredServiceHours: "6 AM to 9 PM Monday-Saturday",
-        numberOfShuttlesAvailable: 15
+        studentDemandPatterns: demandPatterns || "Standard academic year demand.",
+        historicalTrafficData: "Congestion at primary hub intersections.",
+        preferredServiceHours: "6 AM to 10 PM",
+        numberOfShuttlesAvailable: drivers.length || 10
       });
       
       for (const route of result.optimizedRoutes) {
