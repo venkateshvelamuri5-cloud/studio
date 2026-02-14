@@ -40,7 +40,10 @@ import {
   MapPin,
   Trash2,
   Truck,
-  Map as MapIcon
+  Map as MapIcon,
+  CheckCircle2,
+  XCircle,
+  MessageSquareShare
 } from 'lucide-react';
 import Image from 'next/image';
 import { 
@@ -84,7 +87,7 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useUser();
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'drivers'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'drivers' | 'suggestions'>('dashboard');
   
   const userRef = useMemo(() => {
     if (!db || !user?.uid) return null;
@@ -101,7 +104,11 @@ export default function AdminDashboard() {
   );
 
   const { data: savedRoutes, loading: routesLoading } = useCollection(
-    useMemo(() => db ? query(collection(db, 'routes'), orderBy('createdAt', 'desc')) : null, [db])
+    useMemo(() => db ? query(collection(db, 'routes'), where('status', '==', 'active'), orderBy('createdAt', 'desc')) : null, [db])
+  );
+
+  const { data: suggestions } = useCollection(
+    useMemo(() => db ? query(collection(db, 'routes'), where('status', '==', 'suggested'), orderBy('createdAt', 'desc')) : null, [db])
   );
 
   const mapImage = PlaceHolderImages.find(img => img.id === 'live-map');
@@ -164,16 +171,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleUpdateRole = async (userId: string, newRole: string) => {
-    if (!db) return;
-    try {
-      await updateDoc(doc(db, 'users', userId), { role: newRole });
-      toast({ title: "Profile Modified" });
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
   const handleOptimize = async () => {
     if (!db) return;
     setIsOptimizing(true);
@@ -189,8 +186,9 @@ export default function AdminDashboard() {
         await addDoc(collection(db, 'routes'), {
           ...route,
           city: targetCity,
-          scheduledTime: "08:00", // Default morning start for AI routes
+          scheduledTime: "08:00", 
           isActive: true,
+          status: 'active',
           createdAt: new Date().toISOString()
         });
       }
@@ -200,6 +198,25 @@ export default function AdminDashboard() {
       toast({ variant: "destructive", title: "AI Error" });
     } finally {
       setIsOptimizing(false);
+    }
+  };
+
+  const handleReviewSuggestion = async (id: string, action: 'approve' | 'reject') => {
+    if (!db) return;
+    try {
+      await updateDoc(doc(db, 'routes', id), {
+        status: action === 'approve' ? 'active' : 'rejected',
+        isActive: action === 'approve',
+        approvedAt: action === 'approve' ? new Date().toISOString() : null,
+        scheduledTime: action === 'approve' ? "08:00" : null // Default time for approved routes
+      });
+      toast({ 
+        title: action === 'approve' ? "Route Approved" : "Suggestion Rejected",
+        description: action === 'approve' ? "Now available in the regional network." : "Removed from consideration."
+      });
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Operation Failed" });
     }
   };
 
@@ -255,6 +272,10 @@ export default function AdminDashboard() {
           </Button>
           <Button variant="ghost" onClick={() => setActiveTab('routes')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'routes' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
             <MapIcon className="mr-2 h-4 w-4" /> Route Registry
+          </Button>
+          <Button variant="ghost" onClick={() => setActiveTab('suggestions')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'suggestions' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
+            <MessageSquareShare className="mr-2 h-4 w-4" /> Suggestions 
+            {suggestions && suggestions.length > 0 && <Badge className="ml-auto bg-accent text-[8px] h-4 min-w-4 p-0 flex items-center justify-center">{suggestions.length}</Badge>}
           </Button>
           <Button variant="ghost" onClick={() => setActiveTab('drivers')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'drivers' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
             <Truck className="mr-2 h-4 w-4" /> Workforce
@@ -424,6 +445,63 @@ export default function AdminDashboard() {
                     </Card>
                   ))}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'suggestions' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center px-2">
+                <div>
+                  <h3 className="text-2xl font-black font-headline italic uppercase text-primary">Driver Route Proposals</h3>
+                  <p className="font-bold text-muted-foreground">Review and approve paths suggested by the workforce</p>
+                </div>
+                <Badge variant="outline" className="font-bold border-2">{suggestions?.length || 0} PENDING</Badge>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {suggestions?.map((route: any) => (
+                  <Card key={route.id} className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden">
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <Badge className="bg-accent/10 text-accent text-[8px] font-black border-none uppercase mb-1">PROPOSAL: {route.city}</Badge>
+                          <h4 className="font-black text-primary uppercase italic text-xl leading-none">{route.routeName}</h4>
+                          <p className="text-[10px] font-bold text-muted-foreground mt-2">Proposed by: <span className="text-primary">{route.driverName}</span></p>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <p className="text-xs font-bold text-slate-600 italic line-clamp-3">"{route.description}"</p>
+                      <div className="flex flex-wrap gap-2">
+                        {route.stops?.map((stop: string, i: number) => (
+                          <Badge key={i} variant="secondary" className="text-[8px] font-black uppercase">{stop}</Badge>
+                        ))}
+                      </div>
+                      <div className="pt-4 border-t border-secondary flex gap-3">
+                        <Button 
+                          onClick={() => handleReviewSuggestion(route.id, 'approve')}
+                          className="flex-1 bg-green-500 hover:bg-green-600 h-10 rounded-xl font-black uppercase italic text-[10px] gap-2"
+                        >
+                          <CheckCircle2 className="h-3 w-3" /> Approve
+                        </Button>
+                        <Button 
+                          onClick={() => handleReviewSuggestion(route.id, 'reject')}
+                          variant="outline" 
+                          className="flex-1 border-red-200 text-red-500 hover:bg-red-50 rounded-xl font-black uppercase italic text-[10px] gap-2"
+                        >
+                          <XCircle className="h-3 w-3" /> Reject
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                {suggestions?.length === 0 && (
+                  <div className="col-span-full py-20 text-center bg-white/50 rounded-[3rem] border-4 border-dashed border-secondary">
+                    <MessageSquareShare className="h-16 w-16 text-muted-foreground/20 mx-auto mb-4" />
+                    <p className="text-xl font-black text-muted-foreground uppercase italic">No pending driver proposals</p>
+                  </div>
+                )}
               </div>
             </div>
           )}

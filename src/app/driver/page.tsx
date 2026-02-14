@@ -5,6 +5,18 @@ import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter
+} from "@/components/ui/dialog";
 import { 
   Bus, 
   MapPin, 
@@ -17,7 +29,9 @@ import {
   Loader2,
   ShieldAlert,
   LogOut,
-  Lock
+  Lock,
+  PlusCircle,
+  MessageSquarePlus
 } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
@@ -51,10 +65,10 @@ export default function DriverConsole() {
 
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
-  // Regional Route Filtering
+  // Regional Route Filtering - only show active ones
   const regionalRoutesQuery = useMemo(() => {
     if (!db || !profile?.city) return null;
-    return query(collection(db, 'routes'), where('city', '==', profile.city), where('isActive', '==', true));
+    return query(collection(db, 'routes'), where('city', '==', profile.city), where('status', '==', 'active'));
   }, [db, profile?.city]);
   
   const { data: regionalRoutes } = useCollection(regionalRoutesQuery);
@@ -62,6 +76,14 @@ export default function DriverConsole() {
   const [activeTrip, setActiveTrip] = useState<any>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Route Suggestion Form State
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [suggestedRouteName, setSuggestedRouteName] = useState('');
+  const [suggestedStops, setSuggestedStops] = useState('');
+  const [suggestedSchedule, setSuggestedSchedule] = useState('');
+  const [suggestedDescription, setSuggestedDescription] = useState('');
+  const [isSuggestDialogOpen, setIsSuggestDialogOpen] = useState(false);
 
   const mapImage = PlaceHolderImages.find(img => img.id === 'live-map');
 
@@ -94,7 +116,7 @@ export default function DriverConsole() {
   }, [userRef, profile?.status, profile?.currentLat, profile?.currentLng]);
 
   const isWithinTimeWindow = (scheduledTimeStr: string) => {
-    if (!scheduledTimeStr) return true; // Fallback for legacy routes
+    if (!scheduledTimeStr) return true;
     try {
       const [hours, minutes] = scheduledTimeStr.split(':').map(Number);
       const scheduledTime = new Date();
@@ -103,8 +125,6 @@ export default function DriverConsole() {
       const diffMs = scheduledTime.getTime() - currentTime.getTime();
       const diffMinutes = diffMs / (1000 * 60);
       
-      // Can start within 2 hours of scheduled time (120 mins)
-      // Also allow if it's already started but not yet "too late"
       return diffMinutes <= 120 && diffMinutes >= -180; 
     } catch (e) {
       return true;
@@ -171,6 +191,37 @@ export default function DriverConsole() {
     }
   };
 
+  const handleSuggestRoute = async () => {
+    if (!db || !user || !profile) return;
+    setIsSuggesting(true);
+    try {
+      await addDoc(collection(db, 'routes'), {
+        routeName: suggestedRouteName,
+        stops: suggestedStops.split(',').map(s => s.trim()),
+        schedule: suggestedSchedule,
+        description: suggestedDescription,
+        city: profile.city,
+        status: 'suggested',
+        isActive: false,
+        suggestedBy: user.uid,
+        driverName: profile.fullName,
+        createdAt: new Date().toISOString()
+      });
+      toast({ title: "Proposal Submitted", description: "Admin will review your suggested route." });
+      setIsSuggestDialogOpen(false);
+      // Reset form
+      setSuggestedRouteName('');
+      setSuggestedStops('');
+      setSuggestedSchedule('');
+      setSuggestedDescription('');
+    } catch (err) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Submission Failed" });
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut(auth!);
     router.push('/');
@@ -205,7 +256,70 @@ export default function DriverConsole() {
       <main className="flex-1 p-6 space-y-6 overflow-y-auto">
         {!activeTrip ? (
           <div className="space-y-6">
-            <h2 className="text-3xl font-black font-headline italic uppercase tracking-tighter">{profile.city} Assignments</h2>
+            <div className="flex justify-between items-end">
+              <h2 className="text-3xl font-black font-headline italic uppercase tracking-tighter">{profile.city} Assignments</h2>
+              <Dialog open={setIsSuggestDialogOpen} onOpenChange={setIsSuggestDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="rounded-xl border-primary/20 bg-primary/10 text-primary font-bold gap-2">
+                    <MessageSquarePlus className="h-4 w-4" /> Suggest Route
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="rounded-[2.5rem] bg-slate-900 border-white/10 text-white max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="text-2xl font-black font-headline italic uppercase text-primary">Propose New Route</DialogTitle>
+                    <DialogDescription className="text-slate-400 font-bold">Driver-suggested paths based on regional expertise.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-primary">Route Title</Label>
+                      <Input 
+                        value={suggestedRouteName} 
+                        onChange={(e) => setSuggestedRouteName(e.target.value)} 
+                        placeholder="e.g. North Hub Express" 
+                        className="bg-slate-800 border-none rounded-xl h-12"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-primary">Stops (Comma separated)</Label>
+                      <Input 
+                        value={suggestedStops} 
+                        onChange={(e) => setSuggestedStops(e.target.value)} 
+                        placeholder="Stop 1, Stop 2, Stop 3" 
+                        className="bg-slate-800 border-none rounded-xl h-12"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-primary">Operational Timing</Label>
+                      <Input 
+                        value={suggestedSchedule} 
+                        onChange={(e) => setSuggestedSchedule(e.target.value)} 
+                        placeholder="e.g. 8 AM - 10 AM, Hourly" 
+                        className="bg-slate-800 border-none rounded-xl h-12"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-primary">Expert Description</Label>
+                      <Textarea 
+                        value={suggestedDescription} 
+                        onChange={(e) => setSuggestedDescription(e.target.value)} 
+                        placeholder="Why is this route needed?" 
+                        className="bg-slate-800 border-none rounded-xl min-h-[100px]"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button 
+                      onClick={handleSuggestRoute} 
+                      disabled={isSuggesting || !suggestedRouteName}
+                      className="w-full bg-primary h-14 rounded-xl font-black uppercase italic"
+                    >
+                      {isSuggesting ? <Loader2 className="animate-spin" /> : "Submit for Approval"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+
             <section className="space-y-4">
               <h3 className="text-xs font-black uppercase tracking-[0.2em] text-primary">Regional Missions</h3>
               {regionalRoutes?.map((route: any) => {

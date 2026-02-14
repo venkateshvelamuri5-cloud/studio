@@ -55,6 +55,9 @@
         "city": { "type": "string", "enum": ["Vizag", "Vizianagaram"] },
         "estimatedDuration": { "type": "number" },
         "isActive": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["suggested", "active", "rejected"] },
+        "suggestedBy": { "type": "string", "description": "UID of the driver who suggested the route." },
+        "driverName": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["routeName", "stops", "city"]
