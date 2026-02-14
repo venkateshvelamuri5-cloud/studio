@@ -1,80 +1,137 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Bus, ArrowLeft, Smartphone } from 'lucide-react';
+import { Bus, ArrowLeft, Smartphone, Loader2 } from 'lucide-react';
+import { useAuth } from '@/firebase';
+import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 
 export default function LoginPage() {
-  const [role, setRole] = useState('student');
+  const [loading, setLoading] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otp, setOtp] = useState('');
+  const [step, setStep] = useState(1); // 1: Phone, 2: OTP
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  
   const router = useRouter();
+  const auth = useAuth();
 
-  const handleLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (auth && !window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible',
+      });
+    }
+  }, [auth]);
+
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    router.push(`/${role}`);
+    if (!auth) return;
+    setLoading(true);
+
+    try {
+      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+      const appVerifier = window.recaptchaVerifier;
+      const result = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
+      setConfirmationResult(result);
+      setStep(2);
+    } catch (error: any) {
+      console.error("SMS Error", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmationResult) return;
+    setLoading(true);
+
+    try {
+      await confirmationResult.confirm(otp);
+      router.push('/student');
+    } catch (error: any) {
+      console.error("OTP Error", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-secondary/30 p-4 font-body">
+      <div id="recaptcha-container"></div>
+      
       <div className="mb-12 flex flex-col items-center gap-4">
         <Link href="/" className="flex items-center gap-3 group">
           <div className="bg-primary p-3 rounded-[1.25rem] shadow-xl group-hover:rotate-12 transition-transform">
             <Bus className="h-8 w-8 text-white" />
           </div>
-          <span className="text-4xl font-black text-primary font-headline italic tracking-tight">AAGO</span>
+          <span className="text-4xl font-black text-primary font-headline italic tracking-tight uppercase">AAGO</span>
         </Link>
       </div>
 
-      <Card className="w-full max-w-md shadow-[0_32px_64px_-12px_rgba(0,0,0,0.1)] border-none rounded-[2.5rem] overflow-hidden">
-        <CardHeader className="space-y-3 pt-10 pb-6 bg-white">
-          <CardTitle className="text-3xl font-black text-center font-headline uppercase italic tracking-tighter text-primary">Get Moving</CardTitle>
+      <Card className="w-full max-w-md shadow-[0_32px_64px_-12px_rgba(0,0,0,0.1)] border-none rounded-[2.5rem] overflow-hidden bg-white">
+        <CardHeader className="space-y-3 pt-10 pb-6">
+          <CardTitle className="text-3xl font-black text-center font-headline uppercase italic tracking-tighter text-primary">Welcome Back</CardTitle>
           <CardDescription className="text-center font-bold text-muted-foreground">
-            Fast, secure access for all Aago users
+            Sign in with your registered phone number
           </CardDescription>
         </CardHeader>
-        <CardContent className="bg-white px-8">
-          <Tabs defaultValue="student" onValueChange={setRole} className="mb-8">
-            <TabsList className="grid w-full grid-cols-3 bg-secondary p-1 rounded-2xl h-14">
-              <TabsTrigger value="student" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-primary shadow-none">Rider</TabsTrigger>
-              <TabsTrigger value="driver" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-primary shadow-none">Captain</TabsTrigger>
-              <TabsTrigger value="admin" className="rounded-xl font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:text-primary shadow-none">Ops</TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          <Button variant="default" className="w-full bg-accent hover:bg-accent/90 h-16 rounded-2xl text-lg font-black shadow-xl shadow-accent/20 uppercase tracking-tighter italic mb-6">
-            <Smartphone className="h-6 w-6 mr-2" /> Continue with Phone
-          </Button>
-
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-secondary"></span>
-            </div>
-            <div className="relative flex justify-center text-[10px] font-black uppercase tracking-widest">
-              <span className="bg-white px-4 text-muted-foreground">OR LOGIN WITH EMAIL</span>
-            </div>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="font-black text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Work/Personal Email</Label>
-              <Input id="email" type="email" placeholder="name@email.com" required className="h-14 rounded-2xl border-secondary bg-secondary/30 font-bold focus-visible:ring-accent" />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between ml-1">
-                <Label htmlFor="password" title="password" className="font-black text-[10px] uppercase tracking-widest text-muted-foreground">Password</Label>
-                <Link href="#" className="text-[10px] font-black uppercase text-accent hover:underline tracking-widest">Forgot?</Link>
+        <CardContent className="px-8">
+          {step === 1 ? (
+            <form onSubmit={handleSendOtp} className="space-y-6">
+              <div className="space-y-2">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Phone Number</Label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">+91</span>
+                  <Input 
+                    type="tel" 
+                    value={phoneNumber} 
+                    onChange={(e) => setPhoneNumber(e.target.value)} 
+                    placeholder="10-digit number" 
+                    className="h-14 pl-14 rounded-2xl bg-secondary/30 border-none font-bold" 
+                    required
+                  />
+                </div>
               </div>
-              <Input id="password" type="password" required className="h-14 rounded-2xl border-secondary bg-secondary/30 focus-visible:ring-accent" />
-            </div>
-            <Button type="submit" variant="outline" className="w-full h-16 rounded-2xl text-lg font-black border-2 border-primary text-primary uppercase tracking-tighter italic hover:bg-primary/5">
-              Sign In
-            </Button>
-          </form>
+              <Button 
+                type="submit" 
+                disabled={loading || phoneNumber.length < 10}
+                className="w-full bg-accent hover:bg-accent/90 h-16 rounded-2xl text-lg font-black uppercase italic shadow-xl shadow-accent/20"
+              >
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : <><Smartphone className="h-6 w-6 mr-2" /> Send OTP</>}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyOtp} className="space-y-6">
+              <div className="space-y-2">
+                <Label className="font-black text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Enter 6-Digit OTP</Label>
+                <Input 
+                  type="text" 
+                  value={otp} 
+                  onChange={(e) => setOtp(e.target.value)} 
+                  placeholder="000000" 
+                  className="h-16 text-center text-2xl tracking-[1em] rounded-2xl bg-secondary/30 border-none font-black" 
+                  maxLength={6}
+                  required
+                />
+              </div>
+              <Button 
+                type="submit" 
+                disabled={loading || otp.length < 6}
+                className="w-full bg-primary hover:bg-primary/90 h-16 rounded-2xl text-lg font-black uppercase italic shadow-xl shadow-primary/20"
+              >
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify & Sign In"}
+              </Button>
+              <Button variant="ghost" onClick={() => setStep(1)} className="w-full font-bold">Change Number</Button>
+            </form>
+          )}
         </CardContent>
         <CardFooter className="flex flex-col space-y-6 bg-secondary/20 p-8 mt-4">
           <p className="text-sm text-center font-bold text-muted-foreground">
@@ -88,4 +145,10 @@ export default function LoginPage() {
       </Card>
     </div>
   );
+}
+
+declare global {
+  interface Window {
+    recaptchaVerifier: any;
+  }
 }
