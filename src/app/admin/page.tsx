@@ -43,7 +43,10 @@ import {
   XCircle,
   MessageSquareShare,
   IndianRupee,
-  Wallet
+  Wallet,
+  Users,
+  Search,
+  ChevronRight
 } from 'lucide-react';
 import Image from 'next/image';
 import { 
@@ -87,7 +90,8 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useUser();
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'drivers' | 'suggestions' | 'finance'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'drivers' | 'scholars' | 'suggestions' | 'finance'>('dashboard');
+  const [searchQuery, setSearchQuery] = useState("");
   
   const userRef = useMemo(() => {
     if (!db || !user?.uid) return null;
@@ -95,9 +99,12 @@ export default function AdminDashboard() {
   }, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
-  const { data: drivers } = useCollection(
-    useMemo(() => db ? query(collection(db, 'users'), where('role', '==', 'driver')) : null, [db])
+  const { data: allUsers } = useCollection(
+    useMemo(() => db ? query(collection(db, 'users')) : null, [db])
   );
+
+  const drivers = allUsers?.filter(u => u.role === 'driver') || [];
+  const riders = allUsers?.filter(u => u.role === 'rider') || [];
   
   const { data: activeTrips } = useCollection(
     useMemo(() => db ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db])
@@ -267,6 +274,11 @@ export default function AdminDashboard() {
     );
   }
 
+  const filteredRiders = riders.filter(r => 
+    r.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    r.collegeName?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="flex h-screen bg-secondary/20 font-body">
       <aside className="w-64 bg-primary text-white flex flex-col shrink-0 shadow-2xl z-20">
@@ -292,6 +304,9 @@ export default function AdminDashboard() {
           </Button>
           <Button variant="ghost" onClick={() => setActiveTab('drivers')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'drivers' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
             <Truck className="mr-2 h-4 w-4" /> Workforce
+          </Button>
+          <Button variant="ghost" onClick={() => setActiveTab('scholars')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'scholars' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
+            <Users className="mr-2 h-4 w-4" /> Scholar Registry
           </Button>
           <Button variant="ghost" onClick={() => setActiveTab('finance')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'finance' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
             <Wallet className="mr-2 h-4 w-4" /> Finance & Payouts
@@ -321,8 +336,8 @@ export default function AdminDashboard() {
                 {[
                   { label: 'Available Fleet', value: availableDrivers.length, trend: 'READY', icon: Activity, color: 'text-green-600' },
                   { label: 'On Route', value: onTripDrivers.length, trend: 'ACTIVE', icon: Navigation, color: 'text-accent' },
+                  { label: 'Scholars Registered', value: riders.length, trend: 'ENROLLED', icon: Users, color: 'text-blue-600' },
                   { label: 'Regional Debt', value: `₹${totalRegionalDebt}`, trend: 'PAYOUTS', icon: IndianRupee, color: 'text-primary' },
-                  { label: 'Routes Live', value: savedRoutes?.length || 0, trend: 'SYNCED', icon: MapIcon, color: 'text-blue-600' },
                 ].map((metric, i) => (
                   <Card key={i} className="border-none shadow-xl rounded-[2rem] bg-white overflow-hidden group">
                     <CardContent className="p-6">
@@ -367,24 +382,109 @@ export default function AdminDashboard() {
                   </CardContent>
                 </Card>
                 
-                <Card className="border-none shadow-xl rounded-[2.5rem] bg-white">
+                <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden flex flex-col">
                   <CardHeader>
-                    <CardTitle className="font-black font-headline text-xl italic uppercase tracking-tighter text-primary">Scholar Volume</CardTitle>
-                    <CardDescription className="font-bold">Weekly commuters by region</CardDescription>
+                    <CardTitle className="font-black font-headline text-xl italic uppercase tracking-tighter text-primary">Live Missions Detail</CardTitle>
+                    <CardDescription className="font-bold">Active manifest & workforce tracking</CardDescription>
                   </CardHeader>
-                  <CardContent className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={ridershipData}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                        <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }} />
-                        <Bar dataKey="riders" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                  <CardContent className="flex-1 overflow-y-auto px-6 pb-6">
+                    <div className="space-y-4">
+                      {activeTrips?.length === 0 ? (
+                        <div className="p-10 text-center text-slate-400 font-bold italic border-2 border-dashed rounded-3xl">No missions active.</div>
+                      ) : (
+                        activeTrips?.map((trip: any) => (
+                          <div key={trip.id} className="p-5 bg-secondary/50 rounded-3xl border border-secondary flex flex-col gap-4">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="font-black text-primary uppercase italic text-lg leading-none">{trip.routeName}</h4>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">Driver: {trip.driverName}</p>
+                              </div>
+                              <Badge className="bg-accent/10 text-accent uppercase font-black text-[10px] border-none">{trip.riderCount || 0} Boarded</Badge>
+                            </div>
+                            <div className="space-y-2">
+                              <p className="text-[10px] font-black uppercase text-primary tracking-widest">Passenger Manifest:</p>
+                              <div className="flex flex-wrap gap-2">
+                                {trip.passengers?.map((pid: string) => {
+                                  const rider = riders.find(r => r.uid === pid);
+                                  return (
+                                    <Badge key={pid} variant="outline" className="bg-white border-primary/10 text-[8px] font-bold py-1 px-3 rounded-full">
+                                      {rider?.fullName || pid}
+                                    </Badge>
+                                  );
+                                })}
+                                {(!trip.passengers || trip.passengers.length === 0) && <p className="text-[8px] font-bold text-slate-400 italic">No passengers checked in yet.</p>}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'scholars' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center px-2">
+                <div className="relative w-full max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search scholars by name or college..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 h-12 rounded-2xl border-none shadow-sm font-bold bg-white"
+                  />
+                </div>
+                <Badge variant="outline" className="font-black h-12 px-6 rounded-2xl border-none bg-white shadow-sm uppercase italic">
+                  Total Scholars: {riders.length}
+                </Badge>
+              </div>
+
+              <Card className="border-none shadow-2xl rounded-[2.5rem] bg-white overflow-hidden">
+                <CardContent className="p-0 overflow-x-auto">
+                   <table className="w-full text-left">
+                     <thead>
+                       <tr className="bg-secondary/50 border-b text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+                         <th className="py-6 pl-8">Scholar Profile</th>
+                         <th className="py-6">Institution</th>
+                         <th className="py-6">ID Number</th>
+                         <th className="py-6 text-center">Wallet Credits</th>
+                         <th className="py-6 text-right pr-8">Joined</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y">
+                       {filteredRiders.map((rider: any) => (
+                         <tr key={rider.uid} className="hover:bg-secondary/30 transition-colors">
+                           <td className="py-6 pl-8">
+                             <div className="flex items-center gap-4">
+                               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center font-black text-primary text-xs uppercase overflow-hidden">
+                                 <Image src={`https://picsum.photos/seed/${rider.uid}/40/40`} width={40} height={40} alt="Avatar" />
+                               </div>
+                               <div>
+                                 <p className="font-black text-primary uppercase italic text-sm">{rider.fullName}</p>
+                                 <p className="text-[10px] font-bold text-muted-foreground">{rider.phoneNumber}</p>
+                               </div>
+                             </div>
+                           </td>
+                           <td className="py-6 font-bold text-xs uppercase">{rider.collegeName}</td>
+                           <td className="py-6 font-mono text-[10px] text-slate-500">{rider.studentId}</td>
+                           <td className="py-6 text-center">
+                              <Badge className="bg-green-100 text-green-700 font-black h-8 px-4 border-none rounded-xl">₹{rider.credits || 0}</Badge>
+                           </td>
+                           <td className="py-6 text-right pr-8 font-bold text-[10px] text-muted-foreground">
+                             {new Date(rider.createdAt).toLocaleDateString()}
+                           </td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                   {filteredRiders.length === 0 && (
+                     <div className="p-20 text-center font-bold italic text-slate-400">No scholars found matching your search.</div>
+                   )}
+                </CardContent>
+              </Card>
             </div>
           )}
 

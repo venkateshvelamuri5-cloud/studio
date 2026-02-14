@@ -9,15 +9,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter
-} from "@/dialog"; // Path corrected for studio convention
-import { 
   Bus, 
   MapPin, 
   Users, 
@@ -162,6 +153,7 @@ export default function DriverConsole() {
         basePayout: basePay,
         status: 'active',
         riderCount: 0,
+        passengers: [],
         startTime: new Date().toISOString()
       };
       const tripRef = await addDoc(collection(db, 'trips'), tripData);

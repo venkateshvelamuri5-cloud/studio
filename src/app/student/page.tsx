@@ -35,7 +35,7 @@ import {
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, increment, collection, query, where, limit, onSnapshot, orderBy } from 'firebase/firestore';
+import { doc, updateDoc, increment, collection, query, where, limit, onSnapshot, orderBy, arrayUnion } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -43,9 +43,6 @@ import { useToast } from '@/hooks/use-toast';
 // Helper to map Lat/Lng to % positions on the visualization map
 function getMarkerPos(lat?: number, lng?: number) {
   if (!lat || !lng) return { top: '50%', left: '50%' };
-  // Vizag Region Bounds (Approx)
-  // Lat: 17.6 to 17.8
-  // Lng: 83.1 to 83.4
   const top = 100 - ((lat - 17.6) / (17.8 - 17.6)) * 100;
   const left = ((lng - 83.1) / (83.4 - 83.1)) * 100;
   return { 
@@ -124,12 +121,17 @@ export default function RiderDashboard() {
     setIsBooking(true);
     try {
       const tripRef = doc(db, 'trips', tripId);
+      
+      // Update trip manifest and student profile
       await updateDoc(tripRef, {
-        riderCount: increment(1)
+        riderCount: increment(1),
+        passengers: arrayUnion(user?.uid)
       });
+      
       await updateDoc(userRef, {
         credits: increment(-50),
-        lastTrip: routeName
+        lastTrip: routeName,
+        activeTripId: tripId
       });
 
       toast({
@@ -301,7 +303,6 @@ export default function RiderDashboard() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-white/40 via-transparent to-transparent" />
               
-              {/* Actual Live Driver Markers from Users Collection */}
               {activeDrivers?.map((driver: any) => {
                 const pos = getMarkerPos(driver.currentLat, driver.currentLng);
                 return (
