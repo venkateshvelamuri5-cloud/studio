@@ -36,6 +36,22 @@
         "startTime": { "type": "string", "format": "date-time" }
       },
       "required": ["driverId", "routeName", "status"]
+    },
+    "Route": {
+      "title": "Route",
+      "description": "An optimized shuttle route configuration.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "routeName": { "type": "string" },
+        "description": { "type": "string" },
+        "stops": { "type": "array", "items": { "type": "string" } },
+        "schedule": { "type": "string" },
+        "estimatedDuration": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["routeName", "stops"]
     }
   },
   "auth": {
@@ -49,6 +65,10 @@
     "/trips/{tripId}": {
       "schema": "Trip",
       "description": "Historical and active trip records."
+    },
+    "/routes/{routeId}": {
+      "schema": "Route",
+      "description": "Optimized shuttle route templates."
     }
   }
 }
