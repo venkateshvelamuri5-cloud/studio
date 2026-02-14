@@ -93,11 +93,20 @@ export default function LoginPage() {
       const result = await confirmationResult.confirm(otp);
       const user = result.user;
 
-      // ROLE CHECK
+      // CHECK IF PROFILE EXISTS
       const userSnap = await getDoc(doc(db, 'users', user.uid));
       const profile = userSnap.data();
 
-      if (profile && profile.role === 'driver') {
+      if (!userSnap.exists()) {
+        toast({
+          title: "Profile Not Found",
+          description: "No student profile linked to this number. Redirecting to registration...",
+        });
+        router.push('/auth/signup');
+        return;
+      }
+
+      if (profile.role === 'driver') {
         await signOut(auth!);
         toast({
           variant: "destructive",

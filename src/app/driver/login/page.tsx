@@ -90,16 +90,25 @@ export default function DriverLoginPage() {
       const result = await confirmationResult.confirm(otp);
       const user = result.user;
 
-      // STRICT ROLE CHECK FOR DRIVERS
+      // PROFILE CHECK
       const userSnap = await getDoc(doc(db, 'users', user.uid));
       const profile = userSnap.data();
 
-      if (!userSnap.exists() || profile?.role !== 'driver') {
+      if (!userSnap.exists()) {
+        toast({
+          title: "Identity Required",
+          description: "No driver profile found. Redirecting to workforce onboarding...",
+        });
+        router.push('/driver/signup');
+        return;
+      }
+
+      if (profile.role !== 'driver') {
         await signOut(auth!);
         toast({
           variant: "destructive",
           title: "Access Denied",
-          description: "This portal is strictly for registered AAGO Drivers. Please contact the Regional Hub.",
+          description: "This portal is strictly for registered AAGO Drivers.",
         });
         setStep(1);
         setOtp('');
