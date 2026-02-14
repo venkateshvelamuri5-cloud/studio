@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,39 +21,73 @@ import {
   CreditCard,
   IndianRupee,
   Smartphone,
-  GraduationCap
+  GraduationCap,
+  LogOut,
+  MapPinned
 } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
+import { useUser, useDoc, useAuth, useFirestore } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 export default function RiderDashboard() {
+  const { user } = useUser();
+  const auth = useAuth();
+  const db = useFirestore();
+  const router = useRouter();
+  
+  const userRef = useMemo(() => {
+    if (!db || !user?.uid) return null;
+    return doc(db, 'users', user.uid);
+  }, [db, user?.uid]);
+
+  const { data: profile, loading: profileLoading } = useDoc(userRef);
+
   const liveMapImage = PlaceHolderImages.find(img => img.id === 'live-map');
 
+  const handleSignOut = async () => {
+    await signOut(auth);
+    router.push('/');
+  };
+
+  const availableShuttles = [
+    { id: 1, route: 'VZM -> Vizag Express', time: '8:30 AM', status: 'On Time', seats: '4 Left' },
+    { id: 2, route: 'Vizag -> GITAM Loop', time: '8:45 AM', status: 'Delayed 5m', seats: '12 Left' },
+    { id: 3, route: 'AU Campus Shuttle', time: '9:00 AM', status: 'On Time', seats: '8 Left' },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#FDFDFD] flex flex-col font-body">
+    <div className="min-h-screen bg-[#FDFDFD] flex flex-col font-body pb-32">
       {/* App Header */}
-      <header className="bg-primary text-white p-6 flex items-center justify-between shadow-xl z-10 rounded-b-[2rem]">
+      <header className="bg-primary text-white p-6 pt-10 flex items-center justify-between shadow-xl z-10 rounded-b-[2.5rem]">
         <div className="flex items-center gap-4">
           <div className="bg-white/10 p-2 rounded-2xl">
             <Menu className="h-6 w-6" />
           </div>
           <div>
             <h1 className="text-xl font-black font-headline tracking-tight leading-none italic uppercase">AAGO</h1>
-            <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest mt-1">Hello, Scholar</p>
+            <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest mt-1">
+              Namaste, {profile?.fullName?.split(' ')[0] || 'Scholar'}
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={handleSignOut} className="text-white hover:bg-white/10 rounded-xl">
+            <LogOut className="h-5 w-5" />
+          </Button>
           <div className="relative bg-white/10 p-2 rounded-2xl">
             <Bell className="h-6 w-6" />
             <span className="absolute top-1 right-1 bg-accent text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-black ring-2 ring-primary">2</span>
           </div>
-          <div className="h-10 w-10 rounded-2xl bg-accent flex items-center justify-center border-2 border-white/20 font-black text-white shadow-lg shadow-accent/20">
-            S
+          <div className="h-10 w-10 rounded-2xl bg-accent flex items-center justify-center border-2 border-white/20 font-black text-white shadow-lg shadow-accent/20 uppercase">
+            {profile?.fullName?.[0] || 'S'}
           </div>
         </div>
       </header>
 
-      <main className="flex-1 p-6 space-y-8 max-w-xl mx-auto w-full pb-32">
+      <main className="flex-1 p-6 space-y-8 max-w-xl mx-auto w-full">
         {/* Quick Search */}
         <div className="relative group">
           <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
@@ -68,7 +101,7 @@ export default function RiderDashboard() {
 
         {/* Live Tracking Map Card */}
         <Card className="overflow-hidden border-none shadow-2xl bg-white rounded-[2.5rem]">
-          <div className="relative h-72 w-full bg-muted">
+          <div className="relative h-64 w-full bg-muted">
             <Image 
               src={liveMapImage?.imageUrl || "https://picsum.photos/seed/map-ap/800/400"} 
               fill 
@@ -77,7 +110,7 @@ export default function RiderDashboard() {
               data-ai-hint="andhra map"
             />
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-              <div className="bg-accent p-3 rounded-full shadow-[0_0_20px_rgba(var(--accent),0.5)] animate-pulse border-4 border-white">
+              <div className="bg-accent p-3 rounded-full shadow-[0_0_20px_rgba(255,165,0,0.5)] animate-pulse border-4 border-white">
                 <Bus className="h-6 w-6 text-white" />
               </div>
             </div>
@@ -122,11 +155,43 @@ export default function RiderDashboard() {
           </Button>
         </div>
 
+        {/* Available Shuttles */}
+        <section className="space-y-6">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-2xl font-black font-headline tracking-tight uppercase italic text-primary">Live Shuttles</h2>
+            <Button variant="link" className="text-accent font-black uppercase text-[10px] tracking-widest">See All</Button>
+          </div>
+          <div className="space-y-4">
+            {availableShuttles.map((shuttle) => (
+              <Card key={shuttle.id} className="border-none shadow-lg bg-white rounded-3xl overflow-hidden hover:scale-[1.02] transition-transform cursor-pointer">
+                <CardContent className="p-6 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="bg-secondary p-3 rounded-2xl">
+                      <Bus className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="font-black text-primary uppercase italic text-sm">{shuttle.route}</h4>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> Starts {shuttle.time}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <Badge variant={shuttle.status === 'On Time' ? 'default' : 'secondary'} className="rounded-full px-3 text-[8px] font-black uppercase mb-1">
+                      {shuttle.status}
+                    </Badge>
+                    <p className="text-[10px] font-black text-accent uppercase">{shuttle.seats} Available</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+
         {/* Active Trip */}
         <section className="space-y-6">
           <div className="flex items-center justify-between px-2">
-            <h2 className="text-2xl font-black font-headline tracking-tight uppercase italic text-primary">College Shuttle</h2>
-            <Button variant="link" className="text-accent font-black uppercase text-[10px] tracking-widest">History</Button>
+            <h2 className="text-2xl font-black font-headline tracking-tight uppercase italic text-primary">Your Next Trip</h2>
           </div>
           <Card className="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden group">
             <CardContent className="p-0">
@@ -143,6 +208,10 @@ export default function RiderDashboard() {
                       <GraduationCap className="h-5 w-5 text-primary" />
                       <span className="uppercase italic tracking-tighter">STUDENT VERIFIED</span>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <MapPinned className="h-5 w-5 text-accent" />
+                      <span className="uppercase italic tracking-tighter">GATE 2 PICKUP</span>
+                    </div>
                   </div>
                </div>
             </CardContent>
@@ -152,7 +221,7 @@ export default function RiderDashboard() {
         {/* Membership */}
         <section className="p-8 bg-primary rounded-[2.5rem] text-white shadow-2xl shadow-primary/30 relative overflow-hidden">
            <div className="absolute top-0 right-0 p-4">
-             <Star className="h-12 w-12 text-white/10 rotate-12" />
+             <CreditCard className="h-12 w-12 text-white/10 rotate-12" />
            </div>
            <div className="relative z-10">
              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/80 mb-2">Vizag Smart Commuter</p>
@@ -164,7 +233,9 @@ export default function RiderDashboard() {
                  </div>
                  <div>
                     <p className="text-[8px] font-black opacity-60 uppercase tracking-widest">Aago Credits</p>
-                    <p className="font-black text-lg flex items-center gap-0.5"><IndianRupee className="h-4 w-4" /> 850</p>
+                    <p className="font-black text-lg flex items-center gap-0.5">
+                      <IndianRupee className="h-4 w-4" /> {profileLoading ? '...' : (profile?.credits || 850)}
+                    </p>
                  </div>
                </div>
                <Button className="bg-accent hover:bg-accent/90 rounded-2xl font-black h-12 px-6 uppercase tracking-tighter italic">TOP UP</Button>
