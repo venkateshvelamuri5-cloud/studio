@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -20,7 +21,8 @@ import {
   Map as MapIcon,
   CreditCard,
   IndianRupee,
-  Smartphone
+  Smartphone,
+  GraduationCap
 } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
@@ -38,16 +40,16 @@ export default function RiderDashboard() {
           </div>
           <div>
             <h1 className="text-xl font-black font-headline tracking-tight leading-none italic uppercase">AAGO</h1>
-            <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest mt-1">Namaste, Rider</p>
+            <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest mt-1">Hello, Scholar</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
           <div className="relative bg-white/10 p-2 rounded-2xl">
             <Bell className="h-6 w-6" />
-            <span className="absolute top-1 right-1 bg-accent text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-black ring-2 ring-primary">3</span>
+            <span className="absolute top-1 right-1 bg-accent text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-black ring-2 ring-primary">2</span>
           </div>
           <div className="h-10 w-10 rounded-2xl bg-accent flex items-center justify-center border-2 border-white/20 font-black text-white shadow-lg shadow-accent/20">
-            A
+            S
           </div>
         </div>
       </header>
@@ -60,7 +62,7 @@ export default function RiderDashboard() {
           </div>
           <Input 
             className="pl-14 h-16 rounded-[1.5rem] border-none shadow-xl bg-white text-lg font-bold placeholder:text-muted-foreground/50 focus-visible:ring-accent"
-            placeholder="Search for your office/home"
+            placeholder="Search College / Campus"
           />
         </div>
 
@@ -68,31 +70,23 @@ export default function RiderDashboard() {
         <Card className="overflow-hidden border-none shadow-2xl bg-white rounded-[2.5rem]">
           <div className="relative h-72 w-full bg-muted">
             <Image 
-              src={liveMapImage?.imageUrl || "https://picsum.photos/seed/map1/800/400"} 
+              src={liveMapImage?.imageUrl || "https://picsum.photos/seed/map-ap/800/400"} 
               fill 
               className="object-cover opacity-90" 
               alt="Live Map"
-              data-ai-hint="indian map"
+              data-ai-hint="andhra map"
             />
-            {/* Mock Map Markers - Bengaluru context */}
-            <div className="absolute top-1/3 left-1/3 -translate-x-1/2 -translate-y-1/2">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
               <div className="bg-accent p-3 rounded-full shadow-[0_0_20px_rgba(var(--accent),0.5)] animate-pulse border-4 border-white">
                 <Bus className="h-6 w-6 text-white" />
               </div>
-            </div>
-            
-            {/* Map Controls */}
-            <div className="absolute bottom-6 right-6 flex flex-col gap-3">
-              <Button size="icon" className="bg-white text-primary hover:bg-white/90 shadow-xl rounded-2xl h-12 w-12">
-                <MapPin className="h-6 w-6" />
-              </Button>
             </div>
             
             <div className="absolute top-6 left-6">
               <Badge className="bg-white/95 text-primary hover:bg-white font-black py-2 px-4 border-none rounded-2xl shadow-xl backdrop-blur-sm">
                 <span className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-green-500 animate-ping" />
-                  WHITEFIELD TRAFFIC: MODERATE
+                  VZM-VIZAG HIGHWAY: LIGHT
                 </span>
               </Badge>
             </div>
@@ -100,9 +94,9 @@ export default function RiderDashboard() {
           <CardContent className="p-8">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-black text-2xl font-headline text-primary italic uppercase tracking-tight">Koramangala Line #8</h3>
+                <h3 className="font-black text-2xl font-headline text-primary italic uppercase tracking-tight">GITAM Campus #4</h3>
                 <p className="text-sm text-muted-foreground font-bold flex items-center gap-2 mt-1 uppercase italic">
-                  <Clock className="h-4 w-4 text-accent" /> Arriving in 8 mins
+                  <Clock className="h-4 w-4 text-accent" /> Arriving in 5 mins
                 </p>
               </div>
               <Button className="bg-primary hover:bg-primary/90 rounded-2xl px-8 h-12 font-black shadow-lg shadow-primary/20 italic">
@@ -112,7 +106,7 @@ export default function RiderDashboard() {
           </CardContent>
         </Card>
 
-        {/* Action Grid - India context */}
+        {/* Action Grid */}
         <div className="grid grid-cols-2 gap-6">
           <Button variant="outline" className="h-32 flex-col gap-3 rounded-[2rem] border-none bg-white shadow-xl hover:bg-secondary transition-all group">
             <div className="bg-primary/10 p-3 rounded-2xl group-hover:bg-primary group-hover:rotate-12 transition-all">
@@ -124,14 +118,14 @@ export default function RiderDashboard() {
             <div className="bg-accent/10 p-3 rounded-2xl group-hover:bg-accent group-hover:-rotate-12 transition-all">
               <QrCode className="h-7 w-7 text-accent group-hover:text-white" />
             </div>
-            <span className="font-black uppercase tracking-widest text-[10px] text-muted-foreground italic">Boarding Pass</span>
+            <span className="font-black uppercase tracking-widest text-[10px] text-muted-foreground italic">Student ID</span>
           </Button>
         </div>
 
-        {/* Active Trip - Localized locations */}
+        {/* Active Trip */}
         <section className="space-y-6">
           <div className="flex items-center justify-between px-2">
-            <h2 className="text-2xl font-black font-headline tracking-tight uppercase italic text-primary">Your Upcoming Trip</h2>
+            <h2 className="text-2xl font-black font-headline tracking-tight uppercase italic text-primary">College Shuttle</h2>
             <Button variant="link" className="text-accent font-black uppercase text-[10px] tracking-widest">History</Button>
           </div>
           <Card className="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden group">
@@ -139,19 +133,15 @@ export default function RiderDashboard() {
                <div className="bg-accent/5 p-8 border-b border-accent/10">
                   <div className="flex justify-between items-start mb-6">
                     <div>
-                      <h4 className="font-black text-xl uppercase tracking-tighter text-primary italic">Cyber City Hub</h4>
-                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">RESERVED: 5:45 PM</p>
+                      <h4 className="font-black text-xl uppercase tracking-tighter text-primary italic">AU Campus Stop</h4>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">SCHEDULED: 8:15 AM</p>
                     </div>
                     <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/10 border-none font-black rounded-full px-4 text-[10px] tracking-widest">CONFIRMED</Badge>
                   </div>
                   <div className="flex items-center gap-6 text-[10px] font-black pt-6 border-t border-accent/20">
                     <div className="flex items-center gap-2">
-                      <Users className="h-5 w-5 text-primary" />
-                      <span className="uppercase italic tracking-tighter">SEAT 04-AC</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="h-5 w-5 text-green-600" />
-                      <span className="uppercase italic tracking-tighter">QR VERIFIED</span>
+                      <GraduationCap className="h-5 w-5 text-primary" />
+                      <span className="uppercase italic tracking-tighter">STUDENT VERIFIED</span>
                     </div>
                   </div>
                </div>
@@ -159,35 +149,35 @@ export default function RiderDashboard() {
           </Card>
         </section>
 
-        {/* Membership Status - INR Currency */}
+        {/* Membership */}
         <section className="p-8 bg-primary rounded-[2.5rem] text-white shadow-2xl shadow-primary/30 relative overflow-hidden">
            <div className="absolute top-0 right-0 p-4">
              <Star className="h-12 w-12 text-white/10 rotate-12" />
            </div>
            <div className="relative z-10">
-             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/80 mb-2">Member Rewards</p>
-             <h3 className="text-3xl font-black font-headline italic mb-6 tracking-tight">GOLD COMMUTER</h3>
+             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/80 mb-2">Vizag Smart Commuter</p>
+             <h3 className="text-3xl font-black font-headline italic mb-6 tracking-tight">PLATINUM SCHOLAR</h3>
              <div className="flex items-center justify-between">
                <div className="flex items-center gap-4">
                  <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center border border-white/20">
                    <CreditCard className="h-6 w-6" />
                  </div>
                  <div>
-                    <p className="text-[8px] font-black opacity-60 uppercase tracking-widest">Aago Balance</p>
-                    <p className="font-black text-lg flex items-center gap-0.5"><IndianRupee className="h-4 w-4" /> 450</p>
+                    <p className="text-[8px] font-black opacity-60 uppercase tracking-widest">Aago Credits</p>
+                    <p className="font-black text-lg flex items-center gap-0.5"><IndianRupee className="h-4 w-4" /> 850</p>
                  </div>
                </div>
-               <Button className="bg-accent hover:bg-accent/90 rounded-2xl font-black h-12 px-6 uppercase tracking-tighter italic">RECHARGE</Button>
+               <Button className="bg-accent hover:bg-accent/90 rounded-2xl font-black h-12 px-6 uppercase tracking-tighter italic">TOP UP</Button>
              </div>
            </div>
         </section>
       </main>
 
-      {/* Modern Floating Bottom Nav */}
+      {/* Navigation */}
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-sm z-50">
         <nav className="bg-white/90 backdrop-blur-2xl border border-secondary p-4 flex justify-between items-center rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.15)]">
           <div className="flex flex-col items-center gap-1 text-primary group cursor-pointer">
-            <div className="bg-primary/10 p-2 rounded-2xl group-hover:scale-110 transition-transform">
+            <div className="bg-primary/10 p-2 rounded-2xl">
               <Bus className="h-6 w-6" />
             </div>
           </div>

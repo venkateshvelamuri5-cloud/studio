@@ -19,7 +19,8 @@ import {
   Zap,
   ChevronDown,
   LayoutDashboard,
-  Calendar
+  Calendar,
+  Clock
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -28,37 +29,31 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer,
-  LineChart,
-  Line
+  ResponsiveContainer
 } from 'recharts';
 import { generateShuttleRoutes } from '@/ai/flows/admin-generate-shuttle-routes';
 
-const data = [
-  { name: 'Mon', riders: 4000 },
-  { name: 'Tue', riders: 3000 },
-  { name: 'Wed', riders: 2000 },
-  { name: 'Thu', riders: 2780 },
-  { name: 'Fri', riders: 1890 },
-  { name: 'Sat', riders: 2390 },
-  { name: 'Sun', riders: 3490 },
+const ridershipData = [
+  { name: 'Vizag', riders: 8500 },
+  { name: 'VZM', riders: 3200 },
+  { name: 'AP-Hway', riders: 4500 },
+  { name: 'Gitam', riders: 5100 },
+  { name: 'AU', riders: 3800 },
 ];
 
 export default function AdminDashboard() {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizationResult, setOptimizationResult] = useState<any>(null);
-  
-  // Form state for AI generation
-  const [demandPatterns, setDemandPatterns] = useState("High demand from West dorms to Science labs between 8-10 AM. Evening peaks from Library to Main Square.");
+  const [demandPatterns, setDemandPatterns] = useState("High demand from Vizianagaram to GITAM/AU campuses between 7-9 AM. Weekend peak for students returning home.");
 
   const handleOptimize = async () => {
     setIsOptimizing(true);
     try {
       const result = await generateShuttleRoutes({
         studentDemandPatterns: demandPatterns,
-        historicalTrafficData: "Heavy congestion on Main St between 5-6 PM",
-        preferredServiceHours: "6 AM to 11 PM daily",
-        numberOfShuttlesAvailable: 12
+        historicalTrafficData: "Congestion at Maddilapalem and VZM Highway junctions during morning peaks.",
+        preferredServiceHours: "6 AM to 9 PM Monday-Saturday",
+        numberOfShuttlesAvailable: 15
       });
       setOptimizationResult(result);
     } catch (error) {
@@ -75,7 +70,7 @@ export default function AdminDashboard() {
         <div className="p-6 h-20 flex items-center border-b border-white/10">
           <div className="flex items-center gap-2">
             <Bus className="h-6 w-6 text-accent" />
-            <span className="text-2xl font-bold font-headline">Aago Admin</span>
+            <span className="text-2xl font-bold font-headline italic">Aago AP Ops</span>
           </div>
         </div>
         <nav className="flex-1 p-4 space-y-2">
@@ -83,24 +78,24 @@ export default function AdminDashboard() {
             <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
           </Button>
           <Button variant="ghost" className="w-full justify-start text-white hover:bg-white/10">
-            <Map className="mr-2 h-4 w-4" /> Routes & Schedules
+            <Map className="mr-2 h-4 w-4" /> Regional Routes
           </Button>
           <Button variant="ghost" className="w-full justify-start text-white hover:bg-white/10">
-            <Users className="mr-2 h-4 w-4" /> Students & Users
+            <Users className="mr-2 h-4 w-4" /> Student Registry
           </Button>
           <Button variant="ghost" className="w-full justify-start text-white hover:bg-white/10">
             <TrendingUp className="mr-2 h-4 w-4" /> Analytics
           </Button>
           <Button variant="ghost" className="w-full justify-start text-white hover:bg-white/10">
-            <Settings className="mr-2 h-4 w-4" /> System Settings
+            <Settings className="mr-2 h-4 w-4" /> Regional Settings
           </Button>
         </nav>
         <div className="p-4 border-t border-white/10">
           <div className="flex items-center gap-3 p-2 bg-white/5 rounded-lg">
-            <div className="h-8 w-8 rounded-full bg-accent text-white flex items-center justify-center font-bold">JD</div>
+            <div className="h-8 w-8 rounded-full bg-accent text-white flex items-center justify-center font-bold">AP</div>
             <div>
-              <p className="text-xs font-bold">John Doe</p>
-              <p className="text-[10px] text-white/60">System Administrator</p>
+              <p className="text-xs font-bold">Admin Panel</p>
+              <p className="text-[10px] text-white/60">Andhra Pradesh Zone</p>
             </div>
           </div>
         </div>
@@ -109,14 +104,11 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
         <header className="h-20 bg-white border-b px-8 flex items-center justify-between shadow-sm">
-          <h2 className="text-2xl font-bold font-headline text-primary">Overview Dashboard</h2>
+          <h2 className="text-2xl font-bold font-headline text-primary">AP Operations Overview</h2>
           <div className="flex items-center gap-4">
             <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 py-1">
-              System Online: 12 Vehicles Active
+              Active Fleet: 15 / 15
             </Badge>
-            <Button size="icon" variant="outline" className="rounded-full">
-              <Activity className="h-4 w-4" />
-            </Button>
           </div>
         </header>
 
@@ -124,10 +116,10 @@ export default function AdminDashboard() {
           {/* Key Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { label: 'Total Riders Today', value: '1,429', trend: '+12%', icon: Users },
-              { label: 'Avg. Wait Time', value: '6.4m', trend: '-2m', icon: Clock },
-              { label: 'Active Routes', value: '14', trend: 'Stable', icon: Map },
-              { label: 'Vehicle Uptime', value: '98.2%', trend: '+0.4%', icon: Activity },
+              { label: 'Total Student Riders', value: '4,210', trend: '+8%', icon: Users },
+              { label: 'Avg. Wait Time', value: '5.2m', trend: '-1.5m', icon: Clock },
+              { label: 'Campus Routes', value: '12', trend: 'Expanding', icon: Map },
+              { label: 'Bus Uptime', value: '99.1%', trend: '+0.2%', icon: Activity },
             ].map((metric, i) => (
               <Card key={i} className="border-none shadow-sm rounded-2xl">
                 <CardContent className="p-6">
@@ -150,12 +142,12 @@ export default function AdminDashboard() {
             {/* Chart */}
             <Card className="lg:col-span-2 border-none shadow-sm rounded-2xl">
               <CardHeader>
-                <CardTitle className="font-headline">Ridership Trends</CardTitle>
-                <CardDescription>Daily volume across all routes this week</CardDescription>
+                <CardTitle className="font-headline italic">Student Ridership by Hub</CardTitle>
+                <CardDescription>Vizag & Vizianagaram Campus Traffic</CardDescription>
               </CardHeader>
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data}>
+                  <BarChart data={ridershipData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} />
                     <YAxis axisLine={false} tickLine={false} />
@@ -168,46 +160,43 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
 
-            {/* AI Optimization Side Card */}
+            {/* AI Optimization */}
             <Card className="border-none shadow-lg bg-primary text-white rounded-2xl">
               <CardHeader>
                 <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-2">
                   <Zap className="h-6 w-6 text-accent" />
                 </div>
-                <CardTitle className="font-headline text-white">Aago AI Optimizer</CardTitle>
-                <CardDescription className="text-white/60">Generate and optimize routes using predictive demand patterns.</CardDescription>
+                <CardTitle className="font-headline text-white italic">Route Optimizer AI</CardTitle>
+                <CardDescription className="text-white/60">Generate student-optimized routes for AP highway.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-white/70">Current Insights</label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-white/70">Demand Analysis</label>
                   <Textarea 
                     value={demandPatterns} 
                     onChange={(e) => setDemandPatterns(e.target.value)}
                     className="bg-white/5 border-white/20 text-white placeholder:text-white/40 focus-visible:ring-accent h-24"
-                    placeholder="Enter demand patterns..."
                   />
                 </div>
                 <Button 
                   onClick={handleOptimize} 
                   disabled={isOptimizing}
-                  className="w-full bg-accent hover:bg-accent/90 text-white h-11 font-bold"
+                  className="w-full bg-accent hover:bg-accent/90 text-white h-11 font-bold italic"
                 >
-                  {isOptimizing ? "Optimizing..." : "Run Optimization"}
+                  {isOptimizing ? "Processing..." : "Run AI Optimization"}
                 </Button>
               </CardContent>
               {optimizationResult && (
-                <CardFooter className="pt-0 flex flex-col gap-2">
+                <CardFooter className="pt-0 flex flex-col gap-2 text-xs">
                   <div className="w-full h-px bg-white/10 my-2" />
-                  <div className="w-full">
-                    <p className="text-xs font-bold uppercase text-accent mb-2">Results Generated</p>
-                    <div className="space-y-2">
-                      {optimizationResult.optimizedRoutes.slice(0, 2).map((route: any, i: number) => (
-                        <div key={i} className="text-xs bg-white/5 p-2 rounded-lg flex items-center justify-between">
-                          <span>{route.routeName}</span>
-                          <Badge className="bg-accent/20 text-accent border-none scale-75">{route.estimatedDurationMinutes}m</Badge>
-                        </div>
-                      ))}
-                    </div>
+                  <p className="text-accent font-bold uppercase">Optimized Results Ready</p>
+                  <div className="w-full space-y-2">
+                    {optimizationResult.optimizedRoutes.slice(0, 2).map((route: any, i: number) => (
+                      <div key={i} className="bg-white/5 p-2 rounded-lg flex justify-between">
+                        <span>{route.routeName}</span>
+                        <span className="text-accent">{route.estimatedDurationMinutes}m</span>
+                      </div>
+                    ))}
                   </div>
                 </CardFooter>
               )}
@@ -216,20 +205,20 @@ export default function AdminDashboard() {
 
           {/* Active Alerts */}
           <section className="space-y-4">
-            <h3 className="text-xl font-bold font-headline text-primary">System Alerts</h3>
+            <h3 className="text-xl font-bold font-headline text-primary italic uppercase tracking-tight">Regional Alerts</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 bg-orange-50 border border-orange-200 rounded-2xl flex items-start gap-4">
                 <AlertTriangle className="h-5 w-5 text-orange-600 mt-1" />
                 <div>
-                  <h4 className="font-bold text-orange-900">Route Delay: North Campus</h4>
-                  <p className="text-sm text-orange-700">Shuttle #242 is experiencing heavy traffic on Elm Street. ETA increased by 8 minutes.</p>
+                  <h4 className="font-bold text-orange-900 italic">VZM Highway Traffic</h4>
+                  <p className="text-sm text-orange-700">Heavy congestion at Tagarapuvalasa. Expect 15 min delays for Vizag-bound shuttles.</p>
                 </div>
               </div>
-              <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-4">
-                <AlertTriangle className="h-5 w-5 text-red-600 mt-1" />
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-start gap-4">
+                <Plus className="h-5 w-5 text-blue-600 mt-1" />
                 <div>
-                  <h4 className="font-bold text-red-900">Vehicle Maintenance Required</h4>
-                  <p className="text-sm text-red-700">Shuttle #109 reported engine warning light. Schedule replacement vehicle immediately.</p>
+                  <h4 className="font-bold text-blue-900 italic">Guntur Expansion Hub</h4>
+                  <p className="text-sm text-blue-700">Site survey completed for Guntur launch. Recruiting local captains for next week.</p>
                 </div>
               </div>
             </div>

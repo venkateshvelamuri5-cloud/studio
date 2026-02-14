@@ -1,16 +1,17 @@
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Bus, MapPin, Clock, Shield, Users, Smartphone, ArrowRight, Zap, Star, Download, IndianRupee } from 'lucide-react';
+import { Bus, MapPin, Clock, Shield, Users, Smartphone, ArrowRight, Zap, Star, Download, IndianRupee, GraduationCap } from 'lucide-react';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 
 export default function LandingPage() {
   const studentMobile = PlaceHolderImages.find(img => img.id === 'student-mobile');
 
   return (
-    <div className="flex flex-col min-h-screen selection:bg-accent selection:text-white">
-      {/* Consumer Navigation */}
+    <div className="flex flex-col min-h-screen selection:bg-accent selection:text-white font-body">
+      {/* Navigation */}
       <header className="px-6 lg:px-12 h-20 flex items-center bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-secondary">
         <Link className="flex items-center justify-center gap-2 group" href="/">
           <div className="bg-primary p-2 rounded-2xl group-hover:rotate-12 transition-transform duration-300">
@@ -19,42 +20,42 @@ export default function LandingPage() {
           <span className="text-2xl font-black tracking-tight text-primary font-headline italic">AAGO</span>
         </Link>
         <nav className="ml-auto flex gap-8 items-center">
-          <Link className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors hidden md:block" href="#how-it-works">How it works</Link>
-          <Link className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors hidden md:block" href="#pricing">Passes</Link>
+          <Link className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors hidden md:block" href="#how-it-works">Why Aago?</Link>
+          <Link className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors hidden md:block" href="#pricing">Student Pass</Link>
           <div className="h-4 w-px bg-border hidden md:block" />
           <Link href="/auth/login">
             <Button variant="ghost" className="font-bold text-primary">Log In</Button>
           </Link>
           <Link href="/auth/signup">
             <Button className="bg-primary hover:bg-primary/90 text-white px-8 rounded-full font-bold shadow-lg shadow-primary/20">
-              Join Now
+              Get Started
             </Button>
           </Link>
         </nav>
       </header>
 
       <main className="flex-1">
-        {/* B2C Hero Section - Localized for India */}
+        {/* Hero Section */}
         <section className="w-full py-16 md:py-24 lg:py-32 bg-white relative overflow-hidden">
           <div className="container px-4 md:px-6 mx-auto">
             <div className="grid gap-16 lg:grid-cols-2 items-center">
               <div className="flex flex-col justify-center space-y-10">
                 <div className="space-y-6">
                   <div className="inline-flex items-center gap-2 rounded-full bg-accent/10 px-4 py-2 text-sm font-black text-accent border border-accent/20">
-                    <Star className="h-4 w-4 fill-accent" />
-                    MADE FOR MODERN INDIA
+                    <GraduationCap className="h-4 w-4" />
+                    EXCLUSIVE FOR STUDENTS
                   </div>
                   <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl xl:text-8xl/tight text-primary font-headline">
-                    Beat the Traffic. <br /><span className="text-accent">Travel VIP.</span>
+                    Skip the Bus Rush. <br /><span className="text-accent">Study in Peace.</span>
                   </h1>
                   <p className="max-w-[540px] text-muted-foreground md:text-xl/relaxed font-medium">
-                    No more waiting for cancellations or autos. Guaranteed seats in luxury AC shuttles across Bengaluru, Mumbai, and Delhi. Smart, safe, and silent.
+                    Tired of the Vizag city bus crowd? Aago provides guaranteed AC seats for students in Vizag & Vizianagaram. Reach college fresh, safe, and on time.
                   </p>
                 </div>
                 <div className="flex flex-col gap-4 min-[400px]:flex-row">
                   <Link href="/auth/signup">
                     <Button size="lg" className="h-16 px-10 text-xl bg-primary hover:bg-primary/90 rounded-2xl shadow-xl shadow-primary/30">
-                      Book a Free Ride
+                      Claim Student Discount
                     </Button>
                   </Link>
                   <Button size="lg" variant="outline" className="h-16 px-10 text-xl border-2 rounded-2xl">
@@ -65,7 +66,7 @@ export default function LandingPage() {
                   <div className="flex -space-x-3">
                     {[1, 2, 3, 4, 5].map((i) => (
                       <div key={i} className="h-10 w-10 rounded-full border-4 border-white bg-secondary flex items-center justify-center overflow-hidden">
-                        <Image src={`https://picsum.photos/seed/rider${i}/100/100`} width={40} height={40} alt="Rider" />
+                        <Image src={`https://picsum.photos/seed/student-ap-${i}/100/100`} width={40} height={40} alt="Student" />
                       </div>
                     ))}
                   </div>
@@ -73,7 +74,7 @@ export default function LandingPage() {
                     <div className="flex text-yellow-400">
                       {[1, 2, 3, 4, 5].map(i => <Star key={i} className="h-4 w-4 fill-current" />)}
                     </div>
-                    <p className="text-sm font-bold text-muted-foreground">Trusted by 5 Lakh+ daily commuters</p>
+                    <p className="text-sm font-bold text-muted-foreground">Serving 10,000+ students daily in AP</p>
                   </div>
                 </div>
               </div>
@@ -81,21 +82,20 @@ export default function LandingPage() {
                 <div className="absolute -inset-4 bg-gradient-to-tr from-primary/20 via-accent/20 to-transparent rounded-[3rem] blur-3xl opacity-50"></div>
                 <div className="relative">
                   <Image
-                    alt="Aago Rider App"
+                    alt="Aago Student App"
                     className="mx-auto rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.15)] border-8 border-white"
                     height={700}
                     width={500}
-                    src={studentMobile?.imageUrl || "https://picsum.photos/seed/aago2/600/800"}
-                    data-ai-hint="indian rider"
+                    src={studentMobile?.imageUrl || "https://picsum.photos/seed/student-mobile/600/800"}
+                    data-ai-hint="indian student"
                   />
-                  {/* Floating Notification UI Element */}
                   <div className="absolute top-1/4 -right-12 bg-white p-4 rounded-3xl shadow-2xl border flex items-center gap-3 animate-bounce-slow">
                     <div className="bg-green-100 p-2 rounded-full">
                       <Clock className="h-5 w-5 text-green-600" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-muted-foreground">SHUTTLE ARRIVING</p>
-                      <p className="text-sm font-black italic">Silk Board Junction</p>
+                      <p className="text-xs font-bold text-muted-foreground">SHUTTLE AT GITAM STOP</p>
+                      <p className="text-sm font-black italic">3 Mins Away</p>
                     </div>
                   </div>
                 </div>
@@ -104,23 +104,23 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Localized Benefits */}
+        {/* Benefits */}
         <section id="how-it-works" className="w-full py-24 bg-secondary/50">
           <div className="container px-4 md:px-6 mx-auto">
             <div className="flex flex-col items-center justify-center space-y-4 text-center mb-20">
-              <h2 className="text-4xl font-extrabold tracking-tight sm:text-6xl text-primary font-headline">The Smart Way to Commute</h2>
+              <h2 className="text-4xl font-extrabold tracking-tight sm:text-6xl text-primary font-headline italic">Student-First Commute</h2>
               <p className="max-w-[700px] text-muted-foreground md:text-xl/relaxed font-medium">
-                Designed for the busy Indian professional. Get your work done or take a nap while we handle the chaos of the road.
+                No more hanging from bus doors. Aago is designed specifically for Andhra's student community to ensure academic focus.
               </p>
             </div>
             <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
               {[
-                { title: "Live Tracking", desc: "Real-time updates to match your busy schedule. Never wait at a stand.", icon: MapPin },
-                { title: "Guaranteed AC Seat", desc: "Escape the heat. Book your premium AC seat in advance.", icon: Users },
-                { title: "Smart Routing", desc: "Our AI bypasses the worst traffic hotspots using real-time data.", icon: Zap },
-                { title: "Digital Payments", desc: "Pay with UPI, Credit Cards, or Aago Credits. No cash needed.", icon: Smartphone },
-                { title: "Safety First", desc: "Verified drivers and SOS features for late-night security.", icon: Shield },
-                { title: "Save Big", desc: "Passes that cost 70% less than daily cab bookings.", icon: Star },
+                { title: "Avoid the Rush", desc: "Guaranteed AC seats. No standing, no pushing, no crowds.", icon: Users },
+                { title: "Real-time Tracking", desc: "Know exactly where your shuttle is on the VZM-Vizag highway.", icon: MapPin },
+                { title: "Exam-Ready Comfort", desc: "Cool, quiet environment to revise your notes while you travel.", icon: Zap },
+                { title: "Safe for Everyone", desc: "Verified drivers and female-priority seating options.", icon: Shield },
+                { title: "Digital ID Check", desc: "Strictly for students with valid institution IDs.", icon: GraduationCap },
+                { title: "Pocket Friendly", desc: "Student passes that cost less than your daily canteen snacks.", icon: Star },
               ].map((feature, idx) => (
                 <Card key={idx} className="border-none shadow-xl hover:shadow-2xl transition-all duration-500 rounded-[2rem] bg-white group p-4">
                   <CardHeader>
@@ -138,100 +138,87 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Indian Pricing Section */}
-        <section id="pricing" className="w-full py-24 bg-white">
+        {/* Cities */}
+        <section className="w-full py-24 bg-white overflow-hidden">
           <div className="container px-4 md:px-6 mx-auto">
-            <div className="bg-primary rounded-[3rem] p-8 md:p-20 text-white relative overflow-hidden shadow-2xl shadow-primary/40">
-              <div className="absolute top-0 right-0 w-96 h-96 bg-accent opacity-20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-              
-              <div className="grid gap-12 lg:grid-cols-2 items-center relative z-10">
-                <div className="space-y-8">
-                  <h2 className="text-5xl font-black tracking-tight sm:text-7xl font-headline italic">One Pass. <br />Infinite Comfort.</h2>
-                  <p className="text-primary-foreground/80 text-xl font-medium max-w-[500px]">
-                    Fixed monthly costs. No surge pricing, ever. Join thousands of office-goers saving on their daily fuel.
-                  </p>
-                  <div className="flex flex-col gap-4 sm:flex-row">
-                    <Button size="lg" className="bg-accent hover:bg-accent/90 text-white font-black h-16 px-10 rounded-2xl text-xl italic uppercase tracking-tighter">
-                      Get Monthly Pass
-                    </Button>
-                    <Button size="lg" variant="outline" className="text-white border-white/40 hover:bg-white hover:text-primary h-16 px-10 rounded-2xl text-xl font-bold backdrop-blur-sm">
-                      Check Routes
-                    </Button>
+            <div className="grid gap-12 lg:grid-cols-2 items-center">
+              <div>
+                <h2 className="text-4xl font-black text-primary font-headline mb-8 italic uppercase tracking-tighter">Connecting Andhra Pradesh</h2>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-6 bg-primary/5 rounded-3xl border border-primary/10">
+                    <h4 className="font-black text-primary text-xl mb-1">Vizag</h4>
+                    <p className="text-sm font-bold text-muted-foreground">ACTIVE</p>
+                  </div>
+                  <div className="p-6 bg-primary/5 rounded-3xl border border-primary/10">
+                    <h4 className="font-black text-primary text-xl mb-1">Vizianagaram</h4>
+                    <p className="text-sm font-bold text-muted-foreground">ACTIVE</p>
+                  </div>
+                  <div className="p-6 bg-secondary rounded-3xl opacity-60">
+                    <h4 className="font-black text-muted-foreground text-xl mb-1">Vijayawada</h4>
+                    <p className="text-[10px] font-black tracking-widest">COMING SOON</p>
+                  </div>
+                  <div className="p-6 bg-secondary rounded-3xl opacity-60">
+                    <h4 className="font-black text-muted-foreground text-xl mb-1">Tirupati</h4>
+                    <p className="text-[10px] font-black tracking-widest">COMING SOON</p>
                   </div>
                 </div>
-                <div className="flex flex-col gap-6">
-                  <div className="bg-white/10 backdrop-blur-xl p-8 rounded-[2rem] border border-white/20">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="font-bold text-accent uppercase tracking-widest text-sm">Techie Pass (30 Days)</span>
-                      <span className="text-3xl font-black flex items-center gap-1"><IndianRupee className="h-6 w-6" /> 999</span>
-                    </div>
-                    <ul className="space-y-4">
-                      {[
-                        "Unlimited office-to-home rides",
-                        "Guaranteed Front Row seating",
-                        "Complimentary High-speed Wi-Fi",
-                        "Dedicated 24/7 Priority Support"
-                      ].map((item, i) => (
-                        <li key={i} className="flex items-center gap-3">
-                          <div className="h-6 w-6 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
-                            <Zap className="h-3 w-3 text-accent" />
-                          </div>
-                          <span className="text-lg font-medium">{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
+              </div>
+              <div className="bg-primary p-12 rounded-[3rem] text-white">
+                <h3 className="text-3xl font-black font-headline mb-6 italic uppercase">Expansion Alert!</h3>
+                <p className="text-primary-foreground/80 mb-8 font-medium">We are rapidly expanding to Guntur, Nellore, and Rajahmundry. Register your interest and get a 50% discount on your first month's pass when we launch.</p>
+                <Button className="bg-accent hover:bg-accent/90 text-white font-black h-14 rounded-2xl px-8">Notify Me</Button>
               </div>
             </div>
           </div>
         </section>
+
+        {/* Pricing */}
+        <section id="pricing" className="w-full py-24 bg-secondary/30">
+          <div className="container px-4 md:px-6 mx-auto">
+             <div className="max-w-4xl mx-auto bg-primary rounded-[3rem] p-8 md:p-16 text-white relative shadow-2xl">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-12">
+                   <div className="space-y-6 flex-1">
+                      <h2 className="text-5xl font-black font-headline italic uppercase tracking-tighter">Scholars Pass</h2>
+                      <p className="text-xl text-primary-foreground/80 font-medium">Unlimited travel between your home and campus. Fixed prices, zero surge.</p>
+                      <div className="flex items-center gap-2">
+                         <span className="text-6xl font-black italic"><IndianRupee className="inline h-10 w-10 -mr-2" /> 799</span>
+                         <span className="text-sm font-bold opacity-60 uppercase tracking-widest">/ Month</span>
+                      </div>
+                   </div>
+                   <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl border border-white/20 w-full md:w-80">
+                      <ul className="space-y-4 font-bold text-sm">
+                         <li className="flex items-center gap-2">
+                            <Zap className="h-4 w-4 text-accent" /> Guaranteed AC Seat
+                         </li>
+                         <li className="flex items-center gap-2">
+                            <Zap className="h-4 w-4 text-accent" /> VZM-Vizag Special
+                         </li>
+                         <li className="flex items-center gap-2">
+                            <Zap className="h-4 w-4 text-accent" /> High-speed Wi-Fi
+                         </li>
+                         <li className="flex items-center gap-2">
+                            <Zap className="h-4 w-4 text-accent" /> Priority Boarding
+                         </li>
+                      </ul>
+                      <Button className="w-full mt-8 bg-accent hover:bg-accent/90 text-white font-black h-14 rounded-2xl uppercase italic tracking-tighter">Get Pass</Button>
+                   </div>
+                </div>
+             </div>
+          </div>
+        </section>
       </main>
 
-      {/* Footer - Localized */}
       <footer className="w-full py-16 bg-white border-t border-secondary">
         <div className="container px-4 md:px-6 mx-auto">
-          <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-6">
-              <Link className="flex items-center gap-2" href="/">
-                <Bus className="h-6 w-6 text-primary" />
-                <span className="text-2xl font-black tracking-tight text-primary font-headline italic">AAGO</span>
-              </Link>
-              <p className="text-muted-foreground font-medium leading-relaxed">
-                Empowering India's urban commute. One comfortable seat at a time.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-black mb-6 text-primary uppercase tracking-widest text-xs">Cities</h4>
-              <ul className="space-y-4 text-sm font-bold text-muted-foreground">
-                <li><Link href="#" className="hover:text-primary transition-colors">Bengaluru</Link></li>
-                <li><Link href="#" className="hover:text-primary transition-colors">Mumbai</Link></li>
-                <li><Link href="#" className="hover:text-primary transition-colors">Delhi NCR</Link></li>
-                <li><Link href="#" className="hover:text-primary transition-colors">Hyderabad</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-black mb-6 text-primary uppercase tracking-widest text-xs">Aago for Business</h4>
-              <ul className="space-y-4 text-sm font-bold text-muted-foreground">
-                <li><Link href="#" className="hover:text-primary transition-colors">Corporate Tie-ups</Link></li>
-                <li><Link href="#" className="hover:text-primary transition-colors">Partner with Us</Link></li>
-                <li><Link href="#" className="hover:text-primary transition-colors">Fleet Management</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-black mb-6 text-primary uppercase tracking-widest text-xs">Company</h4>
-              <ul className="space-y-4 text-sm font-bold text-muted-foreground">
-                <li><Link href="#" className="hover:text-primary transition-colors">About Us</Link></li>
-                <li><Link href="#" className="hover:text-primary transition-colors">Safety</Link></li>
-                <li><Link href="#" className="hover:text-primary transition-colors">Careers</Link></li>
-              </ul>
-            </div>
-          </div>
-          <div className="mt-16 pt-8 border-t border-secondary flex flex-col sm:flex-row justify-between items-center gap-6">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest italic">© 2024 AAGO MOBILITY INDIA PVT LTD.</p>
-            <div className="flex gap-8">
-              <Link href="#" className="text-muted-foreground hover:text-primary transition-colors"><Smartphone className="h-5 w-5" /></Link>
-              <Link href="#" className="text-muted-foreground hover:text-primary transition-colors"><Users className="h-5 w-5" /></Link>
+          <div className="flex flex-col md:flex-row justify-between items-center gap-8">
+            <Link className="flex items-center gap-2" href="/">
+              <Bus className="h-6 w-6 text-primary" />
+              <span className="text-2xl font-black tracking-tight text-primary font-headline italic">AAGO</span>
+            </Link>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] italic">© 2024 AAGO MOBILITY AP PVT LTD. | Vizag & VZM Operations</p>
+            <div className="flex gap-6">
+               <Link href="#" className="text-muted-foreground hover:text-primary"><Smartphone className="h-5 w-5" /></Link>
+               <Link href="#" className="text-muted-foreground hover:text-primary"><Users className="h-5 w-5" /></Link>
             </div>
           </div>
         </div>
