@@ -9,6 +9,7 @@
         "uid": { "type": "string" },
         "fullName": { "type": "string" },
         "phoneNumber": { "type": "string" },
+        "email": { "type": "string" },
         "collegeName": { "type": "string" },
         "studentId": { "type": "string" },
         "city": { "type": "string", "enum": ["Vizag", "Vizianagaram"] },
@@ -19,7 +20,7 @@
         "totalTrips": { "type": "number", "default": 0 },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["uid", "fullName", "phoneNumber", "role"]
+      "required": ["uid", "fullName", "role"]
     },
     "Trip": {
       "title": "Trip",
@@ -38,7 +39,7 @@
     }
   },
   "auth": {
-    "providers": ["phone"]
+    "providers": ["phone", "password"]
   },
   "firestore": {
     "/users/{userId}": {

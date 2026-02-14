@@ -1,7 +1,8 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,7 +20,9 @@ import {
   Clock,
   MapPin,
   MoreVertical,
-  Navigation
+  Navigation,
+  LogOut,
+  ShieldAlert
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -31,8 +34,9 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { generateShuttleRoutes } from '@/ai/flows/admin-generate-shuttle-routes';
-import { useFirestore, useCollection } from '@/firebase';
-import { collection, query, where, limit } from 'firebase/firestore';
+import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
+import { collection, query, where, limit, doc } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
 
 const ridershipData = [
   { name: 'Vizag', riders: 8500 },
@@ -44,9 +48,29 @@ const ridershipData = [
 
 export default function AdminDashboard() {
   const db = useFirestore();
+  const auth = useAuth();
+  const router = useRouter();
+  const { user, loading: authLoading } = useUser();
+  
+  const userRef = useMemo(() => {
+    if (!db || !user?.uid) return null;
+    return doc(db, 'users', user.uid);
+  }, [db, user?.uid]);
+
+  const { data: profile, loading: profileLoading } = useDoc(userRef);
+
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizationResult, setOptimizationResult] = useState<any>(null);
   const [demandPatterns, setDemandPatterns] = useState("High demand from Vizianagaram to GITAM/AU campuses between 7-9 AM.");
+
+  // Role Protection
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/admin/login');
+    } else if (!authLoading && !profileLoading && profile && profile.role !== 'admin') {
+      router.push('/student');
+    }
+  }, [user, authLoading, profile, profileLoading, router]);
 
   // Drivers Collection Query
   const driversQuery = useMemo(() => {
@@ -67,6 +91,11 @@ export default function AdminDashboard() {
   const availableDrivers = drivers?.filter(d => d.status === 'available') || [];
   const onTripDrivers = drivers?.filter(d => d.status === 'on-trip') || [];
 
+  const handleSignOut = async () => {
+    await signOut(auth);
+    router.push('/admin/login');
+  };
+
   const handleOptimize = async () => {
     setIsOptimizing(true);
     try {
@@ -84,10 +113,34 @@ export default function AdminDashboard() {
     }
   };
 
+  if (authLoading || profileLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-primary font-body">
+        <div className="flex flex-col items-center gap-4 text-white">
+          <Loader2 className="h-12 w-12 animate-spin text-accent" />
+          <p className="font-black uppercase tracking-widest text-xs italic">Verifying Regional Access...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || profile?.role !== 'admin') {
+    return (
+      <div className="h-screen flex items-center justify-center bg-white p-8">
+        <div className="text-center space-y-6 max-w-sm">
+          <ShieldAlert className="h-20 w-20 text-destructive mx-auto" />
+          <h2 className="text-2xl font-black font-headline uppercase italic">Access Denied</h2>
+          <p className="font-bold text-muted-foreground">Your account does not have regional administrative privileges.</p>
+          <Button onClick={() => router.push('/')} className="w-full h-14 rounded-2xl font-black uppercase italic">Return Home</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-secondary/20 font-body">
       {/* Sidebar */}
-      <aside className="w-64 bg-primary text-white flex flex-col shrink-0">
+      <aside className="w-64 bg-primary text-white flex flex-col shrink-0 shadow-2xl z-20">
         <div className="p-6 h-20 flex items-center border-b border-white/10">
           <div className="flex items-center gap-2">
             <Bus className="h-6 w-6 text-accent" />
@@ -107,8 +160,8 @@ export default function AdminDashboard() {
           <Button variant="ghost" className="w-full justify-start text-white hover:bg-white/10 rounded-xl font-bold">
             <Users className="mr-2 h-4 w-4" /> Driver Registry
           </Button>
-          <Button variant="ghost" className="w-full justify-start text-white hover:bg-white/10 rounded-xl font-bold">
-            <Settings className="mr-2 h-4 w-4" /> Regional Ops
+          <Button variant="ghost" className="w-full justify-start text-white hover:bg-white/10 rounded-xl font-bold" onClick={handleSignOut}>
+            <LogOut className="mr-2 h-4 w-4" /> Log Out
           </Button>
         </nav>
         <div className="p-4 border-t border-white/10">
@@ -230,8 +283,8 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
 
-            {/* AI Optimizer Card (Keep Existing logic) */}
-            <Card className="border-none shadow-2xl bg-primary text-white rounded-[2.5rem] overflow-hidden">
+            {/* AI Optimizer Card */}
+            <Card className="border-none shadow-2xl bg-primary text-white rounded-[2.5rem] overflow-hidden relative">
               <div className="absolute top-0 right-0 p-6 opacity-10">
                 <Zap className="h-32 w-32" />
               </div>
@@ -338,31 +391,6 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </div>
-
-          {/* Regional Alerts */}
-          <section className="space-y-4 pb-10">
-            <h3 className="text-xl font-black font-headline text-primary italic uppercase tracking-tighter px-2">Operational Alerts</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-6 bg-orange-50 border border-orange-100 rounded-3xl flex items-start gap-5 shadow-sm">
-                <div className="bg-orange-100 p-3 rounded-2xl">
-                  <AlertTriangle className="h-6 w-6 text-orange-600" />
-                </div>
-                <div>
-                  <h4 className="font-black text-orange-900 italic uppercase text-sm mb-1 tracking-tighter">VZM Highway Traffic</h4>
-                  <p className="text-xs text-orange-700 font-bold leading-relaxed">Heavy congestion reported at Tagarapuvalasa Junction. Shuttles may experience 15-20 min delays. Rerouting considered.</p>
-                </div>
-              </div>
-              <div className="p-6 bg-blue-50 border border-blue-100 rounded-3xl flex items-start gap-5 shadow-sm">
-                <div className="bg-blue-100 p-3 rounded-2xl">
-                  <Activity className="h-6 w-6 text-blue-600" />
-                </div>
-                <div>
-                  <h4 className="font-black text-blue-900 italic uppercase text-sm mb-1 tracking-tighter">System Health</h4>
-                  <p className="text-xs text-blue-700 font-bold leading-relaxed">GPS polling rate optimized for Vizag coastal routes. Student tracking precision improved to ±5 meters.</p>
-                </div>
-              </div>
-            </div>
-          </section>
         </div>
       </main>
     </div>
