@@ -12,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter
 } from "@/components/ui/dialog";
 import { 
   Bus, 
@@ -20,7 +19,6 @@ import {
   Search, 
   Clock, 
   Bell, 
-  Menu,
   QrCode,
   Map as MapIcon,
   IndianRupee,
@@ -29,27 +27,25 @@ import {
   ChevronRight,
   Plus,
   Loader2,
-  CheckCircle2,
-  AlertCircle,
-  AlertTriangle
+  AlertTriangle,
 } from 'lucide-react';
 import Image from 'next/image';
-import { PlaceHolderImages } from '@/app/lib/placeholder-images';
+import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, increment, collection, query, where, limit, onSnapshot, orderBy, arrayUnion, addDoc } from 'firebase/firestore';
+import { doc, updateDoc, increment, collection, query, where, orderBy, arrayUnion, addDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 
-function getMarkerPos(lat?: number, lng?: number) {
-  if (!lat || !lng) return { top: '50%', left: '50%' };
-  const top = 100 - ((lat - 17.6) / (17.8 - 17.6)) * 100;
-  const left = ((lng - 83.1) / (83.4 - 83.1)) * 100;
-  return { 
-    top: `${Math.max(5, Math.min(95, top))}%`, 
-    left: `${Math.max(5, Math.min(95, left))}%` 
-  };
-}
+const containerStyle = {
+  width: '100%',
+  height: '100%'
+};
+
+const center = {
+  lat: 17.6868,
+  lng: 83.2185
+};
 
 export default function RiderDashboard() {
   const { user } = useUser();
@@ -58,6 +54,11 @@ export default function RiderDashboard() {
   const router = useRouter();
   const { toast } = useToast();
   
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
+  });
+
   const [isBooking, setIsBooking] = useState(false);
   const [isToppingUp, setIsToppingUp] = useState(false);
   const [isSendingSos, setIsSendingSos] = useState(false);
@@ -77,8 +78,6 @@ export default function RiderDashboard() {
   const { data: activeDrivers } = useCollection(
     useMemo(() => db ? query(collection(db, 'users'), where('status', '==', 'on-trip')) : null, [db])
   );
-
-  const liveMapImage = PlaceHolderImages.find(img => img.id === 'live-map');
 
   const handleSignOut = async () => {
     if (!auth) return;
@@ -143,11 +142,11 @@ export default function RiderDashboard() {
     setIsBooking(true);
     try {
       const tripRef = doc(db, 'trips', tripId);
-      await updateDoc(tripRef, {
+      updateDoc(tripRef, {
         riderCount: increment(1),
         passengers: arrayUnion(user?.uid)
       });
-      await updateDoc(userRef, {
+      updateDoc(userRef, {
         credits: increment(-50),
         lastTrip: routeName,
         activeTripId: tripId
@@ -216,7 +215,7 @@ export default function RiderDashboard() {
                 <div className="space-y-2">
                   <h3 className="text-2xl font-black font-headline italic uppercase tracking-tighter">Book a Seat</h3>
                   <p className="text-xs font-bold text-primary-foreground/70 uppercase tracking-widest flex items-center gap-1">
-                    <Clock className="h-3 w-3" /> {activeTrips.length} Shuttles Live Now
+                    <Clock className="h-3 w-3" /> {activeTrips?.length} Shuttles Live Now
                   </p>
                 </div>
                 <div className="bg-white/10 p-4 rounded-3xl group-hover:rotate-12 transition-transform">
@@ -233,12 +232,12 @@ export default function RiderDashboard() {
             <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
               {tripsLoading ? (
                 <div className="py-10 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto text-primary" /></div>
-              ) : activeTrips.length === 0 ? (
+              ) : activeTrips?.length === 0 ? (
                 <div className="py-10 text-center text-slate-400 font-bold italic uppercase text-xs border-2 border-dashed rounded-3xl">
                   No active shuttles in your region
                 </div>
               ) : (
-                activeTrips.map((trip: any) => (
+                activeTrips?.map((trip: any) => (
                   <div key={trip.id} className="p-5 bg-secondary/50 rounded-2xl flex items-center justify-between group hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/20">
                     <div className="space-y-1">
                       <h4 className="font-black text-primary uppercase italic text-sm">{trip.routeName}</h4>
@@ -316,34 +315,30 @@ export default function RiderDashboard() {
             <h4 className="text-xs font-black uppercase tracking-widest text-slate-500">Live GPS Intelligence</h4>
             <Badge variant="outline" className="border-slate-200 text-[8px] font-black uppercase text-green-600 bg-green-50">Fleet Secure</Badge>
           </div>
-          <Card className="overflow-hidden border-none shadow-lg bg-white rounded-[2rem] relative group cursor-pointer">
-            <div className="relative h-64 w-full bg-slate-100">
-              <Image 
-                src={liveMapImage?.imageUrl || "https://picsum.photos/seed/map-ap/800/400"} 
-                fill 
-                className="object-cover opacity-80" 
-                alt="Live Map"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-white/40 via-transparent to-transparent" />
-              
-              {activeDrivers?.map((driver: any) => {
-                const pos = getMarkerPos(driver.currentLat, driver.currentLng);
-                return (
-                  <div key={driver.id} className="absolute transition-all duration-1000" style={pos}>
-                    <div className="relative group">
-                      <div className="bg-primary p-2 rounded-full shadow-2xl animate-pulse ring-4 ring-primary/20">
-                        <Bus className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur px-2 py-0.5 rounded-full shadow-lg border border-primary/10 scale-75">
-                        <p className="text-[7px] font-black text-primary uppercase italic whitespace-nowrap">
-                          {driver.fullName?.split(' ')[0]} Hub
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <Card className="overflow-hidden border-none shadow-lg bg-white rounded-[2rem] h-64 relative group cursor-pointer">
+            {isLoaded ? (
+              <GoogleMap
+                mapContainerStyle={containerStyle}
+                center={center}
+                zoom={13}
+                options={{ disableDefaultUI: true }}
+              >
+                {activeDrivers?.map((driver: any) => (
+                  driver.currentLat && driver.currentLng && (
+                    <Marker 
+                      key={driver.id} 
+                      position={{ lat: driver.currentLat, lng: driver.currentLng }}
+                      title={driver.fullName}
+                      icon="https://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+                    />
+                  )
+                ))}
+              </GoogleMap>
+            ) : (
+              <div className="h-full w-full flex items-center justify-center bg-slate-100 text-slate-400 font-bold italic">
+                Initializing Maps...
+              </div>
+            )}
           </Card>
         </section>
 
@@ -355,12 +350,12 @@ export default function RiderDashboard() {
            <div className="space-y-3">
               {routesLoading ? (
                 <div className="p-4 text-center animate-pulse text-xs font-bold text-slate-400">Syncing Network...</div>
-              ) : routes.length === 0 ? (
+              ) : routes?.length === 0 ? (
                 <div className="p-8 text-center bg-white rounded-2xl border-2 border-dashed">
                   <p className="text-xs font-bold text-slate-400 italic">No routes published by Admin yet.</p>
                 </div>
               ) : (
-                routes.map((route: any) => (
+                routes?.map((route: any) => (
                   <div key={route.id} className="flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border border-slate-50 group hover:border-primary/20 transition-colors cursor-pointer">
                      <div className="flex items-center gap-4">
                         <div className="bg-slate-50 p-2.5 rounded-xl group-hover:bg-primary/5">

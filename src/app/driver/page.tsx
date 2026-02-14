@@ -2,16 +2,13 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { 
   Bus, 
-  MapPin, 
-  Users, 
   Clock, 
   Navigation,
   Phone,
@@ -19,15 +16,12 @@ import {
   Loader2,
   ShieldAlert,
   LogOut,
-  Lock,
   MessageSquarePlus,
   IndianRupee,
   Wallet,
-  Activity,
   AlertTriangle
 } from 'lucide-react';
-import Image from 'next/image';
-import { PlaceHolderImages } from '@/app/lib/placeholder-images';
+import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
 import { doc, updateDoc, serverTimestamp, collection, addDoc, onSnapshot, query, where, increment } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
@@ -37,22 +31,16 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Dialog as ShadDialog,
   DialogContent as ShadDialogContent,
-  DialogDescription as ShadDialogDescription,
   DialogHeader as ShadDialogHeader,
   DialogTitle as ShadDialogTitle,
   DialogTrigger as ShadDialogTrigger,
   DialogFooter as ShadDialogFooter
 } from "@/components/ui/dialog";
 
-function getMarkerPos(lat?: number, lng?: number) {
-  if (!lat || !lng) return { top: '50%', left: '50%' };
-  const top = 100 - ((lat - 17.6) / (17.8 - 17.6)) * 100;
-  const left = ((lng - 83.1) / (83.4 - 83.1)) * 100;
-  return { 
-    top: `${Math.max(5, Math.min(95, top))}%`, 
-    left: `${Math.max(5, Math.min(95, left))}%` 
-  };
-}
+const containerStyle = {
+  width: '100%',
+  height: '100%'
+};
 
 export default function DriverConsole() {
   const { user, loading: authLoading } = useUser();
@@ -60,6 +48,11 @@ export default function DriverConsole() {
   const auth = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
+  });
 
   const [activeTab, setActiveTab] = useState<'missions' | 'earnings' | 'support'>('missions');
   const [activeTrip, setActiveTrip] = useState<any>(null);
@@ -84,8 +77,6 @@ export default function DriverConsole() {
   const [suggestedStops, setSuggestedStops] = useState('');
   const [suggestedDescription, setSuggestedDescription] = useState('');
   const [isSuggestDialogOpen, setIsSuggestDialogOpen] = useState(false);
-
-  const mapImage = PlaceHolderImages.find(img => img.id === 'live-map');
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -275,7 +266,7 @@ export default function DriverConsole() {
           <div className="h-12 w-12 rounded-2xl bg-primary flex items-center justify-center font-black text-xl">{profile?.fullName?.[0]}</div>
           <div>
             <h1 className="font-black italic uppercase text-sm leading-none">{profile?.fullName}</h1>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">HUB: {profile.city}</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">HUB: {profile?.city}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -287,7 +278,7 @@ export default function DriverConsole() {
           >
             {isSendingSos ? <Loader2 className="animate-spin" /> : <AlertTriangle className="h-6 w-6" />}
           </Button>
-          <Button size="icon" variant="ghost" disabled={isUpdating} onClick={toggleDuty} className="rounded-2xl bg-slate-800 h-12 w-12"><Power className={`h-6 w-6 ${profile.status !== 'offline' ? 'text-green-500' : 'text-slate-500'}`} /></Button>
+          <Button size="icon" variant="ghost" disabled={isUpdating} onClick={toggleDuty} className="rounded-2xl bg-slate-800 h-12 w-12"><Power className={`h-6 w-6 ${profile?.status !== 'offline' ? 'text-green-500' : 'text-slate-500'}`} /></Button>
         </div>
       </header>
 
@@ -333,7 +324,7 @@ export default function DriverConsole() {
                               <span className="flex items-center gap-1"><IndianRupee className="h-3 w-3" /> ₹{route.basePayout || 150}</span>
                             </div>
                           </div>
-                          <Button onClick={() => startTrip(route.routeName, route.basePayout)} disabled={profile.status !== 'available' || isUpdating || !canStart} className={`${canStart ? 'bg-primary' : 'bg-slate-800'} rounded-2xl h-12 font-black italic uppercase`}>
+                          <Button onClick={() => startTrip(route.routeName, route.basePayout)} disabled={profile?.status !== 'available' || isUpdating || !canStart} className={`${canStart ? 'bg-primary' : 'bg-slate-800'} rounded-2xl h-12 font-black italic uppercase`}>
                             {canStart ? 'Start Mission' : 'Locked'}
                           </Button>
                         </CardContent>
@@ -345,15 +336,25 @@ export default function DriverConsole() {
             ) : (
               <div className="space-y-6">
                 <Card className="bg-primary text-white border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
-                  <div className="h-48 relative bg-slate-900">
-                    <Image src={mapImage?.imageUrl || ""} fill className="object-cover opacity-40" alt="Radar" />
-                    <div className="absolute transition-all duration-1000" style={getMarkerPos(profile.currentLat, profile.currentLng)}>
-                       <div className="bg-white p-3 rounded-full animate-pulse shadow-2xl"><Navigation className="h-6 w-6 text-primary fill-primary" /></div>
-                    </div>
+                  <div className="h-64 relative bg-slate-900">
+                    {isLoaded ? (
+                      <GoogleMap
+                        mapContainerStyle={containerStyle}
+                        center={{ lat: profile?.currentLat || 17.6868, lng: profile?.currentLng || 83.2185 }}
+                        zoom={16}
+                        options={{ disableDefaultUI: true }}
+                      >
+                        <Marker position={{ lat: profile?.currentLat || 17.6868, lng: profile?.currentLng || 83.2185 }} />
+                      </GoogleMap>
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-xs font-black uppercase italic">
+                        Loading GPS...
+                      </div>
+                    )}
                   </div>
                   <CardContent className="p-8 space-y-6">
                     <div>
-                      <Badge className="bg-white/20 text-white mb-2 font-black uppercase text-[8px]">Active Mission: {profile.city}</Badge>
+                      <Badge className="bg-white/20 text-white mb-2 font-black uppercase text-[8px]">Active Mission: {profile?.city}</Badge>
                       <h2 className="text-3xl font-black italic uppercase">{activeTrip.routeName}</h2>
                     </div>
                     <div className="flex gap-4">
@@ -374,11 +375,11 @@ export default function DriverConsole() {
             <div className="grid grid-cols-2 gap-4">
               <Card className="bg-slate-900 border-white/5 p-6 rounded-[2rem]">
                 <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Today's Take</p>
-                <h3 className="text-3xl font-black italic text-primary mt-1">₹{profile.weeklyEarnings % 1000}</h3>
+                <h3 className="text-3xl font-black italic text-primary mt-1">₹{(profile?.weeklyEarnings || 0) % 1000}</h3>
               </Card>
               <Card className="bg-slate-900 border-white/5 p-6 rounded-[2rem]">
                 <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Weekly Payout</p>
-                <h3 className="text-3xl font-black italic text-accent mt-1">₹{profile.weeklyEarnings || 0}</h3>
+                <h3 className="text-3xl font-black italic text-accent mt-1">₹{profile?.weeklyEarnings || 0}</h3>
               </Card>
             </div>
             
@@ -386,7 +387,7 @@ export default function DriverConsole() {
                <div className="flex items-center justify-between">
                  <div>
                     <p className="text-xs font-black uppercase tracking-widest opacity-60">Lifetime Earnings</p>
-                    <h2 className="text-5xl font-black italic font-headline mt-2">₹{profile.totalEarnings || 0}</h2>
+                    <h2 className="text-5xl font-black italic font-headline mt-2">₹{profile?.totalEarnings || 0}</h2>
                  </div>
                  <Wallet className="h-16 w-16 opacity-20" />
                </div>

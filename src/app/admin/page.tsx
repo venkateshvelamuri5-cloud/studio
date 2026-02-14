@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,11 +10,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { 
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -23,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { 
   Bus, 
@@ -34,25 +31,17 @@ import {
   LogOut,
   ShieldAlert,
   Loader2,
-  UserPlus,
-  Settings2,
-  Clock,
   Trash2,
   Truck,
   Map as MapIcon,
-  CheckCircle2,
-  XCircle,
   MessageSquareShare,
   IndianRupee,
   Wallet,
   Users,
   Search,
-  ChevronRight,
   AlertTriangle,
   BarChart3,
-  TrendingUp
 } from 'lucide-react';
-import Image from 'next/image';
 import { 
   BarChart, 
   Bar, 
@@ -61,26 +50,23 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  AreaChart,
-  Area
 } from 'recharts';
+import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { generateShuttleRoutes } from '@/ai/flows/admin-generate-shuttle-routes';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
 import { collection, query, where, limit, doc, updateDoc, addDoc, deleteDoc, getDocs, orderBy, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
-import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 
-function getMarkerPos(lat?: number, lng?: number) {
-  if (!lat || !lng) return { top: '50%', left: '50%' };
-  // Visual mapping for Vizag region (approximate bounding box)
-  const top = 100 - ((lat - 17.6) / (17.8 - 17.6)) * 100;
-  const left = ((lng - 83.1) / (83.4 - 83.1)) * 100;
-  return { 
-    top: `${Math.max(5, Math.min(95, top))}%`, 
-    left: `${Math.max(5, Math.min(95, left))}%` 
-  };
-}
+const containerStyle = {
+  width: '100%',
+  height: '100%'
+};
+
+const center = {
+  lat: 17.6868,
+  lng: 83.2185
+};
 
 export default function AdminDashboard() {
   const db = useFirestore();
@@ -89,6 +75,11 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useUser();
   
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
+  });
+
   const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'drivers' | 'scholars' | 'suggestions' | 'finance' | 'safety'>('dashboard');
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -98,7 +89,6 @@ export default function AdminDashboard() {
   }, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
-  // REAL DATA QUERIES
   const { data: allUsers } = useCollection(
     useMemo(() => db ? query(collection(db, 'users')) : null, [db])
   );
@@ -122,8 +112,6 @@ export default function AdminDashboard() {
     useMemo(() => db ? query(collection(db, 'alerts'), where('status', '==', 'active'), orderBy('timestamp', 'desc')) : null, [db])
   );
 
-  const mapImage = PlaceHolderImages.find(img => img.id === 'live-map');
-
   const availableDrivers = drivers?.filter(d => d.status === 'available') || [];
   const onTripDrivers = drivers?.filter(d => d.status === 'on-trip') || [];
 
@@ -138,7 +126,6 @@ export default function AdminDashboard() {
 
   const totalRegionalDebt = drivers?.reduce((acc, d) => acc + (d.weeklyEarnings || 0), 0) || 0;
 
-  // Real data for charts: Calculate trips per hub or ridership per route
   const ridershipByRouteData = useMemo(() => {
     if (!activeTrips) return [];
     return activeTrips.map(trip => ({
@@ -155,7 +142,7 @@ export default function AdminDashboard() {
 
   const handleResolveAlert = async (id: string) => {
     if (!db) return;
-    await updateDoc(doc(db, 'alerts', id), { status: 'resolved' });
+    updateDoc(doc(db, 'alerts', id), { status: 'resolved' });
     toast({ title: "Signal Resolved", description: "Emergency protocol cleared." });
   };
 
@@ -168,7 +155,7 @@ export default function AdminDashboard() {
       const snap = await getDocs(q);
       
       if (!snap.empty) {
-        await updateDoc(doc(db, 'users', snap.docs[0].id), { 
+        updateDoc(doc(db, 'users', snap.docs[0].id), { 
           role: 'driver',
           fullName: newDriverName,
           city: newDriverCity,
@@ -177,7 +164,7 @@ export default function AdminDashboard() {
         toast({ title: "Workforce Updated", description: `${newDriverName} is now an official driver.` });
       } else {
         const driverId = `DRV_${Date.now()}`;
-        await setDoc(doc(db, 'users', driverId), {
+        setDoc(doc(db, 'users', driverId), {
           uid: driverId,
           fullName: newDriverName,
           phoneNumber: formattedPhone,
@@ -213,7 +200,7 @@ export default function AdminDashboard() {
       });
       
       for (const route of result.optimizedRoutes) {
-        await addDoc(collection(db, 'routes'), {
+        addDoc(collection(db, 'routes'), {
           ...route,
           city: targetCity,
           scheduledTime: "08:00", 
@@ -234,35 +221,20 @@ export default function AdminDashboard() {
 
   const handleReviewSuggestion = async (id: string, action: 'approve' | 'reject') => {
     if (!db) return;
-    try {
-      await updateDoc(doc(db, 'routes', id), {
-        status: action === 'approve' ? 'active' : 'rejected',
-        isActive: action === 'approve',
-        basePayout: 150,
-        approvedAt: action === 'approve' ? new Date().toISOString() : null,
-        scheduledTime: action === 'approve' ? "08:00" : null
-      });
-      toast({ title: action === 'approve' ? "Route Approved" : "Suggestion Rejected" });
-    } catch (err) {
-      console.error(err);
-      toast({ variant: "destructive", title: "Operation Failed" });
-    }
+    updateDoc(doc(db, 'routes', id), {
+      status: action === 'approve' ? 'active' : 'rejected',
+      isActive: action === 'approve',
+      basePayout: 150,
+      approvedAt: action === 'approve' ? new Date().toISOString() : null,
+      scheduledTime: action === 'approve' ? "08:00" : null
+    });
+    toast({ title: action === 'approve' ? "Route Approved" : "Suggestion Rejected" });
   };
 
   const handleDeleteRoute = async (id: string) => {
     if (!db) return;
-    try {
-      await deleteDoc(doc(db, 'routes', id));
-      toast({ title: "Route Removed" });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleUpdateRole = async (uid: string, newRole: string) => {
-    if (!db) return;
-    await updateDoc(doc(db, 'users', uid), { role: newRole });
-    toast({ title: "Registry Updated" });
+    deleteDoc(doc(db, 'routes', id));
+    toast({ title: "Route Removed" });
   };
 
   if (authLoading || profileLoading) {
@@ -340,7 +312,7 @@ export default function AdminDashboard() {
             <h2 className="text-2xl font-black font-headline text-primary italic uppercase tracking-tight">
               {activeTab.toUpperCase()}
             </h2>
-            <Badge variant="secondary" className="bg-slate-100 text-slate-500 font-bold border-none px-3 uppercase text-[9px] tracking-wider">{profile.city} HUB</Badge>
+            <Badge variant="secondary" className="bg-slate-100 text-slate-500 font-bold border-none px-3 uppercase text-[9px] tracking-wider">{profile?.city} HUB</Badge>
           </div>
           {activeAlerts && activeAlerts.length > 0 && (
             <div className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-full border border-red-100 animate-pulse">
@@ -461,11 +433,17 @@ export default function AdminDashboard() {
                       <Badge className="bg-white/20 text-white uppercase font-black text-[10px] border-none mt-2">{alert.role} TERMINAL</Badge>
                     </CardHeader>
                     <CardContent className="p-6 space-y-6">
-                      <div className="h-32 bg-slate-100 rounded-2xl relative overflow-hidden">
-                         <Image src={mapImage?.imageUrl || ""} fill className="object-cover opacity-30" alt="Map" />
-                         <div className="absolute" style={getMarkerPos(alert.lat, alert.lng)}>
-                            <div className="bg-red-500 p-2 rounded-full animate-ping"><Navigation className="h-4 w-4 text-white" /></div>
-                         </div>
+                      <div className="h-48 bg-slate-100 rounded-2xl relative overflow-hidden">
+                        {isLoaded && (
+                          <GoogleMap
+                            mapContainerStyle={containerStyle}
+                            center={{ lat: alert.lat || 17.6868, lng: alert.lng || 83.2185 }}
+                            zoom={15}
+                            options={{ disableDefaultUI: true }}
+                          >
+                            <Marker position={{ lat: alert.lat || 17.6868, lng: alert.lng || 83.2185 }} />
+                          </GoogleMap>
+                        )}
                       </div>
                       <Button onClick={() => handleResolveAlert(alert.id)} className="w-full bg-green-500 hover:bg-green-600 h-14 rounded-2xl font-black uppercase italic">Resolve Signal</Button>
                     </CardContent>
@@ -507,7 +485,7 @@ export default function AdminDashboard() {
                            <td className="py-6 font-bold text-xs uppercase">{rider.collegeName}</td>
                            <td className="py-6 text-center">₹{rider.credits || 0}</td>
                            <td className="py-6 text-right pr-8 font-bold text-[10px] text-muted-foreground">
-                             {new Date(rider.createdAt).toLocaleDateString()}
+                             {rider.createdAt ? new Date(rider.createdAt).toLocaleDateString() : 'N/A'}
                            </td>
                          </tr>
                        ))}
@@ -520,17 +498,29 @@ export default function AdminDashboard() {
 
           {activeTab === 'fleet' && (
             <div className="space-y-6 h-full flex flex-col">
-              <Card className="border-none shadow-2xl bg-white rounded-[3rem] overflow-hidden flex-1 relative">
-                <div className="absolute inset-0 bg-slate-900">
-                   <Image src={mapImage?.imageUrl || ""} fill className="object-cover opacity-40" alt="Radar" />
-                   {drivers?.map((driver: any) => (
-                     <div key={driver.uid} className="absolute" style={getMarkerPos(driver.currentLat, driver.currentLng)}>
-                       <div className={`p-3 rounded-full shadow-2xl ${driver.status === 'on-trip' ? 'bg-primary' : driver.status === 'available' ? 'bg-green-500' : 'bg-slate-700'}`}>
-                         <Bus className="h-5 w-5 text-white" />
-                       </div>
-                     </div>
-                   ))}
-                </div>
+              <Card className="border-none shadow-2xl bg-white rounded-[3rem] overflow-hidden flex-1 relative min-h-[500px]">
+                {isLoaded ? (
+                  <GoogleMap
+                    mapContainerStyle={containerStyle}
+                    center={center}
+                    zoom={12}
+                  >
+                    {drivers?.map((driver: any) => (
+                      driver.currentLat && driver.currentLng && (
+                        <Marker 
+                          key={driver.uid} 
+                          position={{ lat: driver.currentLat, lng: driver.currentLng }}
+                          title={driver.fullName}
+                          icon={driver.status === 'on-trip' ? 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png' : 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'}
+                        />
+                      )
+                    ))}
+                  </GoogleMap>
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center bg-slate-900 text-white font-black italic uppercase">
+                    Initializing Satellite Feed...
+                  </div>
+                )}
               </Card>
             </div>
           )}
@@ -642,6 +632,9 @@ export default function AdminDashboard() {
                     <Button className="rounded-xl font-bold h-12 bg-primary">Add Driver</Button>
                   </DialogTrigger>
                   <DialogContent className="rounded-[2.5rem] bg-white">
+                    <DialogHeader>
+                      <DialogTitle className="font-black italic uppercase">Register Workforce</DialogTitle>
+                    </DialogHeader>
                     <div className="py-6 space-y-4">
                       <Input placeholder="Driver Name" value={newDriverName} onChange={(e) => setNewDriverName(e.target.value)} />
                       <Input placeholder="+91..." value={newDriverPhone} onChange={(e) => setNewDriverPhone(e.target.value)} />
