@@ -1,0 +1,40 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero-shuttle",
+      "description": "Modern campus shuttle bus",
+      "imageUrl": "https://picsum.photos/seed/aago1/1200/800",
+      "imageHint": "campus shuttle"
+    },
+    {
+      "id": "student-mobile",
+      "description": "Student using a mobile app to track a shuttle",
+      "imageUrl": "https://picsum.photos/seed/aago2/600/800",
+      "imageHint": "student phone"
+    },
+    {
+      "id": "admin-dashboard",
+      "description": "Professional administrative dashboard interface",
+      "imageUrl": "https://picsum.photos/seed/aago3/800/600",
+      "imageHint": "dashboard analytics"
+    },
+    {
+      "id": "map-tracking",
+      "description": "Real-time map tracking visualization",
+      "imageUrl": "https://picsum.photos/seed/aago4/800/600",
+      "imageHint": "map tracking"
+    },
+    {
+      "id": "driver-app",
+      "description": "Driver using tablet in vehicle",
+      "imageUrl": "https://picsum.photos/seed/aago5/800/600",
+      "imageHint": "driver tablet"
+    },
+    {
+      "id": "live-map",
+      "description": "Live tracking map view",
+      "imageUrl": "https://picsum.photos/seed/map1/800/400",
+      "imageHint": "city map"
+    }
+  ]
+}
