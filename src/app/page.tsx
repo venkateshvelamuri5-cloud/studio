@@ -3,7 +3,26 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Bus, MapPin, Clock, Shield, Users, Smartphone, ArrowRight, Zap, Star, Download, IndianRupee, GraduationCap } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Bus, 
+  MapPin, 
+  Clock, 
+  Shield, 
+  Users, 
+  Smartphone, 
+  ArrowRight, 
+  Zap, 
+  Star, 
+  Download, 
+  IndianRupee, 
+  GraduationCap,
+  Instagram,
+  Twitter,
+  Facebook,
+  Mail,
+  Phone
+} from 'lucide-react';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 
 export default function LandingPage() {
@@ -158,14 +177,14 @@ export default function LandingPage() {
                     <p className="text-[10px] font-black tracking-widest">COMING SOON</p>
                   </div>
                   <div className="p-6 bg-secondary rounded-3xl opacity-60">
-                    <h4 className="font-black text-muted-foreground text-xl mb-1">Tirupati</h4>
+                    <h4 className="font-black text-muted-foreground text-xl mb-1">Guntur</h4>
                     <p className="text-[10px] font-black tracking-widest">COMING SOON</p>
                   </div>
                 </div>
               </div>
               <div className="bg-primary p-12 rounded-[3rem] text-white">
                 <h3 className="text-3xl font-black font-headline mb-6 italic uppercase">Expansion Alert!</h3>
-                <p className="text-primary-foreground/80 mb-8 font-medium">We are rapidly expanding to Guntur, Nellore, and Rajahmundry. Register your interest and get a 50% discount on your first month's pass when we launch.</p>
+                <p className="text-primary-foreground/80 mb-8 font-medium">We are rapidly expanding to Vijayawada, Guntur, and Tirupati. Register your interest and get a 50% discount on your first month's pass when we launch.</p>
                 <Button className="bg-accent hover:bg-accent/90 text-white font-black h-14 rounded-2xl px-8">Notify Me</Button>
               </div>
             </div>
@@ -208,17 +227,81 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className="w-full py-16 bg-white border-t border-secondary">
+      {/* Enhanced Footer */}
+      <footer className="w-full bg-white border-t border-secondary pt-24 pb-12">
         <div className="container px-4 md:px-6 mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-            <Link className="flex items-center gap-2" href="/">
-              <Bus className="h-6 w-6 text-primary" />
-              <span className="text-2xl font-black tracking-tight text-primary font-headline italic">AAGO</span>
-            </Link>
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] italic">© 2024 AAGO MOBILITY AP PVT LTD. | Vizag & VZM Operations</p>
-            <div className="flex gap-6">
-               <Link href="#" className="text-muted-foreground hover:text-primary"><Smartphone className="h-5 w-5" /></Link>
-               <Link href="#" className="text-muted-foreground hover:text-primary"><Users className="h-5 w-5" /></Link>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+            {/* Brand Column */}
+            <div className="space-y-6">
+              <Link className="flex items-center gap-2" href="/">
+                <div className="bg-primary p-2 rounded-xl">
+                  <Bus className="h-5 w-5 text-white" />
+                </div>
+                <span className="text-2xl font-black text-primary font-headline italic">AAGO</span>
+              </Link>
+              <p className="text-sm font-medium text-muted-foreground leading-relaxed">
+                Andhra Pradesh's first student-only smart shuttle service. Dedicated to making campus commutes safe, reliable, and comfortable for the next generation of scholars.
+              </p>
+              <div className="flex gap-4">
+                <Link href="#" className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all">
+                  <Instagram className="h-5 w-5" />
+                </Link>
+                <Link href="#" className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all">
+                  <Twitter className="h-5 w-5" />
+                </Link>
+                <Link href="#" className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all">
+                  <Facebook className="h-5 w-5" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Hubs Column */}
+            <div>
+              <h4 className="font-black text-primary font-headline italic uppercase tracking-widest text-xs mb-6">Regional Hubs</h4>
+              <ul className="space-y-4">
+                <li><Link href="#" className="text-sm font-bold text-muted-foreground hover:text-accent transition-colors">Visakhapatnam (Vizag)</Link></li>
+                <li><Link href="#" className="text-sm font-bold text-muted-foreground hover:text-accent transition-colors">Vizianagaram (VZM)</Link></li>
+                <li><Link href="#" className="text-sm font-bold text-muted-foreground hover:text-accent transition-colors flex items-center gap-2">Vijayawada <Badge variant="outline" className="text-[8px] h-4 px-1 uppercase tracking-tighter">Soon</Badge></Link></li>
+                <li><Link href="#" className="text-sm font-bold text-muted-foreground hover:text-accent transition-colors flex items-center gap-2">Guntur <Badge variant="outline" className="text-[8px] h-4 px-1 uppercase tracking-tighter">Soon</Badge></Link></li>
+              </ul>
+            </div>
+
+            {/* Students Column */}
+            <div>
+              <h4 className="font-black text-primary font-headline italic uppercase tracking-widest text-xs mb-6">For Students</h4>
+              <ul className="space-y-4">
+                <li><Link href="#" className="text-sm font-bold text-muted-foreground hover:text-accent transition-colors">Scholars Pass</Link></li>
+                <li><Link href="#" className="text-sm font-bold text-muted-foreground hover:text-accent transition-colors">Campus Routes</Link></li>
+                <li><Link href="#" className="text-sm font-bold text-muted-foreground hover:text-accent transition-colors">ID Verification</Link></li>
+                <li><Link href="#" className="text-sm font-bold text-muted-foreground hover:text-accent transition-colors">Female-First Safety</Link></li>
+              </ul>
+            </div>
+
+            {/* Support Column */}
+            <div>
+              <h4 className="font-black text-primary font-headline italic uppercase tracking-widest text-xs mb-6">Get in Touch</h4>
+              <ul className="space-y-4">
+                <li className="flex items-center gap-3 text-sm font-bold text-muted-foreground">
+                  <Mail className="h-4 w-4 text-accent" /> support@aago.in
+                </li>
+                <li className="flex items-center gap-3 text-sm font-bold text-muted-foreground">
+                  <Phone className="h-4 w-4 text-accent" /> +91 891 123 4567
+                </li>
+                <li className="flex items-center gap-3 text-sm font-bold text-muted-foreground">
+                  <MapPin className="h-4 w-4 text-accent" /> Beach Road, Vizag, AP
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="pt-8 border-t border-secondary flex flex-col md:flex-row justify-between items-center gap-6">
+            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] italic">
+              © 2024 AAGO MOBILITY AP PVT LTD. | Vizag & VZM Operations
+            </p>
+            <div className="flex gap-8 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              <Link href="#" className="hover:text-primary transition-colors">Privacy Policy</Link>
+              <Link href="#" className="hover:text-primary transition-colors">Terms of Service</Link>
+              <Link href="#" className="hover:text-primary transition-colors">Refund Policy</Link>
             </div>
           </div>
         </div>
