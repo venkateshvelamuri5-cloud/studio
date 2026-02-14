@@ -1,16 +1,18 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Bus, ArrowLeft, Smartphone, Loader2 } from 'lucide-react';
+import { Bus, ArrowLeft, Smartphone, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
+import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
@@ -18,31 +20,61 @@ export default function LoginPage() {
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState(1); // 1: Phone, 2: OTP
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [hostnameError, setHostnameError] = useState(false);
   
   const router = useRouter();
   const auth = useAuth();
+  const { toast } = useToast();
+  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
-    if (auth && !window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
-      });
+    if (auth && !recaptchaRef.current) {
+      try {
+        recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          size: 'invisible',
+          callback: () => {
+            // reCAPTCHA solved
+          }
+        });
+      } catch (error) {
+        console.error("reCAPTCHA initialization failed", error);
+      }
     }
+    
+    return () => {
+      if (recaptchaRef.current) {
+        recaptchaRef.current.clear();
+        recaptchaRef.current = null;
+      }
+    };
   }, [auth]);
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth) return;
+    if (!auth || !recaptchaRef.current) return;
     setLoading(true);
+    setHostnameError(false);
 
     try {
       const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
-      const appVerifier = window.recaptchaVerifier;
-      const result = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
+      const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaRef.current);
       setConfirmationResult(result);
       setStep(2);
+      toast({
+        title: "OTP Sent",
+        description: "Please check your mobile for the verification code.",
+      });
     } catch (error: any) {
       console.error("SMS Error", error);
+      if (error.code === 'auth/captcha-check-failed' || error.message?.includes('Hostname match not found')) {
+        setHostnameError(true);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Verification Failed",
+          description: error.message || "Could not send OTP. Please try again.",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -58,6 +90,11 @@ export default function LoginPage() {
       router.push('/student');
     } catch (error: any) {
       console.error("OTP Error", error);
+      toast({
+        variant: "destructive",
+        title: "Invalid OTP",
+        description: "The code you entered is incorrect. Please check and try again.",
+      });
     } finally {
       setLoading(false);
     }
@@ -84,6 +121,16 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="px-8">
+          {hostnameError && (
+            <Alert variant="destructive" className="mb-6 rounded-2xl">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Action Required</AlertTitle>
+              <AlertDescription className="text-xs">
+                Hostname mismatch. Please add <strong>{window.location.hostname}</strong> to "Authorized Domains" in your Firebase Console (Authentication > Settings).
+              </AlertDescription>
+            </Alert>
+          )}
+
           {step === 1 ? (
             <form onSubmit={handleSendOtp} className="space-y-6">
               <div className="space-y-2">
@@ -145,10 +192,4 @@ export default function LoginPage() {
       </Card>
     </div>
   );
-}
-
-declare global {
-  interface Window {
-    recaptchaVerifier: any;
-  }
 }
