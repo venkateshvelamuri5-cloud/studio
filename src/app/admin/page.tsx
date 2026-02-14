@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -22,7 +21,8 @@ import {
   MoreVertical,
   Navigation,
   LogOut,
-  ShieldAlert
+  ShieldAlert,
+  Loader2
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -92,6 +92,7 @@ export default function AdminDashboard() {
   const onTripDrivers = drivers?.filter(d => d.status === 'on-trip') || [];
 
   const handleSignOut = async () => {
+    if (!auth) return;
     await signOut(auth);
     router.push('/admin/login');
   };
