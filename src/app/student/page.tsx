@@ -57,11 +57,11 @@ export default function RiderDashboard() {
   }, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
-  // Available Routes
-  const routesQuery = useMemo(() => db ? query(collection(db, 'routes'), where('isActive', '==', true), limit(10)) : null, [db]);
+  // Available Routes (Deployed by Admin)
+  const routesQuery = useMemo(() => db ? query(collection(db, 'routes'), where('isActive', '==', true), orderBy('createdAt', 'desc')) : null, [db]);
   const { data: routes, loading: routesLoading } = useCollection(routesQuery);
 
-  // Active Trips
+  // Active Trips (Started by Drivers)
   const tripsQuery = useMemo(() => db ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db]);
   const { data: activeTrips, loading: tripsLoading } = useCollection(tripsQuery);
 
@@ -105,7 +105,7 @@ export default function RiderDashboard() {
     setIsBooking(true);
     try {
       const tripRef = doc(db, 'trips', tripId);
-      // Logic: Join trip and deduct fare
+      // Join trip and deduct fare
       await updateDoc(tripRef, {
         riderCount: increment(1)
       });
@@ -284,14 +284,14 @@ export default function RiderDashboard() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-white/90 via-transparent to-transparent" />
               
-              {/* Show actual moving shuttles if any */}
-              {activeTrips.slice(0, 1).map((trip: any) => (
-                <div key={trip.id} className="absolute top-1/2 left-1/3 -translate-x-1/2 -translate-y-1/2">
-                  <div className="bg-primary p-3 rounded-full shadow-2xl animate-bounce flex flex-col items-center">
-                    <Bus className="h-5 w-5 text-white" />
+              {/* Show all actual moving shuttles */}
+              {activeTrips.map((trip: any, i: number) => (
+                <div key={trip.id} className="absolute" style={{ top: `${20 + (i * 15)}%`, left: `${15 + (i * 20)}%` }}>
+                  <div className="bg-primary p-2 rounded-full shadow-2xl animate-pulse flex flex-col items-center">
+                    <Bus className="h-4 w-4 text-white" />
                   </div>
-                  <div className="mt-2 bg-white px-3 py-1 rounded-full shadow-lg border border-primary/10">
-                    <p className="text-[8px] font-black text-primary uppercase italic whitespace-nowrap">{trip.routeName}</p>
+                  <div className="mt-1 bg-white px-2 py-0.5 rounded-full shadow-lg border border-primary/10">
+                    <p className="text-[7px] font-black text-primary uppercase italic whitespace-nowrap">{trip.routeName}</p>
                   </div>
                 </div>
               ))}
@@ -301,7 +301,7 @@ export default function RiderDashboard() {
                  <div>
                     <p className="text-[10px] font-black text-primary uppercase tracking-widest italic">Live Regional Intelligence</p>
                     <h5 className="font-black text-slate-900 text-lg">
-                      {activeTrips.length > 0 ? `${activeTrips.length} Active Missions` : 'Scanning Network...'}
+                      {activeTrips.length > 0 ? `${activeTrips.length} Shuttles Active` : 'Scanning Network...'}
                     </h5>
                  </div>
                  <Button size="sm" variant="secondary" className="rounded-xl font-bold text-[10px] uppercase h-10 px-6">View Global Map</Button>
@@ -313,8 +313,8 @@ export default function RiderDashboard() {
         {/* Saved Routes */}
         <section className="space-y-4">
            <div className="flex items-center justify-between px-1">
-             <h4 className="text-xs font-black uppercase tracking-widest text-slate-500">Suggested Routes</h4>
-             <span className="text-[10px] font-bold text-slate-400">BASED ON CAMPUS</span>
+             <h4 className="text-xs font-black uppercase tracking-widest text-slate-500">Optimized Routes</h4>
+             <span className="text-[10px] font-bold text-slate-400">MANAGED BY AAGO</span>
            </div>
            <div className="space-y-3">
               {routesLoading ? (
@@ -332,7 +332,7 @@ export default function RiderDashboard() {
                         </div>
                         <div>
                            <p className="font-black text-slate-900 text-sm italic uppercase">{route.routeName}</p>
-                           <p className="text-[10px] font-bold text-slate-400 uppercase">{route.schedule} • {route.estimatedDurationMinutes}m</p>
+                           <p className="text-[10px] font-bold text-slate-400 uppercase">{route.schedule} &bull; {route.estimatedDurationMinutes}m</p>
                         </div>
                      </div>
                      <ChevronRight className="h-4 w-4 text-slate-300" />
@@ -343,7 +343,7 @@ export default function RiderDashboard() {
         </section>
       </main>
 
-      {/* Navigation */}
+      {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/80 backdrop-blur-xl border-t border-slate-100 z-50">
         <nav className="max-w-md mx-auto flex justify-around items-center">
           <Button variant="ghost" className="flex-col h-auto py-1 gap-1 text-primary">
