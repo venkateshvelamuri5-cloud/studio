@@ -1,8 +1,11 @@
 
+"use client";
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
   Bus, 
@@ -25,13 +28,140 @@ import {
   Truck,
   CheckCircle2,
   Ticket,
-  Navigation
+  Navigation,
+  QrCode,
+  Search,
+  Loader2
 } from 'lucide-react';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 
-export default function LandingPage() {
-  const studentMobile = PlaceHolderImages.find(img => img.id === 'student-mobile');
+function MobileBookingSimulator() {
+  const [step, setStep] = useState(0);
+  const mapImage = PlaceHolderImages.find(img => img.id === 'live-map');
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setStep((prev) => (prev + 1) % 4);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="relative mx-auto w-[300px] h-[600px] bg-slate-900 rounded-[3rem] border-[8px] border-slate-800 shadow-2xl overflow-hidden ring-4 ring-white/10 animate-in fade-in zoom-in duration-1000">
+      {/* Mobile Notch */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-slate-800 rounded-b-2xl z-20" />
+      
+      {/* App Screen Content */}
+      <div className="h-full w-full bg-[#F8F9FC] relative flex flex-col pt-8">
+        {/* Header */}
+        <div className="px-4 py-3 flex items-center justify-between border-b border-slate-100 bg-white">
+          <div className="flex items-center gap-2">
+            <div className="bg-primary p-1 rounded-lg">
+              <Bus className="h-3 w-3 text-white" />
+            </div>
+            <span className="text-[10px] font-black font-headline italic text-primary">AAGO</span>
+          </div>
+          <div className="h-6 w-6 rounded-full bg-slate-100 overflow-hidden" />
+        </div>
+
+        {/* Step 0: Searching */}
+        {step === 0 && (
+          <div className="p-4 flex-1 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+             <div className="space-y-1">
+               <h4 className="text-sm font-black italic">Hi, Scholar!</h4>
+               <p className="text-[8px] font-bold text-slate-400 uppercase">Finding your commute...</p>
+             </div>
+             <div className="h-32 rounded-2xl bg-slate-100 relative overflow-hidden">
+                <Image src={mapImage?.imageUrl || ""} fill className="object-cover opacity-50" alt="Map" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                   <div className="h-12 w-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+                </div>
+             </div>
+             <div className="space-y-2">
+                <div className="h-10 w-full bg-slate-50 rounded-xl border border-dashed flex items-center justify-center">
+                   <Search className="h-4 w-4 text-slate-300 mr-2" />
+                   <div className="h-2 w-20 bg-slate-200 rounded" />
+                </div>
+                <div className="h-10 w-full bg-slate-50 rounded-xl border border-dashed" />
+             </div>
+          </div>
+        )}
+
+        {/* Step 1: Selecting */}
+        {step === 1 && (
+          <div className="p-4 flex-1 space-y-4 animate-in fade-in slide-in-from-right-4 duration-500">
+             <h4 className="text-xs font-black uppercase italic text-primary">Available Shuttles</h4>
+             <div className="space-y-3">
+                {[1, 2].map(i => (
+                  <div key={i} className={`p-3 rounded-xl border ${i === 1 ? 'border-primary bg-primary/5' : 'bg-white'} flex items-center justify-between`}>
+                    <div className="space-y-1">
+                      <div className="h-2 w-16 bg-slate-400 rounded" />
+                      <div className="h-1 w-10 bg-slate-200 rounded" />
+                    </div>
+                    {i === 1 && <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center"><CheckCircle2 className="h-2 w-2 text-white" /></div>}
+                  </div>
+                ))}
+             </div>
+             <Button className="w-full bg-primary h-10 rounded-xl font-black italic uppercase text-[10px] mt-4">Book Express #4</Button>
+          </div>
+        )}
+
+        {/* Step 2: Confirmation */}
+        {step === 2 && (
+          <div className="p-4 flex-1 flex flex-col items-center justify-center space-y-4 animate-in zoom-in duration-500">
+             <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="h-8 w-8 text-green-600" />
+             </div>
+             <div className="text-center space-y-1">
+                <h4 className="text-sm font-black uppercase italic">Seat Reserved!</h4>
+                <p className="text-[8px] font-bold text-slate-400">Boarding Pass #24B Generated</p>
+             </div>
+             <div className="bg-white p-3 rounded-2xl shadow-xl border-2 border-primary mt-4">
+                <QrCode className="h-24 w-24 text-primary" />
+             </div>
+          </div>
+        )}
+
+        {/* Step 3: Tracking */}
+        {step === 3 && (
+          <div className="p-0 flex-1 relative animate-in fade-in duration-700">
+             <Image src={mapImage?.imageUrl || ""} fill className="object-cover" alt="Tracking" />
+             <div className="absolute top-4 left-4 right-4 bg-white/90 backdrop-blur p-3 rounded-2xl shadow-lg border border-primary/20">
+                <div className="flex items-center gap-3">
+                   <div className="h-8 w-8 bg-primary rounded-xl flex items-center justify-center text-white animate-bounce">
+                      <Bus className="h-4 w-4" />
+                   </div>
+                   <div>
+                      <p className="text-[8px] font-black uppercase opacity-60">SHUTTLE ARRIVING</p>
+                      <p className="text-[10px] font-black italic">120m &bull; Main Gate Stop</p>
+                   </div>
+                </div>
+             </div>
+             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-2/3">
+                <Button className="w-full bg-accent h-10 rounded-xl font-black italic uppercase text-[10px] shadow-xl">Contact Driver</Button>
+             </div>
+          </div>
+        )}
+
+        {/* Bottom Nav Mockup */}
+        <div className="h-16 bg-white border-t border-slate-100 flex justify-around items-center px-4">
+           {[Smartphone, Search, QrCode, MapPin, Bell].map((Icon, i) => (
+             <Icon key={i} className={`h-4 w-4 ${i === 0 && step < 3 ? 'text-primary' : i === 3 && step === 3 ? 'text-primary' : 'text-slate-300'}`} />
+           ))}
+        </div>
+      </div>
+
+      {/* Glossy Overlay */}
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-tr from-white/10 via-transparent to-transparent" />
+    </div>
+  );
+}
+
+const Bell = ({ className }: { className?: string }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+);
+
+export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen selection:bg-accent selection:text-white font-body overflow-x-hidden">
       {/* Navigation */}
@@ -64,15 +194,15 @@ export default function LandingPage() {
             <div className="grid gap-16 lg:grid-cols-2 items-center">
               <div className="flex flex-col justify-center space-y-10 animate-in fade-in slide-in-from-left-8 duration-1000">
                 <div className="space-y-6">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-accent/10 px-4 py-2 text-sm font-black text-accent border border-accent/20 animate-bounce-slow">
-                    <GraduationCap className="h-4 w-4" />
-                    EXCLUSIVE FOR STUDENTS
+                  <div className="inline-flex items-center gap-2 rounded-full bg-accent/10 px-4 py-2 text-sm font-black text-accent border border-accent/20">
+                    <Zap className="h-4 w-4 animate-pulse" />
+                    INSTANT CAMPUS COMMUTING
                   </div>
                   <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl xl:text-8xl/tight text-primary font-headline">
-                    Skip the Bus Rush. <br /><span className="text-accent italic">Ride Smart.</span>
+                    Your Ride. <br />Your Seat. <br /><span className="text-accent italic">Guaranteed.</span>
                   </h1>
-                  <p className="max-w-[540px] text-muted-foreground md:text-xl/relaxed font-medium">
-                    The only AC shuttle service dedicated to students in Vizag & Vizianagaram. Guaranteed seats, real-time tracking, and campus-to-home security.
+                  <p className="max-w-[540px] text-muted-foreground md:text-xl/relaxed font-medium leading-relaxed">
+                    Vizag's premium AC shuttle network for students. Book in seconds, track in real-time, and arrive in comfort.
                   </p>
                 </div>
                 <div className="flex flex-col gap-4 min-[400px]:flex-row">
@@ -82,55 +212,35 @@ export default function LandingPage() {
                     </Button>
                   </Link>
                   <Button size="lg" variant="outline" className="h-16 px-10 text-xl border-2 rounded-2xl hover:bg-secondary">
-                    <Download className="mr-2 h-6 w-6" /> Download App
+                    <Download className="mr-2 h-6 w-6" /> Get the App
                   </Button>
                 </div>
-                <div className="flex items-center gap-6">
-                  <div className="flex -space-x-3">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <div key={i} className="h-10 w-10 rounded-full border-4 border-white bg-secondary flex items-center justify-center overflow-hidden hover:scale-110 transition-transform cursor-pointer">
-                        <Image src={`https://picsum.photos/seed/student-ap-${i}/100/100`} width={40} height={40} alt="Student" />
-                      </div>
-                    ))}
-                  </div>
+                <div className="flex items-center gap-6 pt-4 border-t border-secondary">
                   <div className="space-y-1">
-                    <div className="flex text-yellow-400">
-                      {[1, 2, 3, 4, 5].map(i => <Star key={i} className="h-4 w-4 fill-current" />)}
-                    </div>
-                    <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest text-[10px]">10,000+ Students Onboarded</p>
+                    <p className="text-3xl font-black text-primary font-headline italic">10K+</p>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Active Scholars</p>
+                  </div>
+                  <div className="h-12 w-px bg-secondary" />
+                  <div className="space-y-1">
+                    <p className="text-3xl font-black text-accent font-headline italic">₹799</p>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Unlimited Monthly Pass</p>
                   </div>
                 </div>
               </div>
-              <div className="relative group lg:ml-auto animate-in fade-in zoom-in duration-1000 delay-200">
-                <div className="absolute -inset-4 bg-gradient-to-tr from-primary/20 via-accent/20 to-transparent rounded-[3rem] blur-3xl opacity-50"></div>
-                <div className="relative">
-                  <Image
-                    alt="Aago Student App"
-                    className="mx-auto rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.15)] border-8 border-white group-hover:scale-[1.02] transition-transform duration-500"
-                    height={700}
-                    width={500}
-                    src={studentMobile?.imageUrl || "https://picsum.photos/seed/aago-vizag-2/600/800"}
-                    data-ai-hint="indian student"
-                  />
-                  <div className="absolute top-1/4 -right-12 bg-white p-4 rounded-3xl shadow-2xl border flex items-center gap-3 animate-in slide-in-from-right-12 duration-1000 delay-500">
-                    <div className="bg-green-100 p-2 rounded-full animate-pulse">
-                      <Clock className="h-5 w-5 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-muted-foreground uppercase">GITAM SHUTTLE</p>
-                      <p className="text-sm font-black italic">Arriving in 2m</p>
-                    </div>
+
+              {/* Animated Mobile Mockup Integration */}
+              <div className="relative group lg:ml-auto">
+                <div className="absolute -inset-24 bg-gradient-to-tr from-primary/20 via-accent/20 to-transparent rounded-full blur-[100px] opacity-40 animate-pulse" />
+                <MobileBookingSimulator />
+                
+                {/* Floating Indicators */}
+                <div className="absolute top-20 -left-16 bg-white p-4 rounded-3xl shadow-2xl border flex items-center gap-3 animate-in slide-in-from-left-12 duration-1000 delay-500 hidden xl:flex">
+                  <div className="bg-green-100 p-2 rounded-full animate-pulse">
+                    <Clock className="h-5 w-5 text-green-600" />
                   </div>
-                  <div className="absolute bottom-1/4 -left-12 bg-primary p-4 rounded-3xl shadow-2xl text-white border-4 border-white animate-in slide-in-from-left-12 duration-1000 delay-700">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-white/20 p-2 rounded-xl">
-                        <CheckCircle2 className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black opacity-80 uppercase">SEAT STATUS</p>
-                        <p className="text-sm font-black italic">Reserved #24B</p>
-                      </div>
-                    </div>
+                  <div>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase">GITAM SHUTTLE</p>
+                    <p className="text-sm font-black italic">Arriving in 2m</p>
                   </div>
                 </div>
               </div>
@@ -150,7 +260,6 @@ export default function LandingPage() {
             </div>
 
             <div className="grid gap-12 lg:grid-cols-3 relative">
-              {/* Connector Line (Desktop Only) */}
               <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-primary/10 -translate-y-1/2 hidden lg:block" />
 
               {[
@@ -191,53 +300,6 @@ export default function LandingPage() {
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Animated Benefits Section */}
-        <section className="w-full py-24 bg-white">
-          <div className="container px-4 md:px-6 mx-auto">
-            <div className="grid gap-16 lg:grid-cols-2 items-center">
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { icon: Shield, title: "Female Safety", color: "bg-pink-50 text-pink-600" },
-                  { icon: Zap, title: "AC Comfort", color: "bg-blue-50 text-blue-600" },
-                  { icon: Clock, title: "On Time", color: "bg-green-50 text-green-600" },
-                  { icon: Users, title: "Zero Crowds", color: "bg-purple-50 text-purple-600" },
-                ].map((benefit, i) => (
-                  <Card key={i} className="border-none shadow-xl rounded-[2rem] hover:-translate-y-2 transition-transform duration-500">
-                    <CardContent className="p-8 text-center space-y-4">
-                      <div className={`w-12 h-12 ${benefit.color} rounded-2xl mx-auto flex items-center justify-center`}>
-                        <benefit.icon className="h-6 w-6" />
-                      </div>
-                      <h4 className="font-black text-primary uppercase italic text-sm">{benefit.title}</h4>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-              <div className="space-y-8">
-                <h2 className="text-4xl font-extrabold tracking-tight sm:text-5xl text-primary font-headline uppercase italic leading-none">
-                  Designed for the <br /><span className="text-accent underline decoration-4 underline-offset-8">Vizag Scholar</span>
-                </h2>
-                <p className="text-lg text-muted-foreground font-medium leading-relaxed">
-                  We understand that your time is valuable. Aago provides a quiet, cool environment where you can review your notes or relax, ensuring you arrive at college ready to excel.
-                </p>
-                <ul className="space-y-4">
-                  {[
-                    "Direct routes to GITAM, AU, and more",
-                    "Real-time highway traffic updates",
-                    "Student-only verified community"
-                  ].map((text, i) => (
-                    <li key={i} className="flex items-center gap-3 font-black text-primary italic uppercase text-sm">
-                      <div className="bg-accent/20 p-1 rounded-full">
-                        <CheckCircle2 className="h-4 w-4 text-accent" />
-                      </div>
-                      {text}
-                    </li>
-                  ))}
-                </ul>
-              </div>
             </div>
           </div>
         </section>
