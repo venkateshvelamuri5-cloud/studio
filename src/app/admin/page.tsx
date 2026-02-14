@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -63,15 +64,6 @@ export default function AdminDashboard() {
   const [optimizationResult, setOptimizationResult] = useState<any>(null);
   const [demandPatterns, setDemandPatterns] = useState("High demand from Vizianagaram to GITAM/AU campuses between 7-9 AM.");
 
-  // Role Protection
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/admin/login');
-    } else if (!authLoading && !profileLoading && profile && profile.role !== 'admin') {
-      router.push('/student');
-    }
-  }, [user, authLoading, profile, profileLoading, router]);
-
   // Drivers Collection Query
   const driversQuery = useMemo(() => {
     if (!db) return null;
@@ -125,6 +117,7 @@ export default function AdminDashboard() {
     );
   }
 
+  // Access check
   if (!user || profile?.role !== 'admin') {
     return (
       <div className="h-screen flex items-center justify-center bg-white p-8">
@@ -242,7 +235,7 @@ export default function AdminDashboard() {
                           </tr>
                         </thead>
                         <tbody className="divide-y">
-                          {drivers?.map((driver) => (
+                          {drivers?.map((driver: any) => (
                             <tr key={driver.uid} className="group hover:bg-secondary/30 transition-colors">
                               <td className="py-4 pl-2">
                                 <div className="flex items-center gap-3">
@@ -264,7 +257,7 @@ export default function AdminDashboard() {
                                 </Badge>
                               </td>
                               <td className="py-4 font-mono text-[10px] font-bold text-muted-foreground">
-                                {driver.currentLat?.toFixed(4)}, {driver.currentLng?.toFixed(4)}
+                                {driver.currentLat?.toFixed(4) || '0.0000'}, {driver.currentLng?.toFixed(4) || '0.0000'}
                               </td>
                               <td className="py-4 text-center">
                                 <span className="font-black text-primary italic text-sm">{driver.totalTrips || 0}</span>
@@ -347,7 +340,7 @@ export default function AdminDashboard() {
                       <p className="font-bold text-muted-foreground italic">No active trips currently.</p>
                     </div>
                   ) : (
-                    activeTrips?.map((trip) => (
+                    activeTrips?.map((trip: any) => (
                       <div key={trip.id} className="p-4 bg-secondary/50 rounded-2xl flex items-center justify-between border border-secondary">
                         <div className="flex items-center gap-4">
                           <div className="bg-primary/10 p-3 rounded-xl">

@@ -8,8 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Bus, Lock, Mail, Loader2 } from 'lucide-react';
-import { useAuth } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
@@ -20,15 +21,34 @@ export default function AdminLoginPage() {
   
   const router = useRouter();
   const auth = useAuth();
+  const db = useFirestore();
   const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth) return;
+    if (!auth || !db) return;
     setLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      const user = result.user;
+
+      // Check if user has a profile in Firestore
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+
+      // Provision admin profile if it's the specific admin email and doesn't exist
+      if (!userSnap.exists() && email === 'admin@aago.in') {
+        await setDoc(userRef, {
+          uid: user.uid,
+          email: user.email,
+          fullName: 'Regional Administrator',
+          role: 'admin',
+          createdAt: new Date().toISOString(),
+          city: 'Vizag'
+        });
+      }
+
       toast({
         title: "Admin Authenticated",
         description: "Accessing regional operations dashboard...",
@@ -39,7 +59,7 @@ export default function AdminLoginPage() {
       toast({
         variant: "destructive",
         title: "Access Denied",
-        description: "Invalid admin credentials. Please contact the head office.",
+        description: error.message || "Invalid admin credentials. Please contact the head office.",
       });
     } finally {
       setLoading(false);
