@@ -21,6 +21,7 @@ export default function LoginPage() {
   const [step, setStep] = useState(1); // 1: Phone, 2: OTP
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [hostnameError, setHostnameError] = useState(false);
+  const [currentHostname, setCurrentHostname] = useState('');
   
   const router = useRouter();
   const auth = useAuth();
@@ -28,6 +29,10 @@ export default function LoginPage() {
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setCurrentHostname(window.location.hostname);
+    }
+    
     if (auth && !recaptchaRef.current) {
       try {
         recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
@@ -113,7 +118,7 @@ export default function LoginPage() {
         </Link>
       </div>
 
-      <Card className="w-full max-w-md shadow-[0_32px_64px_-12px_rgba(0,0,0,0.1)] border-none rounded-[2.5rem] overflow-hidden bg-white">
+      <Card className="w-full max-w-md shadow-[0_32px_64px_-12px_rgba(0,0,0,0.15)] border-none rounded-[2.5rem] overflow-hidden bg-white">
         <CardHeader className="space-y-3 pt-10 pb-6">
           <CardTitle className="text-3xl font-black text-center font-headline uppercase italic tracking-tighter text-primary">Welcome Back</CardTitle>
           <CardDescription className="text-center font-bold text-muted-foreground">
@@ -126,7 +131,7 @@ export default function LoginPage() {
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Action Required</AlertTitle>
               <AlertDescription className="text-xs">
-                Hostname mismatch. Please add <strong>{window.location.hostname}</strong> to "Authorized Domains" in your Firebase Console (Authentication > Settings).
+                Hostname mismatch. Please add <strong>{currentHostname || 'your-hostname'}</strong> to &quot;Authorized Domains&quot; in your Firebase Console (Authentication &gt; Settings).
               </AlertDescription>
             </Alert>
           )}

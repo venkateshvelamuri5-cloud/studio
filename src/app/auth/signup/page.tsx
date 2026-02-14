@@ -29,6 +29,7 @@ export default function SignupPage() {
   const [otp, setOtp] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [hostnameError, setHostnameError] = useState(false);
+  const [currentHostname, setCurrentHostname] = useState('');
 
   const router = useRouter();
   const auth = useAuth();
@@ -37,6 +38,10 @@ export default function SignupPage() {
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setCurrentHostname(window.location.hostname);
+    }
+
     if (auth && !recaptchaRef.current) {
       try {
         recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
@@ -157,7 +162,7 @@ export default function SignupPage() {
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Action Required</AlertTitle>
               <AlertDescription className="text-xs">
-                Hostname mismatch. Please add <strong>{window.location.hostname}</strong> to "Authorized Domains" in your Firebase Console (Authentication > Settings).
+                Hostname mismatch. Please add <strong>{currentHostname || 'your-hostname'}</strong> to &quot;Authorized Domains&quot; in your Firebase Console (Authentication &gt; Settings).
               </AlertDescription>
             </Alert>
           )}
@@ -252,7 +257,7 @@ export default function SignupPage() {
                 disabled={loading || otp.length < 6}
                 className="w-full bg-primary hover:bg-primary/90 h-16 rounded-2xl text-lg font-black uppercase italic shadow-xl shadow-primary/20"
               >
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify & Sign Up"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify & Sign In"}
               </Button>
               <Button variant="ghost" onClick={() => setStep(2)} className="w-full font-bold">Change Number</Button>
             </form>
