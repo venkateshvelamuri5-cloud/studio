@@ -21,7 +21,8 @@ import {
   Twitter,
   Facebook,
   Mail,
-  Phone
+  Phone,
+  Truck
 } from 'lucide-react';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 
@@ -43,7 +44,7 @@ export default function LandingPage() {
           <Link className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors hidden md:block" href="#pricing">Student Pass</Link>
           <div className="h-4 w-px bg-border hidden md:block" />
           <Link href="/auth/login">
-            <Button variant="ghost" className="font-bold text-primary">Log In</Button>
+            <Button variant="ghost" className="font-bold text-primary">Student Login</Button>
           </Link>
           <Link href="/auth/signup">
             <Button className="bg-primary hover:bg-primary/90 text-white px-8 rounded-full font-bold shadow-lg shadow-primary/20">
@@ -105,7 +106,7 @@ export default function LandingPage() {
                     className="mx-auto rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.15)] border-8 border-white"
                     height={700}
                     width={500}
-                    src={studentMobile?.imageUrl || "https://picsum.photos/seed/student-mobile/600/800"}
+                    src={studentMobile?.imageUrl || "https://picsum.photos/seed/aago-vizag-2/600/800"}
                     data-ai-hint="indian student"
                   />
                   <div className="absolute top-1/4 -right-12 bg-white p-4 rounded-3xl shadow-2xl border flex items-center gap-3 animate-bounce-slow">
@@ -270,8 +271,8 @@ export default function LandingPage() {
             <div>
               <h4 className="font-black text-primary font-headline italic uppercase tracking-widest text-xs mb-6">For Students</h4>
               <ul className="space-y-4">
-                <li><Link href="#" className="text-sm font-bold text-muted-foreground hover:text-accent transition-colors">Scholars Pass</Link></li>
-                <li><Link href="#" className="text-sm font-bold text-muted-foreground hover:text-accent transition-colors">Campus Routes</Link></li>
+                <li><Link href="/auth/login" className="text-sm font-bold text-muted-foreground hover:text-accent transition-colors">Scholars Pass</Link></li>
+                <li><Link href="/auth/signup" className="text-sm font-bold text-muted-foreground hover:text-accent transition-colors">Campus Routes</Link></li>
                 <li><Link href="#" className="text-sm font-bold text-muted-foreground hover:text-accent transition-colors">ID Verification</Link></li>
                 <li><Link href="#" className="text-sm font-bold text-muted-foreground hover:text-accent transition-colors">Female-First Safety</Link></li>
               </ul>
@@ -279,16 +280,18 @@ export default function LandingPage() {
 
             {/* Support Column */}
             <div>
-              <h4 className="font-black text-primary font-headline italic uppercase tracking-widest text-xs mb-6">Get in Touch</h4>
+              <h4 className="font-black text-primary font-headline italic uppercase tracking-widest text-xs mb-6">Mobility Partners</h4>
               <ul className="space-y-4">
+                <li className="flex items-center gap-3 text-sm font-bold text-primary">
+                  <Link href="/driver/login" className="flex items-center gap-2 hover:underline">
+                    <Truck className="h-4 w-4" /> Driver Portal
+                  </Link>
+                </li>
                 <li className="flex items-center gap-3 text-sm font-bold text-muted-foreground">
                   <Mail className="h-4 w-4 text-accent" /> support@aago.in
                 </li>
                 <li className="flex items-center gap-3 text-sm font-bold text-muted-foreground">
                   <Phone className="h-4 w-4 text-accent" /> +91 891 123 4567
-                </li>
-                <li className="flex items-center gap-3 text-sm font-bold text-muted-foreground">
-                  <MapPin className="h-4 w-4 text-accent" /> Beach Road, Vizag, AP
                 </li>
               </ul>
             </div>
@@ -299,7 +302,7 @@ export default function LandingPage() {
               © 2024 AAGO MOBILITY AP PVT LTD. | Vizag & VZM Operations
             </p>
             <div className="flex gap-8 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-              <Link href="#" className="hover:text-primary transition-colors">Privacy Policy</Link>
+              <Link href="/admin/login" className="hover:text-primary transition-colors">Regional Admin</Link>
               <Link href="#" className="hover:text-primary transition-colors">Terms of Service</Link>
               <Link href="#" className="hover:text-primary transition-colors">Refund Policy</Link>
             </div>
