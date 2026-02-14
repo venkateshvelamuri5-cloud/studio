@@ -13,7 +13,8 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger
+  DialogTrigger,
+  DialogFooter
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -46,7 +47,10 @@ import {
   Wallet,
   Users,
   Search,
-  ChevronRight
+  ChevronRight,
+  AlertTriangle,
+  BarChart3,
+  TrendingUp
 } from 'lucide-react';
 import Image from 'next/image';
 import { 
@@ -56,7 +60,9 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer
+  ResponsiveContainer,
+  AreaChart,
+  Area
 } from 'recharts';
 import { generateShuttleRoutes } from '@/ai/flows/admin-generate-shuttle-routes';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
@@ -65,12 +71,14 @@ import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 
-const ridershipData = [
-  { name: 'Vizag', riders: 8500 },
-  { name: 'VZM', riders: 3200 },
-  { name: 'Highway', riders: 4500 },
-  { name: 'Gitam', riders: 5100 },
-  { name: 'AU', riders: 3800 },
+const performanceData = [
+  { time: '06:00', riders: 120, revenue: 5000 },
+  { time: '08:00', riders: 850, revenue: 35000 },
+  { time: '10:00', riders: 400, revenue: 18000 },
+  { time: '12:00', riders: 300, revenue: 12000 },
+  { time: '14:00', riders: 450, revenue: 20000 },
+  { time: '16:00', riders: 900, revenue: 42000 },
+  { time: '18:00', riders: 600, revenue: 28000 },
 ];
 
 function getMarkerPos(lat?: number, lng?: number) {
@@ -90,7 +98,7 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useUser();
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'drivers' | 'scholars' | 'suggestions' | 'finance'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'drivers' | 'scholars' | 'suggestions' | 'finance' | 'safety'>('dashboard');
   const [searchQuery, setSearchQuery] = useState("");
   
   const userRef = useMemo(() => {
@@ -118,6 +126,10 @@ export default function AdminDashboard() {
     useMemo(() => db ? query(collection(db, 'routes'), where('status', '==', 'suggested'), orderBy('createdAt', 'desc')) : null, [db])
   );
 
+  const { data: activeAlerts } = useCollection(
+    useMemo(() => db ? query(collection(db, 'alerts'), where('status', '==', 'active'), orderBy('timestamp', 'desc')) : null, [db])
+  );
+
   const mapImage = PlaceHolderImages.find(img => img.id === 'live-map');
 
   const availableDrivers = drivers?.filter(d => d.status === 'available') || [];
@@ -138,6 +150,12 @@ export default function AdminDashboard() {
     if (!auth) return;
     await signOut(auth);
     router.push('/admin/login');
+  };
+
+  const handleResolveAlert = async (id: string) => {
+    if (!db) return;
+    await updateDoc(doc(db, 'alerts', id), { status: 'resolved' });
+    toast({ title: "Signal Resolved", description: "Emergency protocol cleared." });
   };
 
   const handleRegisterDriver = async () => {
@@ -240,16 +258,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleUpdateRole = async (id: string, newRole: string) => {
-    if (!db) return;
-    try {
-      await updateDoc(doc(db, 'users', id), { role: newRole });
-      toast({ title: "Role Updated" });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   if (authLoading || profileLoading) {
     return (
       <div className="h-screen flex items-center justify-center bg-primary font-body">
@@ -280,7 +288,7 @@ export default function AdminDashboard() {
   );
 
   return (
-    <div className="flex h-screen bg-secondary/20 font-body">
+    <div className="flex h-screen bg-[#F8F9FC] font-body">
       <aside className="w-64 bg-primary text-white flex flex-col shrink-0 shadow-2xl z-20">
         <div className="p-6 h-20 flex items-center border-b border-white/10">
           <div className="flex items-center gap-2">
@@ -288,45 +296,49 @@ export default function AdminDashboard() {
             <span className="text-2xl font-black font-headline italic tracking-tighter uppercase">AAGO OPS</span>
           </div>
         </div>
-        <nav className="flex-1 p-4 space-y-2">
-          <Button variant="ghost" onClick={() => setActiveTab('dashboard')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'dashboard' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
-            <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
-          </Button>
-          <Button variant="ghost" onClick={() => setActiveTab('fleet')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'fleet' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
-            <Navigation className="mr-2 h-4 w-4" /> Fleet Tracking
-          </Button>
-          <Button variant="ghost" onClick={() => setActiveTab('routes')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'routes' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
-            <MapIcon className="mr-2 h-4 w-4" /> Route Engine
-          </Button>
-          <Button variant="ghost" onClick={() => setActiveTab('suggestions')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'suggestions' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
-            <MessageSquareShare className="mr-2 h-4 w-4" /> Suggestions 
-            {suggestions && suggestions.length > 0 && <Badge className="ml-auto bg-accent text-[8px] h-4 min-w-4 p-0 flex items-center justify-center">{suggestions.length}</Badge>}
-          </Button>
-          <Button variant="ghost" onClick={() => setActiveTab('drivers')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'drivers' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
-            <Truck className="mr-2 h-4 w-4" /> Workforce
-          </Button>
-          <Button variant="ghost" onClick={() => setActiveTab('scholars')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'scholars' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
-            <Users className="mr-2 h-4 w-4" /> Scholar Registry
-          </Button>
-          <Button variant="ghost" onClick={() => setActiveTab('finance')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'finance' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
-            <Wallet className="mr-2 h-4 w-4" /> Finance & Payouts
-          </Button>
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          {[
+            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+            { id: 'fleet', label: 'Fleet Tracking', icon: Navigation },
+            { id: 'routes', label: 'Route Engine', icon: MapIcon },
+            { id: 'suggestions', label: 'Suggestions', icon: MessageSquareShare, badge: suggestions?.length },
+            { id: 'drivers', label: 'Workforce', icon: Truck },
+            { id: 'scholars', label: 'Scholars', icon: Users },
+            { id: 'finance', label: 'Finance', icon: Wallet },
+            { id: 'safety', label: 'Safety Hub', icon: AlertTriangle, badge: activeAlerts?.length },
+          ].map((item) => (
+            <Button 
+              key={item.id}
+              variant="ghost" 
+              onClick={() => setActiveTab(item.id as any)} 
+              className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === item.id ? 'bg-white/10 shadow-inner' : 'hover:bg-white/5 opacity-70 hover:opacity-100'}`}
+            >
+              <item.icon className="mr-3 h-4 w-4" /> {item.label}
+              {item.badge ? <Badge className="ml-auto bg-accent text-[8px] h-4 min-w-4 p-0 flex items-center justify-center shadow-lg">{item.badge}</Badge> : null}
+            </Button>
+          ))}
           <div className="pt-4 border-t border-white/10 mt-4">
             <Button variant="ghost" className="w-full justify-start text-red-300 hover:text-red-400 hover:bg-red-500/10 rounded-xl font-bold" onClick={handleSignOut}>
-              <LogOut className="mr-2 h-4 w-4" /> Sign Out
+              <LogOut className="mr-3 h-4 w-4" /> Sign Out
             </Button>
           </div>
         </nav>
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-20 bg-white border-b px-8 flex items-center justify-between shadow-sm">
-          <h2 className="text-2xl font-black font-headline text-primary italic uppercase tracking-tight">
-            {activeTab.toUpperCase()}
-          </h2>
-          <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-4 py-1.5 font-black text-[10px] rounded-full uppercase tracking-widest">
-            Hub Active: {profile.city}
-          </Badge>
+        <header className="h-20 bg-white border-b px-8 flex items-center justify-between shadow-sm shrink-0">
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-black font-headline text-primary italic uppercase tracking-tight">
+              {activeTab.toUpperCase()}
+            </h2>
+            <Badge variant="secondary" className="bg-slate-100 text-slate-500 font-bold border-none px-3 uppercase text-[9px] tracking-wider">{profile.city} HUB</Badge>
+          </div>
+          {activeAlerts && activeAlerts.length > 0 && (
+            <div className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-full border border-red-100 animate-pulse">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="text-[10px] font-black uppercase tracking-widest">{activeAlerts.length} EMERGENCY SIGNALS ACTIVE</span>
+            </div>
+          )}
         </header>
 
         <div className="flex-1 overflow-y-auto p-8 space-y-8">
@@ -334,10 +346,10 @@ export default function AdminDashboard() {
             <div className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
-                  { label: 'Available Fleet', value: availableDrivers.length, trend: 'READY', icon: Activity, color: 'text-green-600' },
-                  { label: 'On Route', value: onTripDrivers.length, trend: 'ACTIVE', icon: Navigation, color: 'text-accent' },
-                  { label: 'Scholars Registered', value: riders.length, trend: 'ENROLLED', icon: Users, color: 'text-blue-600' },
-                  { label: 'Regional Debt', value: `₹${totalRegionalDebt}`, trend: 'PAYOUTS', icon: IndianRupee, color: 'text-primary' },
+                  { label: 'Active Fleet', value: onTripDrivers.length, trend: 'MOVING', icon: Activity, color: 'text-green-600' },
+                  { label: 'Pending Payouts', value: `₹${totalRegionalDebt}`, trend: 'ACCOUNTS', icon: IndianRupee, color: 'text-primary' },
+                  { label: 'Hub Capacity', value: '88%', trend: 'OPTIMAL', icon: Zap, color: 'text-accent' },
+                  { label: 'Scholar Base', value: riders.length, trend: 'GROWING', icon: Users, color: 'text-blue-600' },
                 ].map((metric, i) => (
                   <Card key={i} className="border-none shadow-xl rounded-[2rem] bg-white overflow-hidden group">
                     <CardContent className="p-6">
@@ -356,71 +368,117 @@ export default function AdminDashboard() {
                 ))}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                 <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
-                   <CardHeader>
-                    <CardTitle className="font-black font-headline text-xl italic uppercase tracking-tighter text-primary">Master Radar</CardTitle>
-                    <CardDescription className="font-bold">Real-time GPS tracking across the network</CardDescription>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                 <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden lg:col-span-2">
+                   <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="font-black font-headline text-xl italic uppercase tracking-tighter text-primary">Regional Demand Feed</CardTitle>
+                      <CardDescription className="font-bold">Hourly ridership vs projected revenue</CardDescription>
+                    </div>
+                    <div className="bg-secondary/50 p-2 rounded-xl flex items-center gap-2">
+                       <TrendingUp className="h-4 w-4 text-green-500" />
+                       <span className="text-[10px] font-black text-green-600">+12% Peak Surge</span>
+                    </div>
                   </CardHeader>
-                  <CardContent className="p-0 h-[400px] relative bg-slate-900">
-                    <Image src={mapImage?.imageUrl || "https://picsum.photos/seed/radar/800/400"} fill className="object-cover opacity-50" alt="Map" />
-                    {drivers?.filter(d => d.status === 'on-trip').map((driver: any) => {
-                      const pos = getMarkerPos(driver.currentLat, driver.currentLng);
-                      return (
-                        <div key={driver.uid} className="absolute transition-all duration-1000 z-10" style={pos}>
-                          <div className="relative group">
-                            <div className="bg-primary p-2 rounded-full shadow-2xl animate-pulse ring-4 ring-primary/20">
-                              <Bus className="h-4 w-4 text-white" />
-                            </div>
-                            <div className="absolute top-10 left-1/2 -translate-x-1/2 whitespace-nowrap bg-white px-2 py-0.5 rounded-full shadow border border-primary/20 text-[8px] font-black uppercase italic">
-                              {driver.fullName}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <CardContent className="p-6 h-[350px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={performanceData}>
+                        <defs>
+                          <linearGradient id="colorRiders" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                        <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700}} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700}} />
+                        <Tooltip contentStyle={{borderRadius: '1rem', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)'}} />
+                        <Area type="monotone" dataKey="riders" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorRiders)" strokeWidth={3} />
+                      </AreaChart>
+                    </ResponsiveContainer>
                   </CardContent>
                 </Card>
                 
                 <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden flex flex-col">
                   <CardHeader>
-                    <CardTitle className="font-black font-headline text-xl italic uppercase tracking-tighter text-primary">Live Missions Detail</CardTitle>
-                    <CardDescription className="font-bold">Active manifest & workforce tracking</CardDescription>
+                    <CardTitle className="font-black font-headline text-xl italic uppercase tracking-tighter text-primary">Live Manifest</CardTitle>
+                    <CardDescription className="font-bold">Active regional missions</CardDescription>
                   </CardHeader>
-                  <CardContent className="flex-1 overflow-y-auto px-6 pb-6">
-                    <div className="space-y-4">
-                      {activeTrips?.length === 0 ? (
-                        <div className="p-10 text-center text-slate-400 font-bold italic border-2 border-dashed rounded-3xl">No missions active.</div>
-                      ) : (
-                        activeTrips?.map((trip: any) => (
-                          <div key={trip.id} className="p-5 bg-secondary/50 rounded-3xl border border-secondary flex flex-col gap-4">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <h4 className="font-black text-primary uppercase italic text-lg leading-none">{trip.routeName}</h4>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">Driver: {trip.driverName}</p>
-                              </div>
-                              <Badge className="bg-accent/10 text-accent uppercase font-black text-[10px] border-none">{trip.riderCount || 0} Boarded</Badge>
+                  <CardContent className="flex-1 overflow-y-auto px-6 pb-6 space-y-4">
+                    {activeTrips?.length === 0 ? (
+                      <div className="p-10 text-center text-slate-400 font-bold italic border-2 border-dashed rounded-3xl">No live missions.</div>
+                    ) : (
+                      activeTrips?.map((trip: any) => (
+                        <div key={trip.id} className="p-5 bg-secondary/50 rounded-3xl border border-secondary flex flex-col gap-4">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="font-black text-primary uppercase italic text-sm">{trip.routeName}</h4>
+                              <p className="text-[10px] font-bold text-muted-foreground uppercase">{trip.driverName}</p>
                             </div>
-                            <div className="space-y-2">
-                              <p className="text-[10px] font-black uppercase text-primary tracking-widest">Passenger Manifest:</p>
-                              <div className="flex flex-wrap gap-2">
-                                {trip.passengers?.map((pid: string) => {
-                                  const rider = riders.find(r => r.uid === pid);
-                                  return (
-                                    <Badge key={pid} variant="outline" className="bg-white border-primary/10 text-[8px] font-bold py-1 px-3 rounded-full">
-                                      {rider?.fullName || pid}
-                                    </Badge>
-                                  );
-                                })}
-                                {(!trip.passengers || trip.passengers.length === 0) && <p className="text-[8px] font-bold text-slate-400 italic">No passengers checked in yet.</p>}
-                              </div>
-                            </div>
+                            <Badge className="bg-accent/10 text-accent uppercase font-black text-[10px] border-none">{trip.riderCount || 0} Boarded</Badge>
                           </div>
-                        ))
-                      )}
-                    </div>
+                          <div className="flex flex-wrap gap-2">
+                            {trip.passengers?.slice(0, 3).map((pid: string) => {
+                              const rider = riders.find(r => r.uid === pid);
+                              return (
+                                <Badge key={pid} variant="outline" className="bg-white text-[8px] font-bold py-1 px-3">
+                                  {rider?.fullName?.split(' ')[0] || pid}
+                                </Badge>
+                              );
+                            })}
+                            {(trip.riderCount > 3) && <Badge variant="outline" className="bg-white text-[8px] font-bold">+{trip.riderCount - 3} more</Badge>}
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </CardContent>
                 </Card>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'safety' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center px-2">
+                <h3 className="text-2xl font-black font-headline italic uppercase text-red-600">Incident Command Hub</h3>
+                <Badge variant="outline" className="font-bold border-2 border-red-200 text-red-600 bg-red-50">{activeAlerts?.length || 0} ACTIVE SIGNALS</Badge>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {activeAlerts?.map((alert: any) => (
+                  <Card key={alert.id} className="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden ring-4 ring-red-500/10">
+                    <CardHeader className="bg-red-500 text-white p-6">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="h-5 w-5" />
+                        <p className="text-[10px] font-black uppercase tracking-widest">Priority Emergency Signal</p>
+                      </div>
+                      <h4 className="font-black text-2xl font-headline italic uppercase">{alert.senderName}</h4>
+                      <Badge className="bg-white/20 text-white uppercase font-black text-[10px] border-none mt-2">{alert.role} TERMINAL</Badge>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-6">
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-black uppercase text-slate-400">Signal Origin:</p>
+                        <div className="h-32 bg-slate-100 rounded-2xl relative overflow-hidden">
+                           <Image src={mapImage?.imageUrl || ""} fill className="object-cover opacity-30" alt="Map" />
+                           <div className="absolute transition-all duration-1000" style={getMarkerPos(alert.lat, alert.lng)}>
+                              <div className="bg-red-500 p-2 rounded-full animate-ping"><Navigation className="h-4 w-4 text-white" /></div>
+                           </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] font-black uppercase text-slate-500">
+                        <span>TIME: {new Date(alert.timestamp).toLocaleTimeString()}</span>
+                        <span>POS: {alert.lat.toFixed(4)}, {alert.lng.toFixed(4)}</span>
+                      </div>
+                      <Button onClick={() => handleResolveAlert(alert.id)} className="w-full bg-green-500 hover:bg-green-600 h-14 rounded-2xl font-black uppercase italic">Resolve Signal</Button>
+                    </CardContent>
+                  </Card>
+                ))}
+                {activeAlerts?.length === 0 && (
+                   <div className="lg:col-span-3 py-32 text-center bg-white rounded-[3rem] border-4 border-dashed border-slate-100">
+                      <ShieldAlert className="h-20 w-20 text-slate-200 mx-auto mb-4" />
+                      <h3 className="text-xl font-black text-slate-300 italic uppercase">All Regional Hubs Secure</h3>
+                      <p className="text-sm font-bold text-slate-400 mt-2 italic">No active incident signals detected.</p>
+                   </div>
+                )}
               </div>
             </div>
           )}
@@ -449,7 +507,6 @@ export default function AdminDashboard() {
                        <tr className="bg-secondary/50 border-b text-[10px] font-black uppercase text-muted-foreground tracking-widest">
                          <th className="py-6 pl-8">Scholar Profile</th>
                          <th className="py-6">Institution</th>
-                         <th className="py-6">ID Number</th>
                          <th className="py-6 text-center">Wallet Credits</th>
                          <th className="py-6 text-right pr-8">Joined</th>
                        </tr>
@@ -469,7 +526,6 @@ export default function AdminDashboard() {
                              </div>
                            </td>
                            <td className="py-6 font-bold text-xs uppercase">{rider.collegeName}</td>
-                           <td className="py-6 font-mono text-[10px] text-slate-500">{rider.studentId}</td>
                            <td className="py-6 text-center">
                               <Badge className="bg-green-100 text-green-700 font-black h-8 px-4 border-none rounded-xl">₹{rider.credits || 0}</Badge>
                            </td>
@@ -480,18 +536,15 @@ export default function AdminDashboard() {
                        ))}
                      </tbody>
                    </table>
-                   {filteredRiders.length === 0 && (
-                     <div className="p-20 text-center font-bold italic text-slate-400">No scholars found matching your search.</div>
-                   )}
                 </CardContent>
               </Card>
             </div>
           )}
 
           {activeTab === 'fleet' && (
-            <div className="space-y-6">
-              <Card className="border-none shadow-2xl bg-white rounded-[3rem] overflow-hidden">
-                <div className="relative h-[600px] bg-slate-900">
+            <div className="space-y-6 h-full flex flex-col">
+              <Card className="border-none shadow-2xl bg-white rounded-[3rem] overflow-hidden flex-1 relative">
+                <div className="absolute inset-0 bg-slate-900">
                    <Image src={mapImage?.imageUrl || ""} fill className="object-cover opacity-40" alt="Regional Radar" />
                    {drivers?.map((driver: any) => {
                      const pos = getMarkerPos(driver.currentLat, driver.currentLng);
@@ -499,11 +552,19 @@ export default function AdminDashboard() {
                        <div key={driver.uid} className="absolute transition-all duration-1000" style={pos}>
                          <div className={`p-3 rounded-full shadow-2xl flex flex-col items-center gap-2 group cursor-pointer ${driver.status === 'on-trip' ? 'bg-primary' : driver.status === 'available' ? 'bg-green-500' : 'bg-slate-700'}`}>
                            <Bus className="h-5 w-5 text-white" />
-                           <div className="absolute top-12 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity bg-white text-primary p-2 rounded-xl shadow-xl font-black text-[10px] uppercase">
+                           <div className="absolute top-12 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity bg-white text-primary p-2 rounded-xl shadow-xl font-black text-[10px] uppercase z-50">
                              {driver.fullName} &bull; {driver.status}
                            </div>
                          </div>
                        </div>
+                     );
+                   })}
+                   {activeAlerts?.map((alert: any) => {
+                     const pos = getMarkerPos(alert.lat, alert.lng);
+                     return (
+                        <div key={alert.id} className="absolute transition-all duration-1000 z-[100]" style={pos}>
+                           <div className="bg-red-500 p-4 rounded-full shadow-2xl animate-ping"><AlertTriangle className="h-8 w-8 text-white" /></div>
+                        </div>
                      );
                    })}
                 </div>
@@ -515,23 +576,23 @@ export default function AdminDashboard() {
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                  <Card className="bg-primary text-white rounded-[2rem] border-none shadow-xl p-8">
-                    <p className="text-xs font-black uppercase tracking-widest opacity-60">Weekly Regional Payout</p>
+                    <p className="text-xs font-black uppercase tracking-widest opacity-60">Regional Payroll Pending</p>
                     <h3 className="text-5xl font-black italic font-headline mt-2 uppercase tracking-tighter">₹{totalRegionalDebt}</h3>
-                    <p className="text-xs font-bold mt-4">Total pending for {drivers?.length} mobility partners</p>
+                    <p className="text-xs font-bold mt-4">For {drivers?.length} mobility partners</p>
                  </Card>
                  <Card className="bg-white rounded-[2rem] border-none shadow-xl p-8 flex flex-col justify-center">
-                    <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">Total Trips Today</p>
-                    <h3 className="text-4xl font-black italic font-headline text-primary mt-1 uppercase">{activeTrips?.length || 0} Missions</h3>
+                    <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">Total Hub Revenue</p>
+                    <h3 className="text-4xl font-black italic font-headline text-primary mt-1 uppercase">₹1,42,800</h3>
                  </Card>
                  <Card className="bg-accent text-white rounded-[2rem] border-none shadow-xl p-8 flex flex-col justify-center">
-                    <p className="text-xs font-black uppercase tracking-widest opacity-60">Avg Pay Per Trip</p>
+                    <p className="text-xs font-black uppercase tracking-widest opacity-60">Avg Hub Trip Pay</p>
                     <h3 className="text-4xl font-black italic font-headline mt-1 uppercase">₹210</h3>
                  </Card>
               </div>
 
               <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
                 <CardHeader className="bg-secondary/20 border-b p-8">
-                  <CardTitle className="font-black uppercase italic text-primary">Regional Payout Registry</CardTitle>
+                  <CardTitle className="font-black uppercase italic text-primary">Workforce Payout Registry</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                    <table className="w-full text-left">
@@ -539,7 +600,6 @@ export default function AdminDashboard() {
                        <tr className="bg-secondary/50 border-b text-[10px] font-black uppercase text-muted-foreground tracking-widest">
                          <th className="py-6 pl-8">Worker</th>
                          <th className="py-6">Hub</th>
-                         <th className="py-6">Status</th>
                          <th className="py-6">Total Earnings</th>
                          <th className="py-6 pr-8 text-right">Weekly Pending</th>
                        </tr>
@@ -554,9 +614,6 @@ export default function AdminDashboard() {
                              </div>
                            </td>
                            <td className="py-6 font-bold text-xs uppercase">{driver.city}</td>
-                           <td className="py-6">
-                             <Badge className={driver.status === 'on-trip' ? 'bg-accent/10 text-accent' : 'bg-green-100 text-green-700'}>{driver.status}</Badge>
-                           </td>
                            <td className="py-6 font-black text-primary">₹{driver.totalEarnings || 0}</td>
                            <td className="py-6 pr-8 text-right font-black text-accent">₹{driver.weeklyEarnings || 0}</td>
                          </tr>
@@ -568,6 +625,7 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* ... other tabs ... */}
           {activeTab === 'routes' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <Card className="border-none shadow-2xl bg-primary text-white rounded-[2.5rem] overflow-hidden lg:col-span-1">
@@ -757,3 +815,4 @@ export default function AdminDashboard() {
     </div>
   );
 }
+

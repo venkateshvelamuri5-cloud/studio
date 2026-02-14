@@ -23,7 +23,8 @@ import {
   MessageSquarePlus,
   IndianRupee,
   Wallet,
-  Activity
+  Activity,
+  AlertTriangle
 } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
@@ -33,7 +34,6 @@ import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 
-// Relative path to local UI folder fix
 import {
   Dialog as ShadDialog,
   DialogContent as ShadDialogContent,
@@ -64,6 +64,7 @@ export default function DriverConsole() {
   const [activeTab, setActiveTab] = useState<'missions' | 'earnings' | 'support'>('missions');
   const [activeTrip, setActiveTrip] = useState<any>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isSendingSos, setIsSendingSos] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   const userRef = useMemo(() => {
@@ -113,6 +114,31 @@ export default function DriverConsole() {
     }, 10000);
     return () => clearInterval(interval);
   }, [userRef, profile?.status, profile?.currentLat, profile?.currentLng]);
+
+  const handleSOS = async () => {
+    if (!db || !user || !profile) return;
+    setIsSendingSos(true);
+    try {
+      await addDoc(collection(db, 'alerts'), {
+        senderId: user.uid,
+        senderName: profile.fullName,
+        role: 'driver',
+        status: 'active',
+        lat: profile.currentLat || 17.6868,
+        lng: profile.currentLng || 83.2185,
+        timestamp: new Date().toISOString()
+      });
+      toast({
+        variant: "destructive",
+        title: "SOS Alert Dispatched",
+        description: "Admin Terminal has received your emergency signal.",
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSendingSos(false);
+    }
+  };
 
   const isWithinTimeWindow = (scheduledTimeStr: string) => {
     if (!scheduledTimeStr) return true;
@@ -253,7 +279,14 @@ export default function DriverConsole() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Badge className={`rounded-full px-4 h-8 font-black uppercase ${profile.status === 'available' ? 'bg-green-500/10 text-green-500' : profile.status === 'on-trip' ? 'bg-accent/10 text-accent' : 'bg-slate-800 text-slate-500'}`}>{profile.status || 'offline'}</Badge>
+          <Button 
+            variant="destructive" 
+            onClick={handleSOS} 
+            disabled={isSendingSos} 
+            className="rounded-xl h-12 w-12 shadow-2xl shadow-red-500/20"
+          >
+            {isSendingSos ? <Loader2 className="animate-spin" /> : <AlertTriangle className="h-6 w-6" />}
+          </Button>
           <Button size="icon" variant="ghost" disabled={isUpdating} onClick={toggleDuty} className="rounded-2xl bg-slate-800 h-12 w-12"><Power className={`h-6 w-6 ${profile.status !== 'offline' ? 'text-green-500' : 'text-slate-500'}`} /></Button>
         </div>
       </header>
@@ -307,7 +340,6 @@ export default function DriverConsole() {
                       </Card>
                     );
                   })}
-                  {regionalRoutes?.length === 0 && <div className="p-12 text-center opacity-40 font-bold italic">No regional missions assigned.</div>}
                 </section>
               </div>
             ) : (
@@ -332,15 +364,6 @@ export default function DriverConsole() {
                     </div>
                   </CardContent>
                 </Card>
-                <section className="space-y-4">
-                   <div className="flex items-center justify-between px-2">
-                     <h3 className="text-lg font-black italic uppercase flex items-center gap-3"><Users className="h-6 w-6 text-accent" /> Scholar Manifest</h3>
-                     <Badge variant="outline" className="text-slate-400 border-slate-800">{activeTrip.riderCount || 0} Boarded</Badge>
-                   </div>
-                   <div className="p-10 text-center bg-slate-900/50 rounded-[2rem] border border-white/5">
-                      <p className="text-xs font-bold text-slate-500 italic">QR boarding active at regional hubs.</p>
-                   </div>
-                </section>
               </div>
             )}
           </>
@@ -369,21 +392,6 @@ export default function DriverConsole() {
                </div>
                <p className="text-xs font-bold mt-6 opacity-80 leading-relaxed">Payments are processed every Monday at 06:00 AM Regional Time.</p>
             </Card>
-
-            <section className="space-y-4">
-               <h3 className="text-xs font-black uppercase tracking-widest text-primary px-2">Recent Mission History</h3>
-               <div className="space-y-3">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="p-4 bg-slate-900 rounded-2xl flex justify-between items-center opacity-40">
-                       <div>
-                          <p className="font-black italic uppercase text-xs">Mission Hub Express {i}</p>
-                          <p className="text-[8px] font-bold text-slate-500 uppercase">Completed 03/05/24</p>
-                       </div>
-                       <span className="font-black text-primary text-sm">₹210</span>
-                    </div>
-                  ))}
-               </div>
-            </section>
           </div>
         )}
       </main>

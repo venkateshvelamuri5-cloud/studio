@@ -40,6 +40,7 @@
         "status": { "type": "string", "enum": ["active", "completed", "cancelled"] },
         "riderCount": { "type": "number" },
         "payoutAmount": { "type": "number", "description": "Amount earned by the driver for this trip." },
+        "passengers": { "type": "array", "items": { "type": "string" }, "description": "List of student UIDs on board." },
         "startTime": { "type": "string", "format": "date-time" },
         "endTime": { "type": "string", "format": "date-time" }
       },
@@ -57,13 +58,29 @@
         "schedule": { "type": "string" },
         "scheduledTime": { "type": "string" },
         "city": { "type": "string", "enum": ["Vizag", "Vizianagaram"] },
-        "basePayout": { "type": "number", "default": 150, "description": "Base driver pay for completing this route." },
+        "basePayout": { "type": "number", "default": 150 },
         "isActive": { "type": "boolean" },
         "status": { "type": "string", "enum": ["suggested", "active", "rejected"] },
         "driverName": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["routeName", "stops", "city"]
+    },
+    "Alert": {
+      "title": "Alert",
+      "description": "An emergency SOS signal.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "role": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "resolved"] },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "senderName", "status"]
     }
   },
   "auth": {
@@ -81,6 +98,10 @@
     "/routes/{routeId}": {
       "schema": "Route",
       "description": "Optimized shuttle route templates."
+    },
+    "/alerts/{alertId}": {
+      "schema": "Alert",
+      "description": "Emergency signals from the workforce or scholars."
     }
   }
 }

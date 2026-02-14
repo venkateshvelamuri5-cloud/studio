@@ -30,17 +30,17 @@ import {
   Plus,
   Loader2,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  AlertTriangle
 } from 'lucide-react';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, increment, collection, query, where, limit, onSnapshot, orderBy, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, increment, collection, query, where, limit, onSnapshot, orderBy, arrayUnion, addDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 
-// Helper to map Lat/Lng to % positions on the visualization map
 function getMarkerPos(lat?: number, lng?: number) {
   if (!lat || !lng) return { top: '50%', left: '50%' };
   const top = 100 - ((lat - 17.6) / (17.8 - 17.6)) * 100;
@@ -60,23 +60,20 @@ export default function RiderDashboard() {
   
   const [isBooking, setIsBooking] = useState(false);
   const [isToppingUp, setIsToppingUp] = useState(false);
+  const [isSendingSos, setIsSendingSos] = useState(false);
   
-  // Profile
   const userRef = useMemo(() => {
     if (!db || !user?.uid) return null;
     return doc(db, 'users', user.uid);
   }, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
-  // Available Routes (Deployed by Admin)
   const routesQuery = useMemo(() => db ? query(collection(db, 'routes'), where('isActive', '==', true), orderBy('createdAt', 'desc')) : null, [db]);
   const { data: routes, loading: routesLoading } = useCollection(routesQuery);
 
-  // Active Trips (Started by Drivers)
   const tripsQuery = useMemo(() => db ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db]);
   const { data: activeTrips, loading: tripsLoading } = useCollection(tripsQuery);
 
-  // Driver Locations (for Live Map)
   const { data: activeDrivers } = useCollection(
     useMemo(() => db ? query(collection(db, 'users'), where('status', '==', 'on-trip')) : null, [db])
   );
@@ -87,6 +84,31 @@ export default function RiderDashboard() {
     if (!auth) return;
     await signOut(auth);
     router.push('/');
+  };
+
+  const handleSOS = async () => {
+    if (!db || !user || !profile) return;
+    setIsSendingSos(true);
+    try {
+      await addDoc(collection(db, 'alerts'), {
+        senderId: user.uid,
+        senderName: profile.fullName,
+        role: 'student',
+        status: 'active',
+        lat: profile.currentLat || 17.6868,
+        lng: profile.currentLng || 83.2185,
+        timestamp: new Date().toISOString()
+      });
+      toast({
+        variant: "destructive",
+        title: "SOS Signal Transmitted",
+        description: "Emergency hub has been notified of your location.",
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSendingSos(false);
+    }
   };
 
   const handleTopUp = async () => {
@@ -121,19 +143,15 @@ export default function RiderDashboard() {
     setIsBooking(true);
     try {
       const tripRef = doc(db, 'trips', tripId);
-      
-      // Update trip manifest and student profile
       await updateDoc(tripRef, {
         riderCount: increment(1),
         passengers: arrayUnion(user?.uid)
       });
-      
       await updateDoc(userRef, {
         credits: increment(-50),
         lastTrip: routeName,
         activeTripId: tripId
       });
-
       toast({
         title: "Seat Confirmed",
         description: `You are booked on ${routeName}. Happy commuting!`,
@@ -148,7 +166,6 @@ export default function RiderDashboard() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FC] flex flex-col font-body pb-28">
-      {/* Header */}
       <header className="bg-white px-6 py-6 flex items-center justify-between sticky top-0 z-30 border-b border-slate-100">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-2xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
@@ -175,15 +192,23 @@ export default function RiderDashboard() {
       </header>
 
       <main className="flex-1 p-6 space-y-6 max-w-xl mx-auto w-full">
-        {/* Welcome Text */}
-        <div className="space-y-1">
-          <h2 className="text-3xl font-black text-slate-900 font-headline italic uppercase tracking-tighter">
-            Hi, {profile?.fullName?.split(' ')[0] || 'Scholar'}!
-          </h2>
-          <p className="text-sm font-bold text-slate-500 italic">Ready for your campus commute?</p>
+        <div className="flex justify-between items-start">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-black text-slate-900 font-headline italic uppercase tracking-tighter">
+              Hi, {profile?.fullName?.split(' ')[0] || 'Scholar'}!
+            </h2>
+            <p className="text-sm font-bold text-slate-500 italic">Ready for your campus commute?</p>
+          </div>
+          <Button 
+            variant="destructive" 
+            onClick={handleSOS} 
+            disabled={isSendingSos}
+            className="rounded-2xl h-14 w-14 shadow-xl shadow-red-500/20"
+          >
+            {isSendingSos ? <Loader2 className="animate-spin" /> : <AlertTriangle className="h-6 w-6" />}
+          </Button>
         </div>
 
-        {/* Primary Booking Action */}
         <Dialog>
           <DialogTrigger asChild>
             <Card className="border-none shadow-xl bg-primary text-white rounded-[2rem] overflow-hidden group active:scale-[0.98] transition-transform cursor-pointer">
@@ -239,7 +264,6 @@ export default function RiderDashboard() {
           </DialogContent>
         </Dialog>
 
-        {/* Quick Info Grid */}
         <div className="grid grid-cols-2 gap-4">
           <Card className="border-none shadow-lg bg-white rounded-[1.5rem] p-5 space-y-3 relative overflow-hidden group">
              <div className="bg-accent/10 w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -287,7 +311,6 @@ export default function RiderDashboard() {
           </Dialog>
         </div>
 
-        {/* Live Tracking Map Card */}
         <section className="space-y-4">
           <div className="flex items-center justify-between px-1">
             <h4 className="text-xs font-black uppercase tracking-widest text-slate-500">Live GPS Intelligence</h4>
@@ -321,21 +344,9 @@ export default function RiderDashboard() {
                 );
               })}
             </div>
-            <CardContent className="p-6 relative bg-white">
-               <div className="flex items-center justify-between">
-                 <div>
-                    <p className="text-[10px] font-black text-primary uppercase tracking-widest italic">Regional Movement Feed</p>
-                    <h5 className="font-black text-slate-900 text-lg">
-                      {activeTrips.length > 0 ? `${activeTrips.length} Shuttles Active` : 'Scanning Hubs...'}
-                    </h5>
-                 </div>
-                 <Button size="sm" variant="secondary" className="rounded-xl font-bold text-[10px] uppercase h-10 px-6">Open Global Radar</Button>
-               </div>
-            </CardContent>
           </Card>
         </section>
 
-        {/* Saved Routes */}
         <section className="space-y-4">
            <div className="flex items-center justify-between px-1">
              <h4 className="text-xs font-black uppercase tracking-widest text-slate-500">Optimized Routes</h4>
@@ -368,7 +379,6 @@ export default function RiderDashboard() {
         </section>
       </main>
 
-      {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/80 backdrop-blur-xl border-t border-slate-100 z-50">
         <nav className="max-w-md mx-auto flex justify-around items-center">
           <Button variant="ghost" className="flex-col h-auto py-1 gap-1 text-primary">
