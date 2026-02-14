@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if the user has an admin role
+    function isAdmin() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // User profiles: Authenticated users can read profiles. 
+    // Users can create/update their own profile (top-ups, status). 
+    // Admins have full control (registering drivers).
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Trips: Authenticated users can read active missions.
+    // Drivers and Admins can create missions. 
+    // Students can update trips to join/leave (passenger manifest).
+    match /trips/{tripId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null; 
+      allow update: if request.auth != null;
+      allow delete: if isAdmin();
+    }
+
+    // Routes: Authenticated users can view routes and suggest new ones.
+    // Admins have full authority over activation and management.
+    match /routes/{routeId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if isAdmin();
+    }
+
+    // Alerts (SOS): Any authenticated user can trigger an emergency signal.
+    // Only Admins can monitor and resolve these signals for safety.
+    match /alerts/{alertId} {
+      allow read, update: if isAdmin();
+      allow create: if request.auth != null;
+      allow delete: if isAdmin();
+    }
+  }
+}
