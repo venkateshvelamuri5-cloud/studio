@@ -51,11 +51,13 @@
         "description": { "type": "string" },
         "stops": { "type": "array", "items": { "type": "string" } },
         "schedule": { "type": "string" },
+        "scheduledTime": { "type": "string", "description": "HH:mm format for time-window checks." },
+        "city": { "type": "string", "enum": ["Vizag", "Vizianagaram"] },
         "estimatedDuration": { "type": "number" },
         "isActive": { "type": "boolean" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["routeName", "stops"]
+      "required": ["routeName", "stops", "city"]
     }
   },
   "auth": {

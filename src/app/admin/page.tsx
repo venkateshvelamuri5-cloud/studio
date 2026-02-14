@@ -27,8 +27,6 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { 
   Bus, 
-  Users, 
-  Map as MapIcon, 
   Activity, 
   Zap, 
   LayoutDashboard, 
@@ -38,12 +36,11 @@ import {
   Loader2,
   UserPlus,
   Settings2,
-  Search,
-  PlusCircle,
   Clock,
   MapPin,
   Trash2,
-  Truck
+  Truck,
+  Map as MapIcon
 } from 'lucide-react';
 import Image from 'next/image';
 import { 
@@ -70,12 +67,8 @@ const ridershipData = [
   { name: 'AU', riders: 3800 },
 ];
 
-// Helper to map Lat/Lng to % positions on the visualization map
 function getMarkerPos(lat?: number, lng?: number) {
   if (!lat || !lng) return { top: '50%', left: '50%' };
-  // Vizag Region Bounds (Approx)
-  // Lat: 17.6 to 17.8
-  // Lng: 83.1 to 83.4
   const top = 100 - ((lat - 17.6) / (17.8 - 17.6)) * 100;
   const left = ((lng - 83.1) / (83.4 - 83.1)) * 100;
   return { 
@@ -93,19 +86,17 @@ export default function AdminDashboard() {
   
   const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'drivers'>('dashboard');
   
-  // Profile Query
   const userRef = useMemo(() => {
     if (!db || !user?.uid) return null;
     return doc(db, 'users', user.uid);
   }, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
-  // Collections
-  const { data: drivers, loading: driversLoading } = useCollection(
+  const { data: drivers } = useCollection(
     useMemo(() => db ? query(collection(db, 'users'), where('role', '==', 'driver')) : null, [db])
   );
   
-  const { data: activeTrips, loading: tripsLoading } = useCollection(
+  const { data: activeTrips } = useCollection(
     useMemo(() => db ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db])
   );
 
@@ -113,18 +104,15 @@ export default function AdminDashboard() {
     useMemo(() => db ? query(collection(db, 'routes'), orderBy('createdAt', 'desc')) : null, [db])
   );
 
-  // Images
   const mapImage = PlaceHolderImages.find(img => img.id === 'live-map');
 
-  // Dashboard Stats
   const availableDrivers = drivers?.filter(d => d.status === 'available') || [];
   const onTripDrivers = drivers?.filter(d => d.status === 'on-trip') || [];
 
-  // AI & Route State
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [demandPatterns, setDemandPatterns] = useState("High demand from Vizianagaram to GITAM/AU campuses between 7-9 AM.");
+  const [targetCity, setTargetCity] = useState("Vizag");
   
-  // Driver Registry State
   const [isRegistering, setIsRegistering] = useState(false);
   const [newDriverPhone, setNewDriverPhone] = useState("");
   const [newDriverName, setNewDriverName] = useState("");
@@ -200,11 +188,13 @@ export default function AdminDashboard() {
       for (const route of result.optimizedRoutes) {
         await addDoc(collection(db, 'routes'), {
           ...route,
+          city: targetCity,
+          scheduledTime: "08:00", // Default morning start for AI routes
           isActive: true,
           createdAt: new Date().toISOString()
         });
       }
-      toast({ title: "Engine Synced", description: "AI routes deployed." });
+      toast({ title: "Engine Synced", description: `${targetCity} routes deployed.` });
     } catch (error) {
       console.error("Optimization failed:", error);
       toast({ variant: "destructive", title: "AI Error" });
@@ -249,7 +239,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="flex h-screen bg-secondary/20 font-body">
-      {/* Sidebar */}
       <aside className="w-64 bg-primary text-white flex flex-col shrink-0 shadow-2xl z-20">
         <div className="p-6 h-20 flex items-center border-b border-white/10">
           <div className="flex items-center gap-2">
@@ -258,32 +247,16 @@ export default function AdminDashboard() {
           </div>
         </div>
         <nav className="flex-1 p-4 space-y-2">
-          <Button 
-            variant="ghost" 
-            onClick={() => setActiveTab('dashboard')}
-            className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'dashboard' ? 'bg-white/10' : 'hover:bg-white/5'}`}
-          >
+          <Button variant="ghost" onClick={() => setActiveTab('dashboard')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'dashboard' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
             <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
           </Button>
-          <Button 
-            variant="ghost" 
-            onClick={() => setActiveTab('fleet')}
-            className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'fleet' ? 'bg-white/10' : 'hover:bg-white/5'}`}
-          >
+          <Button variant="ghost" onClick={() => setActiveTab('fleet')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'fleet' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
             <Navigation className="mr-2 h-4 w-4" /> Fleet Intelligence
           </Button>
-          <Button 
-            variant="ghost" 
-            onClick={() => setActiveTab('routes')}
-            className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'routes' ? 'bg-white/10' : 'hover:bg-white/5'}`}
-          >
+          <Button variant="ghost" onClick={() => setActiveTab('routes')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'routes' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
             <MapIcon className="mr-2 h-4 w-4" /> Route Registry
           </Button>
-          <Button 
-            variant="ghost" 
-            onClick={() => setActiveTab('drivers')}
-            className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'drivers' ? 'bg-white/10' : 'hover:bg-white/5'}`}
-          >
+          <Button variant="ghost" onClick={() => setActiveTab('drivers')} className={`w-full justify-start text-white rounded-xl font-bold ${activeTab === 'drivers' ? 'bg-white/10' : 'hover:bg-white/5'}`}>
             <Truck className="mr-2 h-4 w-4" /> Workforce
           </Button>
           <div className="pt-4 border-t border-white/10 mt-4">
@@ -294,7 +267,6 @@ export default function AdminDashboard() {
         </nav>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
         <header className="h-20 bg-white border-b px-8 flex items-center justify-between shadow-sm">
           <h2 className="text-2xl font-black font-headline text-primary italic uppercase tracking-tight">
@@ -308,7 +280,6 @@ export default function AdminDashboard() {
         <div className="flex-1 overflow-y-auto p-8 space-y-8">
           {activeTab === 'dashboard' && (
             <>
-              {/* Key Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
                   { label: 'Available Drivers', value: availableDrivers.length, trend: 'READY', icon: Activity, color: 'text-green-600' },
@@ -334,20 +305,13 @@ export default function AdminDashboard() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Visual Radar */}
                 <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
                    <CardHeader>
                     <CardTitle className="font-black font-headline text-xl italic uppercase tracking-tighter text-primary">Regional Radar</CardTitle>
                     <CardDescription className="font-bold">Real-time hub activity across AP</CardDescription>
                   </CardHeader>
                   <CardContent className="p-0 h-[400px] relative">
-                    <Image 
-                      src={mapImage?.imageUrl || "https://picsum.photos/seed/radar/800/400"} 
-                      fill 
-                      className="object-cover opacity-60" 
-                      alt="Regional Map"
-                    />
-                    {/* Live Driver Markers */}
+                    <Image src={mapImage?.imageUrl || "https://picsum.photos/seed/radar/800/400"} fill className="object-cover opacity-60" alt="Regional Map" />
                     {drivers?.filter(d => d.status === 'on-trip').map((driver: any) => {
                       const pos = getMarkerPos(driver.currentLat, driver.currentLng);
                       return (
@@ -366,7 +330,6 @@ export default function AdminDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* Hub Performance */}
                 <Card className="border-none shadow-xl rounded-[2.5rem] bg-white">
                   <CardHeader>
                     <CardTitle className="font-black font-headline text-xl italic uppercase tracking-tighter text-primary">Hub Scholarship Volume</CardTitle>
@@ -378,10 +341,7 @@ export default function AdminDashboard() {
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
                         <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
-                        <Tooltip 
-                          cursor={{ fill: 'transparent' }}
-                          contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
-                        />
+                        <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', fontWeight: 'bold' }} />
                         <Bar dataKey="riders" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -389,79 +349,6 @@ export default function AdminDashboard() {
                 </Card>
               </div>
             </>
-          )}
-
-          {activeTab === 'fleet' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Master Fleet Map */}
-                <Card className="lg:col-span-2 border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-slate-100 h-[600px] relative">
-                  <Image 
-                    src={mapImage?.imageUrl || "https://picsum.photos/seed/fleet-map/1200/800"} 
-                    fill 
-                    className="object-cover opacity-80" 
-                    alt="Master Map"
-                  />
-                   {/* GPS Overlays */}
-                   {drivers?.map((driver: any) => {
-                      const pos = getMarkerPos(driver.currentLat, driver.currentLng);
-                      return (
-                        <div key={driver.id} className="absolute transition-all duration-1000" style={pos}>
-                           <div className={`p-2 rounded-full shadow-2xl ${
-                             driver.status === 'on-trip' ? 'bg-accent animate-bounce' : 
-                             driver.status === 'available' ? 'bg-green-500' : 'bg-slate-400'
-                           }`}>
-                             <Bus className="h-5 w-5 text-white" />
-                           </div>
-                        </div>
-                      );
-                   })}
-                   <div className="absolute top-6 left-6 bg-white/90 backdrop-blur p-4 rounded-3xl shadow-xl border border-white/20">
-                      <h4 className="font-black text-primary uppercase italic text-xs mb-2">GPS Legend</h4>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-[8px] font-black uppercase">
-                          <div className="h-2 w-2 rounded-full bg-accent" /> Mission Active
-                        </div>
-                        <div className="flex items-center gap-2 text-[8px] font-black uppercase">
-                          <div className="h-2 w-2 rounded-full bg-green-500" /> Hub Ready
-                        </div>
-                        <div className="flex items-center gap-2 text-[8px] font-black uppercase">
-                          <div className="h-2 w-2 rounded-full bg-slate-400" /> Stationed
-                        </div>
-                      </div>
-                   </div>
-                </Card>
-
-                {/* Live Logs */}
-                <div className="space-y-4">
-                  <h3 className="text-xl font-black font-headline italic uppercase text-primary">Live Operations Log</h3>
-                  <div className="space-y-3 h-[540px] overflow-y-auto pr-2">
-                    {drivers?.map((driver: any) => (
-                      <Card key={driver.id} className="border-none shadow-lg bg-white rounded-2xl p-4 group">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">
-                              {driver.fullName?.[0]}
-                            </div>
-                            <div>
-                              <p className="font-black text-primary uppercase italic text-[10px]">{driver.fullName}</p>
-                              <p className="text-[8px] font-bold text-muted-foreground uppercase">{driver.status || 'offline'}</p>
-                            </div>
-                          </div>
-                          <Badge variant="outline" className="text-[8px] font-bold border-none bg-secondary">
-                            {driver.currentLat?.toFixed(4)}, {driver.currentLng?.toFixed(4)}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-4 text-[8px] font-black uppercase text-muted-foreground pt-3 border-t">
-                           <span>{driver.totalTrips || 0} Trips</span>
-                           <span className="text-primary">{driver.city || 'AP Region'}</span>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
           )}
 
           {activeTab === 'routes' && (
@@ -476,6 +363,18 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-accent">Target Hub</Label>
+                    <Select value={targetCity} onValueChange={setTargetCity}>
+                      <SelectTrigger className="bg-white/5 border-white/20 text-white rounded-xl h-12 font-bold">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Vizag">Visakhapatnam</SelectItem>
+                        <SelectItem value="Vizianagaram">Vizianagaram</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase tracking-widest text-accent">Optimization Logic</Label>
                     <Textarea 
                       value={demandPatterns} 
@@ -483,11 +382,7 @@ export default function AdminDashboard() {
                       className="bg-white/5 border-white/20 text-white focus-visible:ring-accent rounded-2xl font-bold min-h-[120px]"
                     />
                   </div>
-                  <Button 
-                    onClick={handleOptimize} 
-                    disabled={isOptimizing}
-                    className="w-full bg-accent hover:bg-accent/90 text-white h-14 rounded-2xl font-black uppercase italic"
-                  >
+                  <Button onClick={handleOptimize} disabled={isOptimizing} className="w-full bg-accent hover:bg-accent/90 text-white h-14 rounded-2xl font-black uppercase italic">
                     {isOptimizing ? <Loader2 className="animate-spin h-5 w-5" /> : "Deploy AI Routes"}
                   </Button>
                 </CardContent>
@@ -498,38 +393,37 @@ export default function AdminDashboard() {
                   <h3 className="text-2xl font-black font-headline italic uppercase text-primary">Regional Network Registry</h3>
                   <Badge variant="outline" className="font-bold border-2">{savedRoutes?.length || 0} DEPLOYED</Badge>
                 </div>
-                {routesLoading ? (
-                  <div className="py-10 text-center font-bold text-muted-foreground uppercase text-xs">Syncing Registry...</div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {savedRoutes?.map((route: any) => (
-                      <Card key={route.id} className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden group">
-                        <CardHeader className="pb-2">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h4 className="font-black text-primary uppercase italic text-lg leading-none">{route.routeName}</h4>
-                              <p className="text-[10px] font-bold text-muted-foreground mt-1 uppercase">{route.schedule}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {savedRoutes?.map((route: any) => (
+                    <Card key={route.id} className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden group">
+                      <CardHeader className="pb-2">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                               <Badge className="bg-primary/10 text-primary text-[8px] font-black border-none uppercase">{route.city}</Badge>
+                               <Badge className="bg-secondary text-muted-foreground text-[8px] font-black border-none uppercase">{route.scheduledTime}</Badge>
                             </div>
-                            <Button variant="ghost" size="icon" onClick={() => handleDeleteRoute(route.id)} className="text-muted-foreground hover:text-red-500">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <h4 className="font-black text-primary uppercase italic text-lg leading-none">{route.routeName}</h4>
                           </div>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="flex flex-wrap gap-2 mb-4">
-                            {route.stops?.map((stop: string, i: number) => (
-                              <Badge key={i} variant="secondary" className="text-[8px] font-black uppercase tracking-tighter">{stop}</Badge>
-                            ))}
-                          </div>
-                          <div className="flex items-center gap-4 text-[10px] font-black uppercase text-muted-foreground pt-4 border-t border-secondary">
-                            <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {route.estimatedDurationMinutes} Mins</span>
-                            <span className="flex items-center gap-1 text-primary"><Activity className="h-3 w-3" /> MISSION CRITICAL</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteRoute(route.id)} className="text-muted-foreground hover:text-red-500">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          {route.stops?.map((stop: string, i: number) => (
+                            <Badge key={i} variant="secondary" className="text-[8px] font-black uppercase tracking-tighter">{stop}</Badge>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-4 text-[10px] font-black uppercase text-muted-foreground pt-4 border-t border-secondary">
+                          <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {route.estimatedDurationMinutes} Mins</span>
+                          <span className="flex items-center gap-1 text-primary"><Activity className="h-3 w-3" /> MISSION CRITICAL</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -555,21 +449,11 @@ export default function AdminDashboard() {
                     <div className="py-6 space-y-6">
                       <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
-                        <Input 
-                          placeholder="Driver's Full Name" 
-                          value={newDriverName} 
-                          onChange={(e) => setNewDriverName(e.target.value)}
-                          className="rounded-xl h-12 border-2 font-bold"
-                        />
+                        <Input placeholder="Driver's Full Name" value={newDriverName} onChange={(e) => setNewDriverName(e.target.value)} className="rounded-xl h-12 border-2 font-bold" />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number (+91)</Label>
-                        <Input 
-                          placeholder="+91 9876543210" 
-                          value={newDriverPhone} 
-                          onChange={(e) => setNewDriverPhone(e.target.value)}
-                          className="rounded-xl h-12 border-2 font-bold"
-                        />
+                        <Input placeholder="+91 9876543210" value={newDriverPhone} onChange={(e) => setNewDriverPhone(e.target.value)} className="rounded-xl h-12 border-2 font-bold" />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Assigned Hub</Label>
@@ -583,11 +467,7 @@ export default function AdminDashboard() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <Button 
-                        onClick={handleRegisterDriver} 
-                        disabled={isRegistering || !newDriverPhone || !newDriverName}
-                        className="w-full bg-accent hover:bg-accent/90 h-14 rounded-xl font-black uppercase italic"
-                      >
+                      <Button onClick={handleRegisterDriver} disabled={isRegistering || !newDriverPhone || !newDriverName} className="w-full bg-accent hover:bg-accent/90 h-14 rounded-xl font-black uppercase italic">
                         {isRegistering ? "Registering..." : "Commit to Workforce"}
                       </Button>
                     </div>
@@ -613,9 +493,7 @@ export default function AdminDashboard() {
                           <tr key={driver.id} className="group hover:bg-secondary/30 transition-colors">
                             <td className="py-6 pl-8">
                               <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-black text-sm">
-                                  {driver.fullName?.[0]}
-                                </div>
+                                <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-black text-sm">{driver.fullName?.[0]}</div>
                                 <div>
                                   <p className="font-black text-primary uppercase italic text-sm leading-none">{driver.fullName || 'Unnamed'}</p>
                                   <p className="text-[10px] font-bold text-muted-foreground mt-1 uppercase">{driver.phoneNumber}</p>
@@ -623,12 +501,7 @@ export default function AdminDashboard() {
                               </div>
                             </td>
                             <td className="py-6">
-                              <Badge className={`rounded-full px-4 text-[8px] font-black uppercase border-none ${
-                                driver.status === 'available' ? 'bg-green-100 text-green-700' : 
-                                driver.status === 'on-trip' ? 'bg-accent/10 text-accent' : 'bg-secondary text-muted-foreground'
-                              }`}>
-                                {driver.status || 'offline'}
-                              </Badge>
+                              <Badge className={`rounded-full px-4 text-[8px] font-black uppercase border-none ${driver.status === 'available' ? 'bg-green-100 text-green-700' : driver.status === 'on-trip' ? 'bg-accent/10 text-accent' : 'bg-secondary text-muted-foreground'}`}>{driver.status || 'offline'}</Badge>
                             </td>
                             <td className="py-6">
                               <Badge variant="secondary" className="bg-secondary border-none uppercase font-black text-[8px] px-3">{driver.city || 'AP REGION'}</Badge>
