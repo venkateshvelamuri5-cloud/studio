@@ -147,7 +147,7 @@ export default function RiderDashboard() {
             <CardContent className="p-6 relative">
                <div className="flex items-center justify-between">
                  <div>
-                    <p className="text-[10px] font-black text-primary uppercase tracking-widest italic">VZM -> GITAM Loop</p>
+                    <p className="text-[10px] font-black text-primary uppercase tracking-widest italic">VZM &rarr; GITAM Loop</p>
                     <h5 className="font-black text-slate-900 text-lg">Express Shuttle #4</h5>
                  </div>
                  <Button size="sm" variant="secondary" className="rounded-xl font-bold text-[10px] uppercase h-8">Track Live</Button>
