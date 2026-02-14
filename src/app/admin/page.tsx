@@ -8,22 +8,37 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { 
   Bus, 
   Users, 
   Map as MapIcon, 
   Activity, 
-  TrendingUp, 
-  AlertTriangle, 
-  Settings,
-  Zap,
-  LayoutDashboard,
-  Clock,
-  MapPin,
-  MoreVertical,
+  Zap, 
+  LayoutDashboard, 
   Navigation,
   LogOut,
   ShieldAlert,
-  Loader2
+  Loader2,
+  MoreVertical,
+  UserPlus,
+  Settings2
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -36,8 +51,9 @@ import {
 } from 'recharts';
 import { generateShuttleRoutes } from '@/ai/flows/admin-generate-shuttle-routes';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
-import { collection, query, where, limit, doc } from 'firebase/firestore';
+import { collection, query, where, limit, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
+import { useToast } from '@/hooks/use-toast';
 
 const ridershipData = [
   { name: 'Vizag', riders: 8500 },
@@ -51,6 +67,7 @@ export default function AdminDashboard() {
   const db = useFirestore();
   const auth = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const { user, loading: authLoading } = useUser();
   
   const userRef = useMemo(() => {
@@ -63,6 +80,11 @@ export default function AdminDashboard() {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizationResult, setOptimizationResult] = useState<any>(null);
   const [demandPatterns, setDemandPatterns] = useState("High demand from Vizianagaram to GITAM/AU campuses between 7-9 AM.");
+  
+  // Driver Management State
+  const [editingDriver, setEditingDriver] = useState<any>(null);
+  const [newDriverPhone, setNewDriverPhone] = useState("");
+  const [isUpdatingRole, setIsUpdatingRole] = useState(false);
 
   // Drivers Collection Query
   const driversQuery = useMemo(() => {
@@ -87,6 +109,22 @@ export default function AdminDashboard() {
     if (!auth) return;
     await signOut(auth);
     router.push('/admin/login');
+  };
+
+  const handleUpdateDriverRole = async (driverId: string, newRole: string) => {
+    if (!db) return;
+    setIsUpdatingRole(true);
+    try {
+      const dRef = doc(db, 'users', driverId);
+      await updateDoc(dRef, { role: newRole });
+      toast({ title: "Role Updated", description: `User role changed to ${newRole}.` });
+      setEditingDriver(null);
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Update Failed", description: "Could not change driver role." });
+    } finally {
+      setIsUpdatingRole(false);
+    }
   };
 
   const handleOptimize = async () => {
@@ -117,7 +155,6 @@ export default function AdminDashboard() {
     );
   }
 
-  // Access check
   if (!user || profile?.role !== 'admin') {
     return (
       <div className="h-screen flex items-center justify-center bg-white p-8">
@@ -214,7 +251,11 @@ export default function AdminDashboard() {
                   <CardTitle className="font-black font-headline text-2xl italic uppercase tracking-tighter">Driver Fleet Monitor</CardTitle>
                   <CardDescription className="font-bold">Real-time GPS tracking and performance</CardDescription>
                 </div>
-                <Button variant="ghost" size="icon" className="rounded-full"><MoreVertical className="h-5 w-5" /></Button>
+                <div className="flex items-center gap-2">
+                   <Button variant="outline" size="sm" className="rounded-xl border-2 font-bold gap-2">
+                     <UserPlus className="h-4 w-4" /> Add Driver
+                   </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -243,7 +284,7 @@ export default function AdminDashboard() {
                                     {driver.fullName?.[0]}
                                   </div>
                                   <div>
-                                    <p className="font-black text-primary text-sm uppercase italic">{driver.fullName}</p>
+                                    <p className="font-black text-primary text-sm uppercase italic">{driver.fullName || 'Unnamed Driver'}</p>
                                     <p className="text-[10px] font-bold text-muted-foreground">{driver.phoneNumber}</p>
                                   </div>
                                 </div>
@@ -263,9 +304,42 @@ export default function AdminDashboard() {
                                 <span className="font-black text-primary italic text-sm">{driver.totalTrips || 0}</span>
                               </td>
                               <td className="py-4 text-right pr-2">
-                                <Button variant="outline" size="sm" className="h-8 px-3 rounded-lg border-2 font-black text-[10px] uppercase italic tracking-tighter">
-                                  Track
-                                </Button>
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="rounded-full hover:bg-primary/10">
+                                      <Settings2 className="h-4 w-4 text-primary" />
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="rounded-[2rem]">
+                                    <DialogHeader>
+                                      <DialogTitle className="font-headline font-black italic uppercase tracking-tight">Manage Driver</DialogTitle>
+                                      <DialogDescription className="font-bold">Update credentials or remove from registry.</DialogDescription>
+                                    </DialogHeader>
+                                    <div className="py-6 space-y-6">
+                                      <div className="space-y-2">
+                                        <Label className="text-[10px] font-black uppercase tracking-widest opacity-60">Change Role</Label>
+                                        <Select defaultValue={driver.role} onValueChange={(val) => handleUpdateDriverRole(driver.uid, val)}>
+                                          <SelectTrigger className="rounded-xl h-12 border-2">
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="rider">Demote to Rider</SelectItem>
+                                            <SelectItem value="driver">Keep as Driver</SelectItem>
+                                            <SelectItem value="admin">Promote to Admin</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                      <div className="p-4 bg-secondary/50 rounded-2xl">
+                                        <p className="text-[10px] font-black uppercase tracking-widest mb-2 opacity-60">Status Log</p>
+                                        <p className="font-bold text-sm">Last Seen: {driver.status || 'Offline'}</p>
+                                        <p className="text-xs text-muted-foreground">UID: {driver.uid}</p>
+                                      </div>
+                                    </div>
+                                    <DialogFooter>
+                                      <Button variant="destructive" className="w-full rounded-xl font-black uppercase italic">Revoke Access</Button>
+                                    </DialogFooter>
+                                  </DialogContent>
+                                </Dialog>
                               </td>
                             </tr>
                           ))}
@@ -349,7 +423,7 @@ export default function AdminDashboard() {
                           <div>
                             <h4 className="font-black text-primary text-sm uppercase italic tracking-tighter">{trip.routeName}</h4>
                             <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                              <Users className="h-3 w-3" /> {trip.riderCount} Students • {trip.driverName}
+                              <Users className="h-3 w-3" /> {trip.riderCount || 0} Students • {trip.driverName}
                             </p>
                           </div>
                         </div>

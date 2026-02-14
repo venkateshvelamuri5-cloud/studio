@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,94 +15,255 @@ import {
   Navigation,
   Phone,
   Power,
-  ChevronRight
+  Loader2,
+  ShieldAlert,
+  LogOut
 } from 'lucide-react';
+import { useUser, useDoc, useFirestore, useAuth } from '@/firebase';
+import { doc, updateDoc, serverTimestamp, collection, addDoc, onSnapshot, query, where } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
 
 export default function DriverConsole() {
-  const [status, setStatus] = useState('Off Duty');
-  const [activeRoute, setActiveRoute] = useState(false);
+  const { user, loading: authLoading } = useUser();
+  const db = useFirestore();
+  const auth = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const userRef = useMemo(() => {
+    if (!db || !user?.uid) return null;
+    return doc(db, 'users', user.uid);
+  }, [db, user?.uid]);
+
+  const { data: profile, loading: profileLoading } = useDoc(userRef);
+
+  const [activeTrip, setActiveTrip] = useState<any>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Sync active trip if any
+  useEffect(() => {
+    if (!db || !user?.uid) return;
+    const q = query(collection(db, 'trips'), where('driverId', '==', user.uid), where('status', '==', 'active'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        setActiveTrip({ ...snapshot.docs[0].data(), id: snapshot.docs[0].id });
+      } else {
+        setActiveTrip(null);
+      }
+    });
+    return unsubscribe;
+  }, [db, user?.uid]);
+
+  // Mock Geolocation sync
+  useEffect(() => {
+    if (!userRef || profile?.status !== 'on-trip') return;
+
+    const interval = setInterval(() => {
+      // Mock subtle movement for testing
+      const lat = (profile.currentLat || 17.6868) + (Math.random() - 0.5) * 0.001;
+      const lng = (profile.currentLng || 83.2185) + (Math.random() - 0.5) * 0.001;
+      
+      updateDoc(userRef, {
+        currentLat: lat,
+        currentLng: lng,
+        lastUpdated: serverTimestamp()
+      }).catch(console.error);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [userRef, profile?.status, profile?.currentLat, profile?.currentLng]);
+
+  const toggleDuty = async () => {
+    if (!userRef) return;
+    setIsUpdating(true);
+    try {
+      const newStatus = profile?.status === 'offline' || !profile?.status ? 'available' : 'offline';
+      await updateDoc(userRef, { status: newStatus });
+      toast({ title: `Status: ${newStatus.toUpperCase()}` });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const startTrip = async (routeName: string) => {
+    if (!db || !user || !profile) return;
+    setIsUpdating(true);
+    try {
+      const tripData = {
+        driverId: user.uid,
+        driverName: profile.fullName || "Driver",
+        routeName,
+        status: 'active',
+        riderCount: 0,
+        startTime: new Date().toISOString()
+      };
+      const tripRef = await addDoc(collection(db, 'trips'), tripData);
+      await updateDoc(userRef!, { 
+        status: 'on-trip', 
+        activeTripId: tripRef.id,
+        currentLat: 17.6868, // Start at a default Vizag point
+        currentLng: 83.2185
+      });
+      toast({ title: "Trip Started", description: `Route: ${routeName}` });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const endTrip = async () => {
+    if (!db || !activeTrip || !userRef) return;
+    setIsUpdating(true);
+    try {
+      const tripRef = doc(db, 'trips', activeTrip.id);
+      await updateDoc(tripRef, { status: 'completed', endTime: new Date().toISOString() });
+      await updateDoc(userRef, { 
+        status: 'available', 
+        activeTripId: null,
+        totalTrips: (profile?.totalTrips || 0) + 1 
+      });
+      toast({ title: "Trip Completed", description: "Returning to available pool." });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOut(auth!);
+    router.push('/');
+  };
+
+  if (authLoading || profileLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-900">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user || profile?.role !== 'driver') {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-8 space-y-6">
+        <ShieldAlert className="h-20 w-20 text-destructive" />
+        <h2 className="text-2xl font-black italic uppercase">Driver Only Access</h2>
+        <p className="text-center text-slate-400">Please contact the Regional Administrator to be registered as an official Aago Driver.</p>
+        <Button onClick={handleSignOut} className="w-full max-w-xs h-14 rounded-2xl font-black uppercase italic">Sign Out</Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white flex flex-col">
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col font-body">
       {/* Driver Header */}
-      <header className="p-4 flex items-center justify-between border-b border-white/10 bg-slate-900">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center font-bold">M</div>
+      <header className="p-6 flex items-center justify-between border-b border-white/5 bg-slate-900 shadow-2xl">
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 rounded-2xl bg-primary flex items-center justify-center font-black text-xl shadow-lg shadow-primary/20">
+            {profile?.fullName?.[0] || 'D'}
+          </div>
           <div>
-            <h1 className="font-bold leading-none">Mike Miller</h1>
-            <p className="text-xs text-slate-400">ID: 48820-DR</p>
+            <h1 className="font-black italic uppercase tracking-tight leading-none">{profile?.fullName}</h1>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">ID: {user.uid.slice(0, 8)}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge className={status === 'On Route' ? 'bg-green-500' : 'bg-slate-700'}>
-            {status}
+        <div className="flex items-center gap-3">
+          <Badge className={`rounded-full px-4 h-8 font-black uppercase tracking-widest ${
+            profile.status === 'available' ? 'bg-green-500/10 text-green-500' : 
+            profile.status === 'on-trip' ? 'bg-accent/10 text-accent' : 'bg-slate-800 text-slate-500'
+          }`}>
+            {profile.status || 'offline'}
           </Badge>
           <Button 
-            size="sm" 
-            variant={status === 'Off Duty' ? 'default' : 'destructive'}
-            onClick={() => setStatus(status === 'Off Duty' ? 'Idle' : 'Off Duty')}
-            className="rounded-full"
+            size="icon" 
+            variant="ghost" 
+            disabled={isUpdating}
+            onClick={toggleDuty}
+            className="rounded-2xl bg-slate-800 hover:bg-slate-700 h-12 w-12"
           >
-            <Power className="h-4 w-4" />
+            <Power className={`h-6 w-6 ${profile.status !== 'offline' ? 'text-green-500' : 'text-slate-500'}`} />
           </Button>
         </div>
       </header>
 
-      <main className="flex-1 p-4 space-y-4 overflow-y-auto">
-        {!activeRoute ? (
-          <div className="space-y-4 py-8">
-            <h2 className="text-2xl font-bold font-headline px-2">Today&apos;s Schedule</h2>
-            {[
-              { route: 'North Campus Loop', time: '08:00 - 10:00', bus: 'Bus #42' },
-              { route: 'West Village Express', time: '10:30 - 12:30', bus: 'Bus #42' },
-              { route: 'Downtown Shuttle', time: '14:00 - 17:00', bus: 'Bus #12' },
-            ].map((shift, i) => (
-              <Card key={i} className="bg-slate-800 border-none text-white shadow-xl overflow-hidden group hover:ring-2 hover:ring-primary transition-all">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-center">
-                    <div className="space-y-1">
-                      <h3 className="text-xl font-bold text-primary font-headline">{shift.route}</h3>
-                      <div className="flex items-center gap-4 text-sm text-slate-400">
-                        <span className="flex items-center gap-1"><Clock className="h-4 w-4" /> {shift.time}</span>
-                        <span className="flex items-center gap-1"><Bus className="h-4 w-4" /> {shift.bus}</span>
+      <main className="flex-1 p-6 space-y-6 overflow-y-auto">
+        {!activeTrip ? (
+          <div className="space-y-6">
+            <div className="flex flex-col gap-2">
+              <h2 className="text-3xl font-black font-headline italic uppercase tracking-tighter">Your Hub</h2>
+              <p className="text-sm font-bold text-slate-500">Vizag - Vizianagaram Highway Operations</p>
+            </div>
+
+            <section className="space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-primary">Available Assignments</h3>
+              {[
+                { route: 'VZM -> GITAM Campus', time: '08:00 - 10:00' },
+                { route: 'Vizag -> AU Special', time: '10:30 - 12:30' },
+                { route: 'Downtown Shuttle', time: '14:00 - 17:00' },
+              ].map((shift, i) => (
+                <Card key={i} className="bg-slate-900 border-white/5 text-white shadow-xl overflow-hidden hover:ring-2 hover:ring-primary transition-all">
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-center">
+                      <div className="space-y-1">
+                        <h3 className="text-xl font-black font-headline italic uppercase text-primary">{shift.route}</h3>
+                        <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
+                          <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {shift.time}</span>
+                          <span className="flex items-center gap-1"><Bus className="h-3 w-3" /> Shuttle #AP-01</span>
+                        </div>
                       </div>
+                      <Button 
+                        onClick={() => startTrip(shift.route)} 
+                        disabled={profile.status !== 'available' || isUpdating}
+                        className="bg-primary hover:bg-primary/90 rounded-2xl px-8 h-12 font-black italic uppercase shadow-lg shadow-primary/20"
+                      >
+                        Start
+                      </Button>
                     </div>
-                    <Button onClick={() => { setActiveRoute(true); setStatus('On Route'); }} className="bg-primary hover:bg-primary/90 rounded-xl px-6">Start Shift</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </section>
           </div>
         ) : (
-          <div className="space-y-4 pb-20">
+          <div className="space-y-6 pb-24">
             {/* Active Navigation Card */}
-            <Card className="bg-primary text-white border-none shadow-2xl rounded-3xl overflow-hidden">
+            <Card className="bg-primary text-white border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                   <div>
-                    <Badge className="bg-white/20 text-white mb-2">Active Route</Badge>
-                    <CardTitle className="text-2xl font-bold font-headline">North Campus Loop</CardTitle>
+                    <Badge className="bg-white/20 text-white mb-3 font-black uppercase tracking-widest text-[10px]">Active Region: AP-HIGHWAY</Badge>
+                    <CardTitle className="text-3xl font-black font-headline italic uppercase tracking-tighter">{activeTrip.routeName}</CardTitle>
                   </div>
-                  <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
-                    <AlertCircle className="h-4 w-4 mr-2" /> Report Issue
+                  <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-xl h-10 px-4 font-bold text-xs">
+                    <AlertCircle className="h-4 w-4 mr-2" /> Report SOS
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="bg-black/20 rounded-2xl p-6 flex flex-col items-center justify-center text-center space-y-2 border border-white/10 mb-6">
-                  <p className="text-sm font-bold uppercase tracking-widest text-primary-foreground/60">Next Stop</p>
-                  <h4 className="text-3xl font-black font-headline">Main Library</h4>
-                  <p className="text-slate-300 flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-accent" /> 0.8 miles away • 3 mins
+              <CardContent className="space-y-6">
+                <div className="bg-black/20 rounded-[2rem] p-8 flex flex-col items-center justify-center text-center space-y-3 border border-white/10">
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary-foreground/60 italic">Live Tracking Active</p>
+                  <h4 className="text-4xl font-black font-headline italic uppercase tracking-tighter">On Route</h4>
+                  <p className="text-primary-foreground/80 font-bold flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-accent" /> Coordinates Synced to Command Center
                   </p>
                 </div>
                 
-                <div className="flex gap-3">
-                  <Button className="flex-1 bg-white text-primary hover:bg-white/90 font-bold h-14 rounded-2xl">
-                    <Navigation className="h-5 w-5 mr-2" /> Open Maps
+                <div className="flex gap-4">
+                  <Button className="flex-1 bg-white text-primary hover:bg-white/90 font-black h-16 rounded-[1.5rem] uppercase italic tracking-tighter text-lg shadow-xl">
+                    <Navigation className="h-6 w-6 mr-2" /> Open GPS
                   </Button>
-                  <Button variant="outline" className="flex-1 border-white/40 text-white hover:bg-white/10 font-bold h-14 rounded-2xl">
-                    <CheckCircle2 className="h-5 w-5 mr-2" /> Arrived
+                  <Button 
+                    onClick={endTrip} 
+                    disabled={isUpdating}
+                    variant="outline" 
+                    className="flex-1 border-white/40 text-white hover:bg-white/10 font-black h-16 rounded-[1.5rem] uppercase italic tracking-tighter text-lg"
+                  >
+                    {isUpdating ? <Loader2 className="animate-spin" /> : "Complete"}
                   </Button>
                 </div>
               </CardContent>
@@ -111,33 +272,21 @@ export default function DriverConsole() {
             {/* Boarding Manifest */}
             <section className="space-y-4">
               <div className="flex items-center justify-between px-2">
-                <h3 className="text-lg font-bold font-headline flex items-center gap-2">
-                  <Users className="h-5 w-5 text-accent" /> Boarding Manifest
+                <h3 className="text-lg font-black font-headline uppercase italic tracking-tighter flex items-center gap-3">
+                  <Users className="h-6 w-6 text-accent" /> Student Manifest
                 </h3>
-                <Badge variant="outline" className="text-slate-400 border-slate-700">12 / 24 Seats</Badge>
+                <Badge variant="outline" className="text-slate-400 border-slate-800 font-bold px-4 py-1.5 rounded-full">{activeTrip.riderCount || 0} / 24 Seats</Badge>
               </div>
               
-              <div className="space-y-2">
-                {[
-                  { name: 'Sarah Jenkins', stop: 'Main Library', status: 'Booked' },
-                  { name: 'James Wilson', stop: 'Main Library', status: 'Booked' },
-                  { name: 'Elena Rodriguez', stop: 'Science Wing', status: 'Waitlist' },
-                ].map((p, i) => (
-                  <div key={i} className="bg-slate-800 p-4 rounded-2xl flex items-center justify-between border border-white/5">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-slate-700 flex items-center justify-center">
-                        <Users className="h-5 w-5 text-slate-400" />
-                      </div>
-                      <div>
-                        <p className="font-bold text-sm">{p.name}</p>
-                        <p className="text-xs text-slate-500">Pick up: {p.stop}</p>
-                      </div>
-                    </div>
-                    <Badge className={p.status === 'Booked' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-orange-500/10 text-orange-500 border-orange-500/20'}>
-                      {p.status}
-                    </Badge>
+              <div className="space-y-3">
+                {activeTrip.riderCount > 0 ? (
+                   <p className="text-sm text-slate-500 font-bold italic p-4 text-center border-2 border-dashed border-slate-800 rounded-[2rem]">Active students tracked via ID-QR</p>
+                ) : (
+                  <div className="p-8 text-center bg-slate-900/50 rounded-[2rem] border border-white/5 space-y-2">
+                    <Users className="h-10 w-10 mx-auto text-slate-700 opacity-50" />
+                    <p className="font-bold text-slate-500 italic">No student boardings recorded yet.</p>
                   </div>
-                ))}
+                )}
               </div>
             </section>
           </div>
@@ -145,18 +294,18 @@ export default function DriverConsole() {
       </main>
 
       {/* Driver Footer Navigation */}
-      <nav className="p-4 border-t border-white/10 bg-slate-900 flex justify-around">
-        <Button variant="ghost" className="flex-col gap-1 h-auto py-2 text-primary">
-          <Bus className="h-6 w-6" />
-          <span className="text-[10px]">Dashboard</span>
+      <nav className="p-6 pb-8 border-t border-white/5 bg-slate-900 flex justify-around items-center rounded-t-[2.5rem] shadow-2xl">
+        <Button variant="ghost" className="flex-col gap-1.5 h-auto py-2 text-primary">
+          <Bus className="h-7 w-7" />
+          <span className="text-[10px] font-black uppercase tracking-widest italic">Operations</span>
         </Button>
-        <Button variant="ghost" className="flex-col gap-1 h-auto py-2 text-slate-400">
-          <Phone className="h-6 w-6" />
-          <span className="text-[10px]">Contact Admin</span>
+        <Button variant="ghost" className="flex-col gap-1.5 h-auto py-2 text-slate-500">
+          <Phone className="h-7 w-7" />
+          <span className="text-[10px] font-black uppercase tracking-widest italic">Dispatcher</span>
         </Button>
-        <Button variant="ghost" className="flex-col gap-1 h-auto py-2 text-slate-400">
-          <AlertCircle className="h-6 w-6 text-red-500" />
-          <span className="text-[10px] text-red-500">Emergency</span>
+        <Button variant="ghost" onClick={handleSignOut} className="flex-col gap-1.5 h-auto py-2 text-slate-500 hover:text-red-500">
+          <LogOut className="h-7 w-7" />
+          <span className="text-[10px] font-black uppercase tracking-widest italic">Clock Out</span>
         </Button>
       </nav>
     </div>
