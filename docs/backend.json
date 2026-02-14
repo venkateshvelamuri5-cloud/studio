@@ -3,7 +3,7 @@
   "entities": {
     "User": {
       "title": "User",
-      "description": "A student rider or administrative user profile.",
+      "description": "A student rider, driver, or administrative user profile.",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
@@ -13,9 +13,28 @@
         "studentId": { "type": "string" },
         "city": { "type": "string", "enum": ["Vizag", "Vizianagaram"] },
         "role": { "type": "string", "enum": ["rider", "admin", "driver"] },
+        "status": { "type": "string", "enum": ["available", "on-trip", "offline"], "description": "Current status for drivers." },
+        "currentLat": { "type": "number" },
+        "currentLng": { "type": "number" },
+        "totalTrips": { "type": "number", "default": 0 },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "fullName", "phoneNumber", "role"]
+    },
+    "Trip": {
+      "title": "Trip",
+      "description": "A record of a shuttle trip.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "driverId": { "type": "string" },
+        "driverName": { "type": "string" },
+        "routeName": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "completed", "cancelled"] },
+        "riderCount": { "type": "number" },
+        "startTime": { "type": "string", "format": "date-time" }
+      },
+      "required": ["driverId", "routeName", "status"]
     }
   },
   "auth": {
@@ -25,6 +44,10 @@
     "/users/{userId}": {
       "schema": "User",
       "description": "User profile document identified by Firebase Auth UID."
+    },
+    "/trips/{tripId}": {
+      "schema": "Trip",
+      "description": "Historical and active trip records."
     }
   }
 }
