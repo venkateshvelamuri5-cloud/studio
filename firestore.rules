@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -8,7 +9,6 @@ service cloud.firestore {
     }
 
     // Helper function to check if the user has an admin role
-    // We add a safety check for the specific admin email to prevent lockouts
     function isAdmin() {
       return isAuthenticated() && (
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
@@ -17,9 +17,6 @@ service cloud.firestore {
     }
 
     // User profiles: 
-    // - Authenticated users can read any profile (needed for passenger manifests/driver info).
-    // - Users can create/update their own profile.
-    // - Admins can manage all profiles.
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create, update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
@@ -27,25 +24,18 @@ service cloud.firestore {
     }
 
     // Trips:
-    // - Any authenticated user can read and manage trips.
-    // - This is essential for students joining a trip and drivers updating location.
     match /trips/{tripId} {
       allow read, create, update: if isAuthenticated();
       allow delete: if isAdmin();
     }
 
     // Routes:
-    // - Any authenticated user can view routes and suggest new ones (status: suggested).
-    // - Admins manage activation (status: active/rejected).
     match /routes/{routeId} {
-      allow read, create: if isAuthenticated();
-      allow update: if isAuthenticated(); // Drivers update to 'suggested', Admins to 'active'
+      allow read, create, update: if isAuthenticated();
       allow delete: if isAdmin();
     }
 
     // Alerts (SOS):
-    // - Any authenticated user can trigger a signal.
-    // - Admins monitor and resolve.
     match /alerts/{alertId} {
       allow read, update, delete: if isAdmin();
       allow create: if isAuthenticated();

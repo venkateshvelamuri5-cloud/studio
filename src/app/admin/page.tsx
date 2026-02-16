@@ -41,6 +41,8 @@ import {
   Search,
   AlertTriangle,
   BarChart3,
+  MapPin,
+  ChevronRight,
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -51,7 +53,7 @@ import {
   Tooltip, 
   ResponsiveContainer,
 } from 'recharts';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { generateShuttleRoutes } from '@/ai/flows/admin-generate-shuttle-routes';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
 import { collection, query, where, limit, doc, updateDoc, addDoc, deleteDoc, getDocs, orderBy, setDoc } from 'firebase/firestore';
@@ -82,6 +84,7 @@ export default function AdminDashboard() {
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'drivers' | 'scholars' | 'suggestions' | 'finance' | 'safety'>('dashboard');
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   
   const userRef = useMemo(() => {
     if (!db || !user?.uid) return null;
@@ -89,41 +92,40 @@ export default function AdminDashboard() {
   }, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
+  // Simplified queries to avoid Index-related Permission Denied errors
   const { data: allUsers } = useCollection(
     useMemo(() => db ? query(collection(db, 'users')) : null, [db])
+  );
+
+  const { data: allRoutes } = useCollection(
+    useMemo(() => db ? query(collection(db, 'routes')) : null, [db])
+  );
+
+  const { data: activeTrips } = useCollection(
+    useMemo(() => db ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db])
+  );
+
+  const { data: activeAlerts } = useCollection(
+    useMemo(() => db ? query(collection(db, 'alerts'), where('status', '==', 'active')) : null, [db])
   );
 
   const drivers = useMemo(() => allUsers?.filter(u => u.role === 'driver') || [], [allUsers]);
   const riders = useMemo(() => allUsers?.filter(u => u.role === 'rider') || [], [allUsers]);
   
-  const { data: activeTrips } = useCollection(
-    useMemo(() => db ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db])
+  const savedRoutes = useMemo(() => 
+    allRoutes?.filter(r => r.status === 'active')
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()) || [], 
+    [allRoutes]
   );
 
-  const { data: savedRoutes } = useCollection(
-    useMemo(() => db ? query(collection(db, 'routes'), where('status', '==', 'active'), orderBy('createdAt', 'desc')) : null, [db])
+  const suggestions = useMemo(() => 
+    allRoutes?.filter(r => r.status === 'suggested')
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()) || [], 
+    [allRoutes]
   );
 
-  const { data: suggestions } = useCollection(
-    useMemo(() => db ? query(collection(db, 'routes'), where('status', '==', 'suggested'), orderBy('createdAt', 'desc')) : null, [db])
-  );
-
-  const { data: activeAlerts } = useCollection(
-    useMemo(() => db ? query(collection(db, 'alerts'), where('status', '==', 'active'), orderBy('timestamp', 'desc')) : null, [db])
-  );
-
-  const availableDrivers = drivers?.filter(d => d.status === 'available') || [];
   const onTripDrivers = drivers?.filter(d => d.status === 'on-trip') || [];
-
-  const [isOptimizing, setIsOptimizing] = useState(false);
-  const [demandPatterns, setDemandPatterns] = useState("Analyzing demand patterns...");
-  const [targetCity, setTargetCity] = useState("Vizag");
-  
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [newDriverPhone, setNewDriverPhone] = useState("");
-  const [newDriverName, setNewDriverName] = useState("");
-  const [newDriverCity, setNewDriverCity] = useState("Vizag");
-
+  const fleetHealth = drivers.length > 0 ? Math.round((onTripDrivers.length / drivers.length) * 100) : 0;
   const totalRegionalDebt = drivers?.reduce((acc, d) => acc + (d.weeklyEarnings || 0), 0) || 0;
 
   const ridershipByRouteData = useMemo(() => {
@@ -161,7 +163,6 @@ export default function AdminDashboard() {
           city: newDriverCity,
           status: 'offline'
         });
-        toast({ title: "Workforce Updated", description: `${newDriverName} is now an official driver.` });
       } else {
         const driverId = `DRV_${Date.now()}`;
         setDoc(doc(db, 'users', driverId), {
@@ -176,8 +177,8 @@ export default function AdminDashboard() {
           weeklyEarnings: 0,
           createdAt: new Date().toISOString()
         });
-        toast({ title: "Driver Registered", description: "Profile created in the regional workforce." });
       }
+      toast({ title: "Registry Updated" });
       setNewDriverName("");
       setNewDriverPhone("");
     } catch (error) {
@@ -187,6 +188,14 @@ export default function AdminDashboard() {
       setIsRegistering(false);
     }
   };
+
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [demandPatterns, setDemandPatterns] = useState("Analyzing demand patterns...");
+  const [targetCity, setTargetCity] = useState("Vizag");
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [newDriverPhone, setNewDriverPhone] = useState("");
+  const [newDriverName, setNewDriverName] = useState("");
+  const [newDriverCity, setNewDriverCity] = useState("Vizag");
 
   const handleOptimize = async () => {
     if (!db) return;
@@ -266,8 +275,6 @@ export default function AdminDashboard() {
     r.collegeName?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const fleetHealth = drivers.length > 0 ? Math.round((onTripDrivers.length / drivers.length) * 100) : 0;
-
   return (
     <div className="flex h-screen bg-[#F8F9FC] font-body">
       <aside className="w-64 bg-primary text-white flex flex-col shrink-0 shadow-2xl z-20">
@@ -280,7 +287,7 @@ export default function AdminDashboard() {
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {[
             { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-            { id: 'fleet', label: 'Fleet Tracking', icon: Navigation },
+            { id: 'fleet', label: 'Fleet Radar', icon: Navigation },
             { id: 'routes', label: 'Route Engine', icon: MapIcon },
             { id: 'suggestions', label: 'Suggestions', icon: MessageSquareShare, badge: suggestions?.length },
             { id: 'drivers', label: 'Workforce', icon: Truck },
@@ -415,143 +422,97 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {activeTab === 'safety' && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center px-2">
-                <h3 className="text-2xl font-black font-headline italic uppercase text-red-600">Incident Command</h3>
-                <Badge variant="outline" className="font-bold border-2 border-red-200 text-red-600 bg-red-50">{activeAlerts?.length || 0} ACTIVE SIGNALS</Badge>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {activeAlerts?.map((alert: any) => (
-                  <Card key={alert.id} className="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden ring-4 ring-red-500/10">
-                    <CardHeader className="bg-red-500 text-white p-6">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertTriangle className="h-5 w-5" />
-                        <p className="text-[10px] font-black uppercase tracking-widest">Priority Emergency Signal</p>
-                      </div>
-                      <h4 className="font-black text-2xl font-headline italic uppercase">{alert.senderName}</h4>
-                      <Badge className="bg-white/20 text-white uppercase font-black text-[10px] border-none mt-2">{alert.role} TERMINAL</Badge>
-                    </CardHeader>
-                    <CardContent className="p-6 space-y-6">
-                      <div className="h-48 bg-slate-100 rounded-2xl relative overflow-hidden">
-                        {isLoaded && (
-                          <GoogleMap
-                            mapContainerStyle={containerStyle}
-                            center={{ lat: alert.lat || 17.6868, lng: alert.lng || 83.2185 }}
-                            zoom={15}
-                            options={{ disableDefaultUI: true }}
-                          >
-                            <Marker position={{ lat: alert.lat || 17.6868, lng: alert.lng || 83.2185 }} />
-                          </GoogleMap>
-                        )}
-                      </div>
-                      <Button onClick={() => handleResolveAlert(alert.id)} className="w-full bg-green-500 hover:bg-green-600 h-14 rounded-2xl font-black uppercase italic">Resolve Signal</Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'scholars' && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center px-2">
-                <div className="relative w-full max-w-sm">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="Search scholars..." 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 h-12 rounded-2xl border-none shadow-sm font-bold bg-white"
-                  />
-                </div>
-              </div>
-
-              <Card className="border-none shadow-2xl rounded-[2.5rem] bg-white overflow-hidden">
-                <CardContent className="p-0 overflow-x-auto">
-                   <table className="w-full text-left">
-                     <thead>
-                       <tr className="bg-secondary/50 border-b text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-                         <th className="py-6 pl-8">Profile</th>
-                         <th className="py-6">Institution</th>
-                         <th className="py-6 text-center">Wallet</th>
-                         <th className="py-6 text-right pr-8">Joined</th>
-                       </tr>
-                     </thead>
-                     <tbody className="divide-y">
-                       {filteredRiders.map((rider: any) => (
-                         <tr key={rider.uid} className="hover:bg-secondary/30 transition-colors">
-                           <td className="py-6 pl-8 font-black text-primary uppercase italic text-sm">{rider.fullName}</td>
-                           <td className="py-6 font-bold text-xs uppercase">{rider.collegeName}</td>
-                           <td className="py-6 text-center">₹{rider.credits || 0}</td>
-                           <td className="py-6 text-right pr-8 font-bold text-[10px] text-muted-foreground">
-                             {rider.createdAt ? new Date(rider.createdAt).toLocaleDateString() : 'N/A'}
-                           </td>
-                         </tr>
-                       ))}
-                     </tbody>
-                   </table>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
           {activeTab === 'fleet' && (
-            <div className="space-y-6 h-full flex flex-col">
-              <Card className="border-none shadow-2xl bg-white rounded-[3rem] overflow-hidden flex-1 relative min-h-[500px]">
+            <div className="h-[calc(100vh-12rem)] flex gap-8">
+              <Card className="flex-1 border-none shadow-2xl bg-white rounded-[3rem] overflow-hidden relative">
                 {isLoaded ? (
                   <GoogleMap
                     mapContainerStyle={containerStyle}
                     center={center}
                     zoom={12}
+                    options={{ disableDefaultUI: true, styles: [{ featureType: 'all', elementType: 'all', stylers: [{ saturation: -100 }] }] }}
                   >
-                    {drivers?.map((driver: any) => (
-                      driver.currentLat && driver.currentLng && (
+                    {drivers?.map((driver: any) => {
+                      const activeTrip = activeTrips?.find(t => t.driverId === driver.uid);
+                      const route = allRoutes?.find(r => r.routeName === activeTrip?.routeName);
+
+                      return driver.currentLat && driver.currentLng && (
                         <Marker 
                           key={driver.uid} 
                           position={{ lat: driver.currentLat, lng: driver.currentLng }}
                           title={driver.fullName}
+                          onClick={() => setSelectedDriverId(driver.uid)}
                           icon={driver.status === 'on-trip' ? 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png' : 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'}
-                        />
-                      )
-                    ))}
+                        >
+                          {selectedDriverId === driver.uid && (
+                            <InfoWindow onCloseClick={() => setSelectedDriverId(null)}>
+                              <div className="p-2 min-w-[200px] font-body">
+                                <h4 className="font-black text-primary uppercase italic text-sm border-b pb-2 mb-2">{driver.fullName}</h4>
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Badge className={driver.status === 'on-trip' ? 'bg-accent' : 'bg-green-500'}>{driver.status.toUpperCase()}</Badge>
+                                    <p className="text-[10px] font-black text-muted-foreground uppercase">{driver.city}</p>
+                                  </div>
+                                  {activeTrip && (
+                                    <div className="bg-secondary/20 p-2 rounded-xl border border-secondary/30">
+                                      <p className="text-[10px] font-black uppercase text-primary mb-1">Active Mission</p>
+                                      <p className="font-bold text-xs">{activeTrip.routeName}</p>
+                                      {route && (
+                                        <div className="mt-2 space-y-1">
+                                          <p className="text-[9px] font-black uppercase text-muted-foreground">Drop Protocol</p>
+                                          {route.stops?.map((stop: string, i: number) => (
+                                            <div key={i} className="flex items-center gap-1 text-[9px] font-bold">
+                                              <MapPin className="h-2 w-2 text-primary" /> {stop}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </InfoWindow>
+                          )}
+                        </Marker>
+                      );
+                    })}
                   </GoogleMap>
                 ) : (
-                  <div className="h-full w-full flex items-center justify-center bg-slate-900 text-white font-black italic uppercase">
-                    Initializing Satellite Feed...
+                  <div className="h-full w-full flex items-center justify-center bg-slate-100 font-black italic uppercase">
+                    Initializing Radar...
                   </div>
                 )}
               </Card>
-            </div>
-          )}
 
-          {activeTab === 'finance' && (
-            <div className="space-y-6">
-              <Card className="bg-primary text-white rounded-[2rem] border-none shadow-xl p-8 max-w-sm">
-                <p className="text-xs font-black uppercase tracking-widest opacity-60">Regional Payout Total</p>
-                <h3 className="text-5xl font-black italic font-headline mt-2 uppercase tracking-tighter">₹{totalRegionalDebt}</h3>
-              </Card>
-
-              <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
-                <CardContent className="p-0">
-                   <table className="w-full text-left">
-                     <thead>
-                       <tr className="bg-secondary/50 border-b text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-                         <th className="py-6 pl-8">Worker</th>
-                         <th className="py-6">Hub</th>
-                         <th className="py-6 pr-8 text-right">Weekly Pending</th>
-                       </tr>
-                     </thead>
-                     <tbody className="divide-y">
-                       {drivers?.map((driver: any) => (
-                         <tr key={driver.uid} className="hover:bg-secondary/20 transition-colors">
-                           <td className="py-6 pl-8 font-black text-primary uppercase italic text-sm">{driver.fullName}</td>
-                           <td className="py-6 font-bold text-xs uppercase">{driver.city}</td>
-                           <td className="py-6 pr-8 text-right font-black text-accent">₹{driver.weeklyEarnings || 0}</td>
-                         </tr>
-                       ))}
-                     </tbody>
-                   </table>
+              <Card className="w-80 border-none shadow-xl bg-white rounded-[2.5rem] overflow-hidden flex flex-col">
+                <CardHeader>
+                  <CardTitle className="font-black font-headline text-xl italic uppercase text-primary">Live Assets</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1 overflow-y-auto px-6 space-y-4">
+                  {onTripDrivers.length === 0 ? (
+                    <div className="p-8 text-center border-4 border-dashed rounded-[2rem] text-slate-300 font-black italic uppercase text-[10px]">
+                      No active missions.
+                    </div>
+                  ) : (
+                    onTripDrivers.map(driver => {
+                      const trip = activeTrips?.find(t => t.driverId === driver.uid);
+                      return (
+                        <div 
+                          key={driver.uid} 
+                          onClick={() => setSelectedDriverId(driver.uid)}
+                          className={`p-5 rounded-3xl border cursor-pointer transition-all ${selectedDriverId === driver.uid ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-secondary/50 border-secondary hover:bg-secondary'}`}
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-black uppercase italic text-xs leading-none">{driver.fullName}</h4>
+                            <Activity className={`h-3 w-3 ${selectedDriverId === driver.uid ? 'text-white' : 'text-accent'} animate-pulse`} />
+                          </div>
+                          <p className={`text-[9px] font-bold uppercase tracking-wider ${selectedDriverId === driver.uid ? 'text-white/70' : 'text-muted-foreground'}`}>
+                            {trip?.routeName || "Initializing..."}
+                          </p>
+                        </div>
+                      );
+                    })
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -602,20 +563,69 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {activeTab === 'suggestions' && (
+          {activeTab === 'finance' && (
             <div className="space-y-6">
+              <Card className="bg-primary text-white rounded-[2rem] border-none shadow-xl p-8 max-w-sm">
+                <p className="text-xs font-black uppercase tracking-widest opacity-60">Regional Payout Total</p>
+                <h3 className="text-5xl font-black italic font-headline mt-2 uppercase tracking-tighter">₹{totalRegionalDebt}</h3>
+              </Card>
+
+              <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
+                <CardContent className="p-0">
+                   <table className="w-full text-left">
+                     <thead>
+                       <tr className="bg-secondary/50 border-b text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+                         <th className="py-6 pl-8">Worker</th>
+                         <th className="py-6">Hub</th>
+                         <th className="py-6 pr-8 text-right">Weekly Pending</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y">
+                       {drivers?.map((driver: any) => (
+                         <tr key={driver.uid} className="hover:bg-secondary/20 transition-colors">
+                           <td className="py-6 pl-8 font-black text-primary uppercase italic text-sm">{driver.fullName}</td>
+                           <td className="py-6 font-bold text-xs uppercase">{driver.city}</td>
+                           <td className="py-6 pr-8 text-right font-black text-accent">₹{driver.weeklyEarnings || 0}</td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {activeTab === 'safety' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center px-2">
+                <h3 className="text-2xl font-black font-headline italic uppercase text-red-600">Incident Command</h3>
+                <Badge variant="outline" className="font-bold border-2 border-red-200 text-red-600 bg-red-50">{activeAlerts?.length || 0} ACTIVE SIGNALS</Badge>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {suggestions?.map((route: any) => (
-                  <Card key={route.id} className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden">
-                    <CardHeader>
-                      <h4 className="font-black text-primary uppercase italic text-xl">{route.routeName}</h4>
-                      <p className="text-[10px] font-bold text-muted-foreground mt-2">By: {route.driverName}</p>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="pt-4 border-t border-secondary flex gap-3">
-                        <Button onClick={() => handleReviewSuggestion(route.id, 'approve')} className="flex-1 bg-green-500 hover:bg-green-600 h-10 rounded-xl font-black uppercase italic text-[10px]">Approve</Button>
-                        <Button onClick={() => handleReviewSuggestion(route.id, 'reject')} variant="outline" className="flex-1 border-red-200 text-red-500 hover:bg-red-50 h-10 rounded-xl font-black uppercase italic text-[10px]">Reject</Button>
+                {activeAlerts?.map((alert: any) => (
+                  <Card key={alert.id} className="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden ring-4 ring-red-500/10">
+                    <CardHeader className="bg-red-500 text-white p-6">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="h-5 w-5" />
+                        <p className="text-[10px] font-black uppercase tracking-widest">Priority Emergency Signal</p>
                       </div>
+                      <h4 className="font-black text-2xl font-headline italic uppercase">{alert.senderName}</h4>
+                      <Badge className="bg-white/20 text-white uppercase font-black text-[10px] border-none mt-2">{alert.role} TERMINAL</Badge>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-6">
+                      <div className="h-48 bg-slate-100 rounded-2xl relative overflow-hidden">
+                        {isLoaded && (
+                          <GoogleMap
+                            mapContainerStyle={containerStyle}
+                            center={{ lat: alert.lat || 17.6868, lng: alert.lng || 83.2185 }}
+                            zoom={15}
+                            options={{ disableDefaultUI: true }}
+                          >
+                            <Marker position={{ lat: alert.lat || 17.6868, lng: alert.lng || 83.2185 }} />
+                          </GoogleMap>
+                        )}
+                      </div>
+                      <Button onClick={() => handleResolveAlert(alert.id)} className="w-full bg-green-500 hover:bg-green-600 h-14 rounded-2xl font-black uppercase italic">Resolve Signal</Button>
                     </CardContent>
                   </Card>
                 ))}
@@ -623,6 +633,50 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* ... Other tabs maintained ... */}
+          {activeTab === 'scholars' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center px-2">
+                <div className="relative w-full max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search scholars..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 h-12 rounded-2xl border-none shadow-sm font-bold bg-white"
+                  />
+                </div>
+              </div>
+
+              <Card className="border-none shadow-2xl rounded-[2.5rem] bg-white overflow-hidden">
+                <CardContent className="p-0 overflow-x-auto">
+                   <table className="w-full text-left">
+                     <thead>
+                       <tr className="bg-secondary/50 border-b text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+                         <th className="py-6 pl-8">Profile</th>
+                         <th className="py-6">Institution</th>
+                         <th className="py-6 text-center">Wallet</th>
+                         <th className="py-6 text-right pr-8">Joined</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y">
+                       {filteredRiders.map((rider: any) => (
+                         <tr key={rider.uid} className="hover:bg-secondary/30 transition-colors">
+                           <td className="py-6 pl-8 font-black text-primary uppercase italic text-sm">{rider.fullName}</td>
+                           <td className="py-6 font-bold text-xs uppercase">{rider.collegeName}</td>
+                           <td className="py-6 text-center">₹{rider.credits || 0}</td>
+                           <td className="py-6 text-right pr-8 font-bold text-[10px] text-muted-foreground">
+                             {rider.createdAt ? new Date(rider.createdAt).toLocaleDateString() : 'N/A'}
+                           </td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          
           {activeTab === 'drivers' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
