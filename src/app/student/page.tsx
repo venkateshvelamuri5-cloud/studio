@@ -29,6 +29,8 @@ import {
   Loader2,
   AlertTriangle,
   Camera,
+  Star,
+  Info
 } from 'lucide-react';
 import Image from 'next/image';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
@@ -64,7 +66,7 @@ export default function RiderDashboard() {
   const [isBooking, setIsBooking] = useState(false);
   const [isToppingUp, setIsToppingUp] = useState(false);
   const [isSendingSos, setIsSendingSos] = useState(false);
-  const [selectedRoute, setSelectedRoute] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'commute' | 'map' | 'inbox'>('commute');
   
   const userRef = useMemo(() => {
     if (!db || !user?.uid) return null;
@@ -104,7 +106,7 @@ export default function RiderDashboard() {
       toast({
         variant: "destructive",
         title: "SOS Signal Transmitted",
-        description: "Emergency hub has been notified of your location.",
+        description: "Regional hub notified. Stay where you are.",
       });
     } catch (err) {
       console.error(err);
@@ -121,8 +123,8 @@ export default function RiderDashboard() {
         credits: increment(500)
       });
       toast({
-        title: "Credits Added",
-        description: "₹500 has been added to your Aago wallet.",
+        title: "Scholar Wallet Credited",
+        description: "₹500 added successfully.",
       });
     } catch (err) {
       console.error(err);
@@ -137,7 +139,7 @@ export default function RiderDashboard() {
       toast({
         variant: "destructive",
         title: "Insufficient Balance",
-        description: "Please top up your wallet to book a seat (Min ₹50).",
+        description: "Minimum ₹50 required to board.",
       });
       return;
     }
@@ -155,8 +157,8 @@ export default function RiderDashboard() {
         activeTripId: tripId
       });
       toast({
-        title: "Seat Confirmed",
-        description: `You are booked on ${routeName}. Happy commuting!`,
+        title: "Boarding Pass Ready",
+        description: `Seat confirmed on ${routeName}.`,
       });
     } catch (err) {
       console.error(err);
@@ -169,19 +171,20 @@ export default function RiderDashboard() {
   const getRouteImage = (routeName: string) => {
     if (routeName.toLowerCase().includes('vizag')) return PlaceHolderImages.find(i => i.id === 'vizag-route')?.imageUrl;
     if (routeName.toLowerCase().includes('vzm')) return PlaceHolderImages.find(i => i.id === 'vzm-route')?.imageUrl;
-    return PlaceHolderImages.find(i => i.id === 'map-tracking')?.imageUrl;
+    return PlaceHolderImages.find(i => i.id === 'live-map')?.imageUrl;
   };
 
   return (
     <div className="min-h-screen bg-[#F8F9FC] flex flex-col font-body pb-28">
-      <header className="bg-white px-6 py-6 flex items-center justify-between sticky top-0 z-30 border-b border-slate-100">
+      {/* Premium Student Header */}
+      <header className="bg-white px-6 py-6 flex items-center justify-between sticky top-0 z-30 border-b border-slate-100 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-2xl bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
             <Bus className="h-5 w-5" />
           </div>
           <div>
             <h1 className="text-lg font-black text-primary font-headline italic tracking-tight leading-none uppercase">AAGO</h1>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{profile?.city || 'Regional'} Hub</p>
+            <Badge variant="outline" className="text-[7px] font-black uppercase tracking-widest mt-0.5 py-0 px-2 border-primary/20 text-primary">SCHOLAR TERMINAL</Badge>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -199,138 +202,151 @@ export default function RiderDashboard() {
         </div>
       </header>
 
-      <main className="flex-1 p-6 space-y-6 max-w-xl mx-auto w-full">
-        <div className="flex justify-between items-start">
+      <main className="flex-1 p-6 space-y-8 max-w-xl mx-auto w-full">
+        {/* Greetings & SOS */}
+        <div className="flex justify-between items-start animate-in fade-in slide-in-from-top-4 duration-500">
           <div className="space-y-1">
-            <h2 className="text-3xl font-black text-slate-900 font-headline italic uppercase tracking-tighter">
-              Hi, {profile?.fullName?.split(' ')[0] || 'Scholar'}!
+            <h2 className="text-4xl font-black text-slate-950 font-headline italic uppercase tracking-tighter leading-none">
+              Hi, {profile?.fullName?.split(' ')[0] || 'Scholar'}
             </h2>
-            <p className="text-sm font-bold text-slate-500 italic">Ready for your campus commute?</p>
+            <p className="text-sm font-bold text-slate-400 italic flex items-center gap-2">
+              <Star className="h-3 w-3 text-accent fill-accent" /> {profile?.collegeName || 'Aago Scholar'}
+            </p>
           </div>
           <Button 
             variant="destructive" 
             onClick={handleSOS} 
             disabled={isSendingSos}
-            className="rounded-2xl h-14 w-14 shadow-xl shadow-red-500/20"
+            className="rounded-[1.5rem] h-14 w-14 shadow-2xl shadow-red-500/20 active:scale-90 transition-transform"
           >
-            {isSendingSos ? <Loader2 className="animate-spin" /> : <AlertTriangle className="h-6 w-6" />}
+            {isSendingSos ? <Loader2 className="animate-spin" /> : <AlertTriangle className="h-7 w-7" />}
           </Button>
         </div>
 
+        {/* Primary Booking Card */}
         <Dialog>
           <DialogTrigger asChild>
-            <Card className="border-none shadow-xl bg-primary text-white rounded-[2rem] overflow-hidden group active:scale-[0.98] transition-transform cursor-pointer">
-              <CardContent className="p-8 flex items-center justify-between">
-                <div className="space-y-2">
-                  <h3 className="text-2xl font-black font-headline italic uppercase tracking-tighter">Book a Seat</h3>
-                  <p className="text-xs font-bold text-primary-foreground/70 uppercase tracking-widest flex items-center gap-1">
-                    <Clock className="h-3 w-3" /> {activeTrips?.length} Shuttles Live Now
-                  </p>
+            <Card className="border-none shadow-[0_32px_64px_-12px_rgba(0,0,0,0.15)] bg-slate-950 text-white rounded-[2.5rem] overflow-hidden group active:scale-[0.98] transition-all cursor-pointer">
+              <CardContent className="p-10 flex items-center justify-between relative overflow-hidden">
+                <div className="absolute top-0 right-0 h-full w-1/3 bg-primary/20 blur-[100px] -z-10" />
+                <div className="space-y-3 z-10">
+                  <h3 className="text-3xl font-black font-headline italic uppercase tracking-tighter leading-none">Book Seat</h3>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-primary text-white border-none font-black text-[9px] px-3 uppercase">{activeTrips?.length || 0} Shuttles Live</Badge>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Regional Hub</span>
+                  </div>
                 </div>
-                <div className="bg-white/10 p-4 rounded-3xl group-hover:rotate-12 transition-transform">
+                <div className="bg-primary h-16 w-16 rounded-[2rem] flex items-center justify-center shadow-2xl shadow-primary/30 group-hover:rotate-12 transition-transform">
                   <Navigation className="h-8 w-8 text-white" />
                 </div>
               </CardContent>
             </Card>
           </DialogTrigger>
-          <DialogContent className="rounded-[2.5rem] bg-white p-0 overflow-hidden max-w-md">
-            <DialogHeader className="p-8 pb-0">
-              <DialogTitle className="text-2xl font-black font-headline italic uppercase tracking-tighter">Available Shuttles</DialogTitle>
-              <DialogDescription className="font-bold">Select an active trip to confirm your seat.</DialogDescription>
+          <DialogContent className="rounded-[3rem] bg-white p-0 overflow-hidden max-w-md border-none shadow-2xl">
+            <DialogHeader className="p-10 pb-4">
+              <DialogTitle className="text-3xl font-black font-headline italic uppercase tracking-tighter text-slate-900 leading-none">Live Dispatch</DialogTitle>
+              <DialogDescription className="font-bold text-slate-400 mt-2">Active missions in the {profile?.city} region.</DialogDescription>
             </DialogHeader>
-            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
+            <div className="px-8 pb-10 max-h-[60vh] overflow-y-auto space-y-4">
               {tripsLoading ? (
-                <div className="py-10 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto text-primary" /></div>
+                <div className="py-20 text-center"><Loader2 className="animate-spin h-10 w-10 mx-auto text-primary" /></div>
               ) : activeTrips?.length === 0 ? (
-                <div className="py-10 text-center text-slate-400 font-bold italic uppercase text-xs border-2 border-dashed rounded-3xl">
-                  No active shuttles in your region
+                <div className="py-20 text-center text-slate-300 font-black italic uppercase text-xs border-4 border-dashed rounded-[2.5rem] flex flex-col items-center gap-4">
+                  <Bus className="h-10 w-10 opacity-20" />
+                  No Active Shuttles
                 </div>
               ) : (
                 activeTrips?.map((trip: any) => (
-                  <div key={trip.id} className="p-5 bg-secondary/50 rounded-2xl flex items-center justify-between group hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/20">
+                  <div key={trip.id} className="p-6 bg-slate-50 rounded-[2rem] flex items-center justify-between group hover:bg-primary transition-colors border-2 border-transparent">
                     <div className="space-y-1">
-                      <h4 className="font-black text-primary uppercase italic text-sm">{trip.routeName}</h4>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <Bus className="h-3 w-3" /> {trip.driverName} &bull; {24 - (trip.riderCount || 0)} Seats Left
+                      <h4 className="font-black text-slate-900 group-hover:text-white uppercase italic text-lg leading-none">{trip.routeName}</h4>
+                      <p className="text-[10px] font-black text-slate-400 group-hover:text-white/60 uppercase tracking-widest flex items-center gap-2 mt-2">
+                        <Bus className="h-3 w-3" /> {trip.driverName} • {24 - (trip.riderCount || 0)} Seats
                       </p>
                     </div>
                     <Button 
-                      size="sm" 
+                      size="lg" 
                       onClick={() => handleBookSeat(trip.id, trip.routeName)}
-                      className="rounded-xl font-black uppercase italic text-[10px] h-10 px-6 shadow-lg shadow-primary/20"
+                      className="rounded-2xl font-black uppercase italic text-xs h-12 px-8 bg-primary group-hover:bg-white group-hover:text-primary transition-colors"
                     >
-                      Join
+                      Board
                     </Button>
                   </div>
                 ))
               )}
             </div>
-            <div className="p-6 bg-slate-50 border-t flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase text-slate-400">Balance: ₹{profile?.credits || 0}</span>
-              <Button variant="ghost" className="text-[10px] font-black uppercase text-primary" onClick={handleTopUp}>Add Credits</Button>
+            <div className="p-8 bg-slate-100 flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Scholar Balance</span>
+                <span className="text-xl font-black text-slate-900">₹{profile?.credits || 0}</span>
+              </div>
+              <Button size="sm" variant="outline" className="rounded-xl font-black uppercase text-[10px] border-slate-300 h-10 px-6" onClick={handleTopUp}>Add Funds</Button>
             </div>
           </DialogContent>
         </Dialog>
 
-        <div className="grid grid-cols-2 gap-4">
-          <Card className="border-none shadow-lg bg-white rounded-[1.5rem] p-5 space-y-3 relative overflow-hidden group">
-             <div className="bg-accent/10 w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                <IndianRupee className="h-5 w-5 text-accent" />
+        {/* Action Grid */}
+        <div className="grid grid-cols-2 gap-6">
+          <Card className="border-none shadow-xl bg-white rounded-[2.5rem] p-8 space-y-6 relative overflow-hidden group">
+             <div className="bg-accent/10 w-14 h-14 rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <IndianRupee className="h-7 w-7 text-accent" />
              </div>
              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Balance</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Scholar Wallet</p>
                 <div className="flex items-center justify-between">
-                  <p className="text-xl font-black text-slate-900">
-                    {profileLoading ? '...' : `₹${profile?.credits || 0}`}
+                  <p className="text-3xl font-black text-slate-950 font-headline italic leading-none">
+                    ₹{profile?.credits || 0}
                   </p>
-                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full text-accent" onClick={handleTopUp} disabled={isToppingUp}>
-                    {isToppingUp ? <Loader2 className="animate-spin h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  <Button size="icon" variant="secondary" className="h-10 w-10 rounded-full bg-slate-100 text-slate-950" onClick={handleTopUp} disabled={isToppingUp}>
+                    {isToppingUp ? <Loader2 className="animate-spin h-5 w-5" /> : <Plus className="h-5 w-5" />}
                   </Button>
                 </div>
              </div>
           </Card>
           <Dialog>
             <DialogTrigger asChild>
-              <Card className="border-none shadow-lg bg-white rounded-[1.5rem] p-5 space-y-3 cursor-pointer group hover:bg-blue-50/50 transition-colors">
-                 <div className="bg-blue-50 w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <QrCode className="h-5 w-5 text-blue-600" />
+              <Card className="border-none shadow-xl bg-white rounded-[2.5rem] p-8 space-y-6 cursor-pointer group hover:bg-primary/5 transition-colors relative overflow-hidden">
+                 <div className="bg-primary/10 w-14 h-14 rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <QrCode className="h-7 w-7 text-primary" />
                  </div>
                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Digital ID</p>
-                    <p className="text-xl font-black text-slate-900 uppercase italic">Show</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Boarding Pass</p>
+                    <p className="text-3xl font-black text-slate-950 font-headline italic uppercase leading-none">SHOW</p>
                  </div>
               </Card>
             </DialogTrigger>
-            <DialogContent className="rounded-[2.5rem] max-w-sm bg-white text-center p-12 space-y-6">
+            <DialogContent className="rounded-[4rem] max-w-sm bg-white text-center p-12 border-none shadow-2xl">
               <DialogHeader>
-                <DialogTitle className="text-2xl font-black font-headline italic uppercase tracking-tighter text-center">Your Scholar ID</DialogTitle>
-                <DialogDescription className="text-center font-bold">Present this to the driver during boarding.</DialogDescription>
+                <DialogTitle className="text-3xl font-black font-headline italic uppercase tracking-tighter text-center leading-none">Digital ID</DialogTitle>
+                <DialogDescription className="text-center font-bold text-slate-400 mt-2">Verified Scholar Identification</DialogDescription>
               </DialogHeader>
-              <div className="p-8 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 flex flex-col items-center gap-4">
-                <div className="bg-white p-4 rounded-3xl shadow-xl border-4 border-primary">
-                  <QrCode className="h-40 w-40 text-primary" />
+              <div className="p-10 bg-slate-50 rounded-[3rem] border-4 border-dashed border-slate-200 flex flex-col items-center gap-8 mt-4">
+                <div className="bg-white p-6 rounded-[3rem] shadow-2xl border-8 border-primary relative">
+                  <QrCode className="h-44 w-44 text-primary" />
+                  <div className="absolute inset-0 bg-primary/5 rounded-[2rem] animate-pulse -z-10" />
                 </div>
-                <div>
-                  <p className="font-black text-slate-900 uppercase italic">{profile?.fullName}</p>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">{profile?.collegeName}</p>
+                <div className="text-center space-y-1">
+                  <h4 className="font-black text-2xl text-slate-950 uppercase italic leading-none tracking-tighter">{profile?.fullName}</h4>
+                  <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em]">{profile?.collegeName}</p>
                 </div>
               </div>
             </DialogContent>
           </Dialog>
         </div>
 
+        {/* Live GPS Feed */}
         <section className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <h4 className="text-xs font-black uppercase tracking-widest text-slate-500">Live GPS Intelligence</h4>
-            <Badge variant="outline" className="border-slate-200 text-[8px] font-black uppercase text-green-600 bg-green-50">Fleet Secure</Badge>
+          <div className="flex items-center justify-between px-2">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Live GPS Radar</h4>
+            <Badge variant="outline" className="border-green-100 text-[8px] font-black uppercase text-green-600 bg-green-50 px-3">Fleet Active</Badge>
           </div>
-          <Card className="overflow-hidden border-none shadow-lg bg-white rounded-[2rem] h-64 relative group cursor-pointer">
+          <Card className="overflow-hidden border-none shadow-2xl bg-white rounded-[3rem] h-72 relative group cursor-pointer ring-8 ring-white">
             {isLoaded ? (
               <GoogleMap
                 mapContainerStyle={containerStyle}
                 center={center}
                 zoom={13}
-                options={{ disableDefaultUI: true }}
+                options={{ disableDefaultUI: true, styles: [{ featureType: "all", elementType: "labels.text.fill", stylers: [{ color: "#94a3b8" }] }] }}
               >
                 {activeDrivers?.map((driver: any) => (
                   driver.currentLat && driver.currentLng && (
@@ -344,70 +360,79 @@ export default function RiderDashboard() {
                 ))}
               </GoogleMap>
             ) : (
-              <div className="h-full w-full flex items-center justify-center bg-slate-100 text-slate-400 font-bold italic">
-                Initializing Maps...
+              <div className="h-full w-full flex items-center justify-center bg-slate-100 text-slate-300 font-black italic uppercase text-xs">
+                Syncing Satellites...
               </div>
             )}
           </Card>
         </section>
 
+        {/* Route Discovery */}
         <section className="space-y-4">
-           <div className="flex items-center justify-between px-1">
-             <h4 className="text-xs font-black uppercase tracking-widest text-slate-500">Optimized Routes</h4>
-             <span className="text-[10px] font-bold text-slate-400">MANAGED BY AAGO</span>
+           <div className="flex items-center justify-between px-2">
+             <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Optimized Routes</h4>
+             <span className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-1"><Info className="h-3 w-3" /> Hub Verified</span>
            </div>
-           <div className="space-y-3">
+           <div className="space-y-4">
               {routesLoading ? (
-                <div className="p-4 text-center animate-pulse text-xs font-bold text-slate-400">Syncing Network...</div>
+                <div className="py-10 text-center animate-pulse text-xs font-black text-slate-300 uppercase tracking-widest">Accessing Network...</div>
               ) : routes?.length === 0 ? (
-                <div className="p-8 text-center bg-white rounded-2xl border-2 border-dashed">
-                  <p className="text-xs font-bold text-slate-400 italic">No routes published by Admin yet.</p>
+                <div className="p-12 text-center bg-white rounded-[2.5rem] border-4 border-dashed border-slate-100">
+                  <p className="text-[10px] font-black text-slate-300 italic uppercase tracking-[0.2em]">No routes published in {profile?.city} yet.</p>
                 </div>
               ) : (
                 routes?.map((route: any) => (
                   <Dialog key={route.id}>
                     <DialogTrigger asChild>
-                      <div className="flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border border-slate-50 group hover:border-primary/20 transition-colors cursor-pointer">
-                         <div className="flex items-center gap-4">
-                            <div className="bg-slate-50 p-2.5 rounded-xl group-hover:bg-primary/5">
-                               <MapPin className="h-4 w-4 text-slate-400 group-hover:text-primary" />
+                      <div className="flex items-center justify-between p-6 bg-white rounded-[2rem] shadow-lg border border-transparent group hover:border-primary/20 transition-all cursor-pointer active:scale-95">
+                         <div className="flex items-center gap-6">
+                            <div className="bg-primary/5 p-4 rounded-2xl group-hover:bg-primary/10 transition-colors">
+                               <MapPin className="h-6 w-6 text-primary" />
                             </div>
-                            <div>
-                               <p className="font-black text-slate-900 text-sm italic uppercase">{route.routeName}</p>
-                               <p className="text-[10px] font-bold text-slate-400 uppercase">{route.schedule} &bull; {route.estimatedDurationMinutes}m</p>
+                            <div className="space-y-1">
+                               <p className="font-black text-slate-950 text-xl italic uppercase leading-none tracking-tighter">{route.routeName}</p>
+                               <div className="flex items-center gap-3">
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1"><Clock className="h-3 w-3" /> {route.schedule}</p>
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1"><Navigation className="h-3 w-3" /> {route.estimatedDurationMinutes}m</p>
+                               </div>
                             </div>
                          </div>
-                         <div className="flex items-center gap-2">
-                           <Camera className="h-3 w-3 text-slate-300" />
-                           <ChevronRight className="h-4 w-4 text-slate-300" />
+                         <div className="flex items-center gap-3">
+                           <Camera className="h-4 w-4 text-slate-200" />
+                           <ChevronRight className="h-5 w-5 text-slate-300" />
                          </div>
                       </div>
                     </DialogTrigger>
-                    <DialogContent className="rounded-[2.5rem] bg-white max-w-lg p-0 overflow-hidden">
-                      <div className="h-48 relative">
+                    <DialogContent className="rounded-[4rem] bg-white max-w-lg p-0 overflow-hidden border-none shadow-2xl">
+                      <div className="h-64 relative">
                         <Image 
                           src={getRouteImage(route.routeName) || ""} 
                           fill 
                           className="object-cover" 
                           alt={route.routeName} 
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                        <div className="absolute bottom-4 left-6">
-                          <h3 className="text-xl font-black text-white italic uppercase">{route.routeName}</h3>
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
+                        <div className="absolute bottom-8 left-10">
+                          <h3 className="text-4xl font-black text-white italic uppercase tracking-tighter leading-none">{route.routeName}</h3>
+                          <Badge className="bg-primary text-white border-none mt-4 font-black uppercase text-[9px] tracking-widest px-4">{profile?.city} Hub Path</Badge>
                         </div>
                       </div>
-                      <div className="p-8 space-y-6">
+                      <div className="p-10 space-y-8">
                         <div>
-                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-2">Route Analysis</p>
-                          <p className="text-sm font-bold text-slate-600 leading-relaxed">{route.description}</p>
+                          <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] mb-4">Route Intelligence</p>
+                          <p className="text-base font-bold text-slate-600 leading-relaxed italic border-l-4 border-primary/20 pl-6">{route.description}</p>
                         </div>
-                        <div className="space-y-3">
-                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Planned Stops</p>
+                        <div className="space-y-4">
+                          <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em]">Verified Stops</p>
                           <div className="flex flex-wrap gap-2">
                             {route.stops?.map((stop: string, i: number) => (
-                              <Badge key={i} variant="secondary" className="bg-slate-100 text-[9px] font-bold uppercase">{stop}</Badge>
+                              <Badge key={i} variant="secondary" className="bg-slate-100 text-[9px] font-black uppercase tracking-widest py-1.5 px-4 rounded-xl">{stop}</Badge>
                             ))}
                           </div>
+                        </div>
+                        <div className="pt-4 flex items-center justify-between text-[10px] font-black text-slate-300 uppercase tracking-[0.4em]">
+                           <span>EST. DUR: {route.estimatedDurationMinutes}M</span>
+                           <span>SYNCED LIVE</span>
                         </div>
                       </div>
                     </DialogContent>
@@ -418,37 +443,41 @@ export default function RiderDashboard() {
         </section>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/80 backdrop-blur-xl border-t border-slate-100 z-50">
+      {/* Floating Student Nav */}
+      <div className="fixed bottom-0 left-0 right-0 p-8 bg-white/80 backdrop-blur-2xl border-t border-slate-100 z-50 shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.05)]">
         <nav className="max-w-md mx-auto flex justify-around items-center">
-          <Button variant="ghost" className="flex-col h-auto py-1 gap-1 text-primary">
-            <Bus className="h-6 w-6" />
+          <Button variant="ghost" className={`flex-col h-auto py-2 gap-1 ${activeTab === 'commute' ? 'text-primary' : 'text-slate-400'}`} onClick={() => setActiveTab('commute')}>
+            <Bus className="h-7 w-7" />
             <span className="text-[8px] font-black uppercase tracking-tighter">Commute</span>
           </Button>
-          <Button variant="ghost" className="flex-col h-auto py-1 gap-1 text-slate-400 hover:text-primary">
-            <Search className="h-6 w-6" />
-            <span className="text-[8px] font-black uppercase tracking-tighter">Search</span>
+          <Button variant="ghost" className={`flex-col h-auto py-2 gap-1 ${activeTab === 'map' ? 'text-primary' : 'text-slate-400'}`} onClick={() => setActiveTab('map')}>
+            <MapIcon className="h-7 w-7" />
+            <span className="text-[8px] font-black uppercase tracking-tighter">Radar</span>
           </Button>
           
           <Dialog>
             <DialogTrigger asChild>
-              <div className="bg-accent h-14 w-14 rounded-2xl flex items-center justify-center shadow-lg shadow-accent/40 border-4 border-white -mt-10 hover:scale-105 transition-transform cursor-pointer">
-                <QrCode className="h-7 w-7 text-white" />
+              <div className="bg-primary h-16 w-16 rounded-[2rem] flex items-center justify-center shadow-2xl shadow-primary/40 border-[6px] border-white -mt-16 active:scale-90 transition-all cursor-pointer">
+                <QrCode className="h-8 w-8 text-white" />
               </div>
             </DialogTrigger>
-            <DialogContent className="rounded-[2.5rem] max-w-sm bg-white p-12 text-center">
-              <QrCode className="h-48 w-48 text-primary mx-auto mb-6" />
-              <h3 className="text-xl font-black font-headline uppercase italic">Ready to Board</h3>
-              <p className="text-xs font-bold text-slate-500">Scan this at the shuttle entrance</p>
+            <DialogContent className="rounded-[4rem] max-w-sm bg-white p-12 text-center border-none shadow-2xl">
+              <div className="bg-slate-50 p-10 rounded-[3rem] relative overflow-hidden mb-8">
+                <QrCode className="h-56 w-56 text-primary mx-auto relative z-10" />
+                <div className="absolute inset-0 bg-primary/5 animate-pulse" />
+              </div>
+              <h3 className="text-3xl font-black font-headline uppercase italic tracking-tighter leading-none">Ready to Board</h3>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-3">Scan at shuttle entrance</p>
             </DialogContent>
           </Dialog>
 
-          <Button variant="ghost" className="flex-col h-auto py-1 gap-1 text-slate-400 hover:text-primary">
-            <MapIcon className="h-6 w-6" />
-            <span className="text-[8px] font-black uppercase tracking-tighter">Map</span>
-          </Button>
-          <Button variant="ghost" className="flex-col h-auto py-1 gap-1 text-slate-400 hover:text-primary">
-            <Bell className="h-6 w-6" />
+          <Button variant="ghost" className="flex-col h-auto py-2 gap-1 text-slate-400">
+            <Bell className="h-7 w-7" />
             <span className="text-[8px] font-black uppercase tracking-tighter">Inbox</span>
+          </Button>
+          <Button variant="ghost" className="flex-col h-auto py-2 gap-1 text-slate-400">
+            <Search className="h-7 w-7" />
+            <span className="text-[8px] font-black uppercase tracking-tighter">Search</span>
           </Button>
         </nav>
       </div>
