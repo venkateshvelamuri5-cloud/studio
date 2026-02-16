@@ -14,6 +14,12 @@
       "imageHint": "indian student"
     },
     {
+      "id": "student-group",
+      "description": "A group of happy Indian college students on campus",
+      "imageUrl": "https://picsum.photos/seed/aago-group/800/600",
+      "imageHint": "college students"
+    },
+    {
       "id": "admin-dashboard",
       "description": "Fleet operations dashboard for AP region",
       "imageUrl": "https://picsum.photos/seed/aago-vizag-3/800/600",
