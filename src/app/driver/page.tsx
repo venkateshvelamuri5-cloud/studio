@@ -27,6 +27,7 @@ import { doc, updateDoc, serverTimestamp, collection, addDoc, onSnapshot, query,
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { firebaseConfig } from '@/firebase/config';
 
 import {
   Dialog as ShadDialog,
@@ -51,7 +52,7 @@ export default function DriverConsole() {
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: "AIzaSyD_zDTswXAQsW62BC1hSsW24zPs675qv78"
+    googleMapsApiKey: firebaseConfig.apiKey
   });
 
   const [activeTab, setActiveTab] = useState<'missions' | 'earnings' | 'support'>('missions');
@@ -66,11 +67,14 @@ export default function DriverConsole() {
   }, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
-  const regionalRoutesQuery = useMemo(() => {
-    if (!db || !profile?.city) return null;
-    return query(collection(db, 'routes'), where('city', '==', profile.city), where('status', '==', 'active'));
-  }, [db, profile?.city]);
-  const { data: regionalRoutes } = useCollection(regionalRoutesQuery);
+  // Simplified query to avoid missing index errors
+  const allRoutesQuery = useMemo(() => db ? query(collection(db, 'routes')) : null, [db]);
+  const { data: allRoutes } = useCollection(allRoutesQuery);
+
+  const regionalRoutes = useMemo(() => {
+    if (!allRoutes || !profile?.city) return [];
+    return allRoutes.filter(r => r.city === profile.city && r.status === 'active');
+  }, [allRoutes, profile?.city]);
 
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [suggestedRouteName, setSuggestedRouteName] = useState('');
@@ -312,25 +316,29 @@ export default function DriverConsole() {
                 </div>
 
                 <section className="space-y-4">
-                  {regionalRoutes?.map((route: any) => {
-                    const canStart = isWithinTimeWindow(route.scheduledTime);
-                    return (
-                      <Card key={route.id} className="bg-slate-900 border-white/5 text-white hover:ring-2 hover:ring-primary transition-all">
-                        <CardContent className="p-6 flex justify-between items-center">
-                          <div className="space-y-1">
-                            <h3 className="text-xl font-black italic uppercase text-primary">{route.routeName}</h3>
-                            <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase">
-                              <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {route.scheduledTime}</span>
-                              <span className="flex items-center gap-1"><IndianRupee className="h-3 w-3" /> ₹{route.basePayout || 150}</span>
+                  {regionalRoutes.length === 0 ? (
+                    <div className="p-10 text-center border-4 border-dashed rounded-[2rem] text-slate-500 font-black italic uppercase">No active routes for this Hub.</div>
+                  ) : (
+                    regionalRoutes.map((route: any) => {
+                      const canStart = isWithinTimeWindow(route.scheduledTime);
+                      return (
+                        <Card key={route.id} className="bg-slate-900 border-white/5 text-white hover:ring-2 hover:ring-primary transition-all">
+                          <CardContent className="p-6 flex justify-between items-center">
+                            <div className="space-y-1">
+                              <h3 className="text-xl font-black italic uppercase text-primary">{route.routeName}</h3>
+                              <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase">
+                                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {route.scheduledTime}</span>
+                                <span className="flex items-center gap-1"><IndianRupee className="h-3 w-3" /> ₹{route.basePayout || 150}</span>
+                              </div>
                             </div>
-                          </div>
-                          <Button onClick={() => startTrip(route.routeName, route.basePayout)} disabled={profile?.status !== 'available' || isUpdating || !canStart} className={`${canStart ? 'bg-primary' : 'bg-slate-800'} rounded-2xl h-12 font-black italic uppercase`}>
-                            {canStart ? 'Start Mission' : 'Locked'}
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                            <Button onClick={() => startTrip(route.routeName, route.basePayout)} disabled={profile?.status !== 'available' || isUpdating || !canStart} className={`${canStart ? 'bg-primary' : 'bg-slate-800'} rounded-2xl h-12 font-black italic uppercase`}>
+                              {canStart ? 'Start Mission' : 'Locked'}
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      );
+                    })
+                  )}
                 </section>
               </div>
             ) : (

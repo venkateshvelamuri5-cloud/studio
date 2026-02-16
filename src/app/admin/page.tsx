@@ -59,6 +59,7 @@ import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebas
 import { collection, query, where, limit, doc, updateDoc, addDoc, deleteDoc, getDocs, orderBy, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
+import { firebaseConfig } from '@/firebase/config';
 
 const containerStyle = {
   width: '100%',
@@ -70,6 +71,49 @@ const center = {
   lng: 83.2185
 };
 
+const mapOptions = {
+  disableDefaultUI: true,
+  styles: [
+    {
+      "elementType": "geometry",
+      "stylers": [{ "color": "#1d2c4d" }]
+    },
+    {
+      "elementType": "labels.text.fill",
+      "stylers": [{ "color": "#8ec3b9" }]
+    },
+    {
+      "elementType": "labels.text.stroke",
+      "stylers": [{ "color": "#1a3646" }]
+    },
+    {
+      "featureType": "administrative.country",
+      "elementType": "geometry.stroke",
+      "stylers": [{ "color": "#4b6878" }]
+    },
+    {
+      "featureType": "landscape.man_made",
+      "elementType": "geometry.stroke",
+      "stylers": [{ "color": "#334e87" }]
+    },
+    {
+      "featureType": "poi",
+      "elementType": "geometry",
+      "stylers": [{ "color": "#283d6a" }]
+    },
+    {
+      "featureType": "road",
+      "elementType": "geometry",
+      "stylers": [{ "color": "#304a7d" }]
+    },
+    {
+      "featureType": "water",
+      "elementType": "geometry",
+      "stylers": [{ "color": "#0e1626" }]
+    }
+  ]
+};
+
 export default function AdminDashboard() {
   const db = useFirestore();
   const auth = useAuth();
@@ -79,7 +123,7 @@ export default function AdminDashboard() {
   
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: "AIzaSyD_zDTswXAQsW62BC1hSsW24zPs675qv78"
+    googleMapsApiKey: firebaseConfig.apiKey
   });
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'drivers' | 'scholars' | 'suggestions' | 'finance' | 'safety'>('dashboard');
@@ -101,16 +145,19 @@ export default function AdminDashboard() {
     useMemo(() => db ? query(collection(db, 'routes')) : null, [db])
   );
 
-  const { data: activeTrips } = useCollection(
-    useMemo(() => db ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db])
+  const { data: allTrips } = useCollection(
+    useMemo(() => db ? query(collection(db, 'trips')) : null, [db])
   );
 
-  const { data: activeAlerts } = useCollection(
-    useMemo(() => db ? query(collection(db, 'alerts'), where('status', '==', 'active')) : null, [db])
+  const { data: allAlerts } = useCollection(
+    useMemo(() => db ? query(collection(db, 'alerts')) : null, [db])
   );
 
+  // Client-side filtering to avoid complex indexes
   const drivers = useMemo(() => allUsers?.filter(u => u.role === 'driver') || [], [allUsers]);
   const riders = useMemo(() => allUsers?.filter(u => u.role === 'rider') || [], [allUsers]);
+  const activeTrips = useMemo(() => allTrips?.filter(t => t.status === 'active') || [], [allTrips]);
+  const activeAlerts = useMemo(() => allAlerts?.filter(a => a.status === 'active') || [], [allAlerts]);
   
   const savedRoutes = useMemo(() => 
     allRoutes?.filter(r => r.status === 'active')
@@ -131,7 +178,7 @@ export default function AdminDashboard() {
   const ridershipByRouteData = useMemo(() => {
     if (!activeTrips) return [];
     return activeTrips.map(trip => ({
-      name: trip.routeName.length > 10 ? trip.routeName.substring(0, 10) + '...' : trip.routeName,
+      name: trip.routeName?.length > 10 ? trip.routeName.substring(0, 10) + '...' : trip.routeName,
       riders: trip.riderCount || 0
     }));
   }, [activeTrips]);
@@ -147,6 +194,11 @@ export default function AdminDashboard() {
     updateDoc(doc(db, 'alerts', id), { status: 'resolved' });
     toast({ title: "Signal Resolved", description: "Emergency protocol cleared." });
   };
+
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [newDriverPhone, setNewDriverPhone] = useState("");
+  const [newDriverName, setNewDriverName] = useState("");
+  const [newDriverCity, setNewDriverCity] = useState("Vizag");
 
   const handleRegisterDriver = async () => {
     if (!db || !newDriverPhone || !newDriverName) return;
@@ -192,10 +244,6 @@ export default function AdminDashboard() {
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [demandPatterns, setDemandPatterns] = useState("Analyzing demand patterns...");
   const [targetCity, setTargetCity] = useState("Vizag");
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [newDriverPhone, setNewDriverPhone] = useState("");
-  const [newDriverName, setNewDriverName] = useState("");
-  const [newDriverCity, setNewDriverCity] = useState("Vizag");
 
   const handleOptimize = async () => {
     if (!db) return;
@@ -226,18 +274,6 @@ export default function AdminDashboard() {
     } finally {
       setIsOptimizing(false);
     }
-  };
-
-  const handleReviewSuggestion = async (id: string, action: 'approve' | 'reject') => {
-    if (!db) return;
-    updateDoc(doc(db, 'routes', id), {
-      status: action === 'approve' ? 'active' : 'rejected',
-      isActive: action === 'approve',
-      basePayout: 150,
-      approvedAt: action === 'approve' ? new Date().toISOString() : null,
-      scheduledTime: action === 'approve' ? "08:00" : null
-    });
-    toast({ title: action === 'approve' ? "Route Approved" : "Suggestion Rejected" });
   };
 
   const handleDeleteRoute = async (id: string) => {
@@ -402,17 +438,6 @@ export default function AdminDashboard() {
                             </div>
                             <Badge className="bg-accent/10 text-accent uppercase font-black text-[10px] border-none">{trip.riderCount || 0} Boarded</Badge>
                           </div>
-                          <div className="flex flex-wrap gap-2">
-                            {trip.passengers?.slice(0, 3).map((pid: string) => {
-                              const rider = riders.find(r => r.uid === pid);
-                              return (
-                                <Badge key={pid} variant="outline" className="bg-white text-[8px] font-bold py-1 px-3">
-                                  {rider?.fullName?.split(' ')[0] || "Scholar"}
-                                </Badge>
-                              );
-                            })}
-                            {(trip.riderCount > 3) && <Badge variant="outline" className="bg-white text-[8px] font-bold">+{trip.riderCount - 3}</Badge>}
-                          </div>
                         </div>
                       ))
                     )}
@@ -430,7 +455,7 @@ export default function AdminDashboard() {
                     mapContainerStyle={containerStyle}
                     center={center}
                     zoom={12}
-                    options={{ disableDefaultUI: true, styles: [{ featureType: 'all', elementType: 'all', stylers: [{ saturation: -100 }] }] }}
+                    options={mapOptions}
                   >
                     {drivers?.map((driver: any) => {
                       const activeTrip = activeTrips?.find(t => t.driverId === driver.uid);
@@ -446,29 +471,40 @@ export default function AdminDashboard() {
                         >
                           {selectedDriverId === driver.uid && (
                             <InfoWindow onCloseClick={() => setSelectedDriverId(null)}>
-                              <div className="p-2 min-w-[200px] font-body">
-                                <h4 className="font-black text-primary uppercase italic text-sm border-b pb-2 mb-2">{driver.fullName}</h4>
-                                <div className="space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <Badge className={driver.status === 'on-trip' ? 'bg-accent' : 'bg-green-500'}>{driver.status.toUpperCase()}</Badge>
-                                    <p className="text-[10px] font-black text-muted-foreground uppercase">{driver.city}</p>
-                                  </div>
-                                  {activeTrip && (
-                                    <div className="bg-secondary/20 p-2 rounded-xl border border-secondary/30">
+                              <div className="p-4 min-w-[250px] font-body bg-white rounded-xl">
+                                <div className="flex items-center justify-between mb-3 border-b pb-2">
+                                  <h4 className="font-black text-primary uppercase italic text-sm">{driver.fullName}</h4>
+                                  <Badge className={driver.status === 'on-trip' ? 'bg-accent' : 'bg-green-500'}>{driver.status.toUpperCase()}</Badge>
+                                </div>
+                                <div className="space-y-3">
+                                  {activeTrip ? (
+                                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                                       <p className="text-[10px] font-black uppercase text-primary mb-1">Active Mission</p>
-                                      <p className="font-bold text-xs">{activeTrip.routeName}</p>
+                                      <p className="font-bold text-xs mb-3">{activeTrip.routeName}</p>
+                                      
                                       {route && (
-                                        <div className="mt-2 space-y-1">
-                                          <p className="text-[9px] font-black uppercase text-muted-foreground">Drop Protocol</p>
-                                          {route.stops?.map((stop: string, i: number) => (
-                                            <div key={i} className="flex items-center gap-1 text-[9px] font-bold">
-                                              <MapPin className="h-2 w-2 text-primary" /> {stop}
-                                            </div>
-                                          ))}
+                                        <div className="space-y-2">
+                                          <p className="text-[9px] font-black uppercase text-slate-400">Regional Drop Points</p>
+                                          <div className="space-y-1">
+                                            {route.stops?.map((stop: string, i: number) => (
+                                              <div key={i} className="flex items-center gap-2 text-[10px] font-bold">
+                                                <div className="h-1.5 w-1.5 rounded-full bg-primary" /> {stop}
+                                              </div>
+                                            ))}
+                                          </div>
                                         </div>
                                       )}
+                                      <div className="mt-4 pt-2 border-t flex justify-between items-center">
+                                        <span className="text-[9px] font-black uppercase text-slate-400">Boarded Scholars</span>
+                                        <span className="font-black text-xs text-primary">{activeTrip.riderCount || 0}</span>
+                                      </div>
                                     </div>
+                                  ) : (
+                                    <p className="text-[10px] font-bold italic text-slate-400 text-center py-2 uppercase">Awaiting Mission Dispatch</p>
                                   )}
+                                  <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase pt-2">
+                                    <Navigation className="h-3 w-3" /> {driver.city} HUB
+                                  </div>
                                 </div>
                               </div>
                             </InfoWindow>
@@ -478,8 +514,9 @@ export default function AdminDashboard() {
                     })}
                   </GoogleMap>
                 ) : (
-                  <div className="h-full w-full flex items-center justify-center bg-slate-100 font-black italic uppercase">
-                    Initializing Radar...
+                  <div className="h-full w-full flex flex-col items-center justify-center bg-slate-900 font-black italic uppercase text-white gap-4">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                    Initializing Regional Radar...
                   </div>
                 )}
               </Card>
@@ -487,6 +524,7 @@ export default function AdminDashboard() {
               <Card className="w-80 border-none shadow-xl bg-white rounded-[2.5rem] overflow-hidden flex flex-col">
                 <CardHeader>
                   <CardTitle className="font-black font-headline text-xl italic uppercase text-primary">Live Assets</CardTitle>
+                  <CardDescription className="text-[10px] font-bold uppercase">Current active missions</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-y-auto px-6 space-y-4">
                   {onTripDrivers.length === 0 ? (
@@ -555,6 +593,12 @@ export default function AdminDashboard() {
                       </CardHeader>
                       <CardContent>
                         <p className="text-[10px] font-black uppercase text-muted-foreground">Payout: ₹{route.basePayout}</p>
+                        <div className="flex flex-wrap gap-1 mt-3">
+                          {route.stops?.slice(0, 3).map((stop: string, idx: number) => (
+                            <Badge key={idx} variant="outline" className="text-[8px] uppercase font-bold">{stop}</Badge>
+                          ))}
+                          {route.stops?.length > 3 && <Badge variant="outline" className="text-[8px] uppercase font-bold">+{route.stops.length - 3}</Badge>}
+                        </div>
                       </CardContent>
                     </Card>
                   ))}
@@ -619,7 +663,7 @@ export default function AdminDashboard() {
                             mapContainerStyle={containerStyle}
                             center={{ lat: alert.lat || 17.6868, lng: alert.lng || 83.2185 }}
                             zoom={15}
-                            options={{ disableDefaultUI: true }}
+                            options={mapOptions}
                           >
                             <Marker position={{ lat: alert.lat || 17.6868, lng: alert.lng || 83.2185 }} />
                           </GoogleMap>
@@ -632,8 +676,7 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
-
-          {/* ... Other tabs maintained ... */}
+          
           {activeTab === 'scholars' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center px-2">

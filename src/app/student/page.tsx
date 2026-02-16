@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -39,6 +40,7 @@ import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { PlaceHolderImages } from '@/app/lib/placeholder-images';
+import { firebaseConfig } from '@/firebase/config';
 
 const containerStyle = {
   width: '100%',
@@ -59,7 +61,7 @@ export default function RiderDashboard() {
   
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: "AIzaSyD_zDTswXAQsW62BC1hSsW24zPs675qv78"
+    googleMapsApiKey: firebaseConfig.apiKey
   });
 
   const [isBooking, setIsBooking] = useState(false);
@@ -73,15 +75,16 @@ export default function RiderDashboard() {
   }, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
-  const routesQuery = useMemo(() => db ? query(collection(db, 'routes'), where('isActive', '==', true), orderBy('createdAt', 'desc')) : null, [db]);
-  const { data: routes, loading: routesLoading } = useCollection(routesQuery);
+  // Simplified query to avoid index errors
+  const allRoutesQuery = useMemo(() => db ? query(collection(db, 'routes')) : null, [db]);
+  const { data: allRoutes, loading: routesLoading } = useCollection(allRoutesQuery);
+
+  const activeRoutes = useMemo(() => {
+    return allRoutes?.filter(r => r.isActive === true) || [];
+  }, [allRoutes]);
 
   const tripsQuery = useMemo(() => db ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db]);
   const { data: activeTrips, loading: tripsLoading } = useCollection(tripsQuery);
-
-  const { data: activeDrivers } = useCollection(
-    useMemo(() => db ? query(collection(db, 'users'), where('status', '==', 'on-trip')) : null, [db])
-  );
 
   const handleSignOut = async () => {
     if (!auth) return;
@@ -327,53 +330,57 @@ export default function RiderDashboard() {
              <span className="text-[11px] font-black text-primary uppercase tracking-widest flex items-center gap-2"><Info className="h-4 w-4" /> Hub Sync</span>
            </div>
            <div className="space-y-6">
-              {routes?.map((route: any) => (
-                <Dialog key={route.id}>
-                  <DialogTrigger asChild>
-                    <div className="flex items-center justify-between p-10 bg-white rounded-[3.5rem] shadow-2xl border-4 border-transparent group hover:border-primary/20 transition-all cursor-pointer active:scale-[0.98]">
-                       <div className="flex items-center gap-8">
-                          <div className="bg-primary/5 p-6 rounded-[2rem] group-hover:bg-primary/10 transition-colors">
-                             <MapPin className="h-8 w-8 text-primary" />
-                          </div>
-                          <div className="space-y-2">
-                             <p className="font-black text-slate-950 text-3xl italic uppercase leading-none tracking-tighter">{route.routeName}</p>
-                             <div className="flex items-center gap-5">
-                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 italic"><Clock className="h-4 w-4" /> {route.schedule}</p>
-                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 italic"><Navigation className="h-4 w-4" /> {route.estimatedDurationMinutes}m</p>
-                             </div>
-                          </div>
-                       </div>
-                       <ChevronRight className="h-8 w-8 text-slate-300" />
-                    </div>
-                  </DialogTrigger>
-                  <DialogContent className="rounded-[6rem] bg-white max-w-xl p-0 overflow-hidden border-none shadow-2xl">
-                    <div className="h-80 relative">
-                      <Image 
-                        src={getRouteImage(route.routeName) || ""} 
-                        fill 
-                        className="object-cover" 
-                        alt={route.routeName} 
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-transparent" />
-                      <div className="absolute bottom-12 left-12">
-                        <h3 className="text-6xl font-black text-white italic uppercase tracking-tighter leading-none">{route.routeName}</h3>
-                        <Badge className="bg-primary text-white border-none mt-6 font-black uppercase text-[10px] tracking-widest px-6 py-1.5">{profile?.city} Regional Path</Badge>
+              {activeRoutes.length === 0 ? (
+                <div className="p-10 text-center text-slate-500 font-black italic uppercase">Updating Route Network...</div>
+              ) : (
+                activeRoutes.map((route: any) => (
+                  <Dialog key={route.id}>
+                    <DialogTrigger asChild>
+                      <div className="flex items-center justify-between p-10 bg-white rounded-[3.5rem] shadow-2xl border-4 border-transparent group hover:border-primary/20 transition-all cursor-pointer active:scale-[0.98]">
+                         <div className="flex items-center gap-8">
+                            <div className="bg-primary/5 p-6 rounded-[2rem] group-hover:bg-primary/10 transition-colors">
+                               <MapPin className="h-8 w-8 text-primary" />
+                            </div>
+                            <div className="space-y-2">
+                               <p className="font-black text-slate-950 text-3xl italic uppercase leading-none tracking-tighter">{route.routeName}</p>
+                               <div className="flex items-center gap-5">
+                                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 italic"><Clock className="h-4 w-4" /> {route.schedule}</p>
+                                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 italic"><Navigation className="h-4 w-4" /> {route.estimatedDurationMinutes}m</p>
+                               </div>
+                            </div>
+                         </div>
+                         <ChevronRight className="h-8 w-8 text-slate-300" />
                       </div>
-                    </div>
-                    <div className="p-16 space-y-12">
-                      <p className="text-xl font-bold text-slate-600 leading-relaxed italic border-l-8 border-primary/20 pl-8">{route.description}</p>
-                      <div className="space-y-6">
-                        <p className="text-[12px] font-black uppercase text-slate-400 tracking-[0.5em] italic">Verified Hub Stops</p>
-                        <div className="flex flex-wrap gap-3">
-                          {route.stops?.map((stop: string, i: number) => (
-                            <Badge key={i} variant="secondary" className="bg-slate-100 text-[10px] font-black uppercase tracking-widest py-2.5 px-6 rounded-2xl">{stop}</Badge>
-                          ))}
+                    </DialogTrigger>
+                    <DialogContent className="rounded-[6rem] bg-white max-w-xl p-0 overflow-hidden border-none shadow-2xl">
+                      <div className="h-80 relative">
+                        <Image 
+                          src={getRouteImage(route.routeName) || ""} 
+                          fill 
+                          className="object-cover" 
+                          alt={route.routeName} 
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-transparent" />
+                        <div className="absolute bottom-12 left-12">
+                          <h3 className="text-6xl font-black text-white italic uppercase tracking-tighter leading-none">{route.routeName}</h3>
+                          <Badge className="bg-primary text-white border-none mt-6 font-black uppercase text-[10px] tracking-widest px-6 py-1.5">{profile?.city} Regional Path</Badge>
                         </div>
                       </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              ))}
+                      <div className="p-16 space-y-12">
+                        <p className="text-xl font-bold text-slate-600 leading-relaxed italic border-l-8 border-primary/20 pl-8">{route.description}</p>
+                        <div className="space-y-6">
+                          <p className="text-[12px] font-black uppercase text-slate-400 tracking-[0.5em] italic">Verified Hub Stops</p>
+                          <div className="flex flex-wrap gap-3">
+                            {route.stops?.map((stop: string, i: number) => (
+                              <Badge key={i} variant="secondary" className="bg-slate-100 text-[10px] font-black uppercase tracking-widest py-2.5 px-6 rounded-2xl">{stop}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                ))
+              )}
            </div>
         </section>
       </main>
