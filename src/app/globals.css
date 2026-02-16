@@ -4,28 +4,6 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222 47% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 14 100% 57%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 32% 91%;
-    --input: 214.3 32% 91%;
-    --ring: 221 83% 53%;
-    --radius: 1.25rem;
-  }
-  .dark {
     --background: 222 47% 4%;
     --foreground: 210 40% 98%;
     --card: 222 47% 4%;
@@ -45,6 +23,7 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+    --radius: 1.5rem;
   }
 }
 
@@ -56,24 +35,15 @@
     @apply bg-background text-foreground font-body antialiased selection:bg-primary selection:text-white;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-headline tracking-tighter;
+    @apply font-headline tracking-tighter leading-none uppercase italic;
   }
 }
 
 @layer utilities {
-  .perspective-1000 {
-    perspective: 1000px;
-  }
-  .rotate-y-12 {
-    transform: rotateY(12deg);
-  }
-  .rotate-x-6 {
-    transform: rotateX(6deg);
+  .text-glow {
+    text-shadow: 0 0 30px rgba(59, 130, 246, 0.4);
   }
   .glass-card {
     @apply bg-white/5 backdrop-blur-2xl border border-white/10;
-  }
-  .text-glow {
-    text-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
   }
 }
