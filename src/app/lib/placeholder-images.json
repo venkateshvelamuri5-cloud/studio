@@ -20,16 +20,16 @@
       "imageHint": "college students"
     },
     {
-      "id": "admin-dashboard",
-      "description": "Fleet operations dashboard for AP region",
-      "imageUrl": "https://picsum.photos/seed/aago-vizag-3/800/600",
-      "imageHint": "fleet analytics"
+      "id": "vizag-route",
+      "description": "Coastal route visualization for Vizag Hub",
+      "imageUrl": "https://picsum.photos/seed/route-vizag/800/600",
+      "imageHint": "vizag coast"
     },
     {
-      "id": "map-tracking",
-      "description": "Vizag city map tracking visualization",
-      "imageUrl": "https://picsum.photos/seed/aago-vizag-4/800/600",
-      "imageHint": "vizag map"
+      "id": "vzm-route",
+      "description": "Express highway route for VZM Hub",
+      "imageUrl": "https://picsum.photos/seed/route-vzm/800/600",
+      "imageHint": "highway"
     },
     {
       "id": "live-map",

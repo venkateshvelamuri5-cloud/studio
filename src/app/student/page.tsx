@@ -28,6 +28,7 @@ import {
   Plus,
   Loader2,
   AlertTriangle,
+  Camera,
 } from 'lucide-react';
 import Image from 'next/image';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
@@ -36,6 +37,7 @@ import { doc, updateDoc, increment, collection, query, where, orderBy, arrayUnio
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 
 const containerStyle = {
   width: '100%',
@@ -62,6 +64,7 @@ export default function RiderDashboard() {
   const [isBooking, setIsBooking] = useState(false);
   const [isToppingUp, setIsToppingUp] = useState(false);
   const [isSendingSos, setIsSendingSos] = useState(false);
+  const [selectedRoute, setSelectedRoute] = useState<any>(null);
   
   const userRef = useMemo(() => {
     if (!db || !user?.uid) return null;
@@ -161,6 +164,12 @@ export default function RiderDashboard() {
     } finally {
       setIsBooking(false);
     }
+  };
+
+  const getRouteImage = (routeName: string) => {
+    if (routeName.toLowerCase().includes('vizag')) return PlaceHolderImages.find(i => i.id === 'vizag-route')?.imageUrl;
+    if (routeName.toLowerCase().includes('vzm')) return PlaceHolderImages.find(i => i.id === 'vzm-route')?.imageUrl;
+    return PlaceHolderImages.find(i => i.id === 'map-tracking')?.imageUrl;
   };
 
   return (
@@ -356,18 +365,53 @@ export default function RiderDashboard() {
                 </div>
               ) : (
                 routes?.map((route: any) => (
-                  <div key={route.id} className="flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border border-slate-50 group hover:border-primary/20 transition-colors cursor-pointer">
-                     <div className="flex items-center gap-4">
-                        <div className="bg-slate-50 p-2.5 rounded-xl group-hover:bg-primary/5">
-                           <MapPin className="h-4 w-4 text-slate-400 group-hover:text-primary" />
+                  <Dialog key={route.id}>
+                    <DialogTrigger asChild>
+                      <div className="flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border border-slate-50 group hover:border-primary/20 transition-colors cursor-pointer">
+                         <div className="flex items-center gap-4">
+                            <div className="bg-slate-50 p-2.5 rounded-xl group-hover:bg-primary/5">
+                               <MapPin className="h-4 w-4 text-slate-400 group-hover:text-primary" />
+                            </div>
+                            <div>
+                               <p className="font-black text-slate-900 text-sm italic uppercase">{route.routeName}</p>
+                               <p className="text-[10px] font-bold text-slate-400 uppercase">{route.schedule} &bull; {route.estimatedDurationMinutes}m</p>
+                            </div>
+                         </div>
+                         <div className="flex items-center gap-2">
+                           <Camera className="h-3 w-3 text-slate-300" />
+                           <ChevronRight className="h-4 w-4 text-slate-300" />
+                         </div>
+                      </div>
+                    </DialogTrigger>
+                    <DialogContent className="rounded-[2.5rem] bg-white max-w-lg p-0 overflow-hidden">
+                      <div className="h-48 relative">
+                        <Image 
+                          src={getRouteImage(route.routeName) || ""} 
+                          fill 
+                          className="object-cover" 
+                          alt={route.routeName} 
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                        <div className="absolute bottom-4 left-6">
+                          <h3 className="text-xl font-black text-white italic uppercase">{route.routeName}</h3>
                         </div>
+                      </div>
+                      <div className="p-8 space-y-6">
                         <div>
-                           <p className="font-black text-slate-900 text-sm italic uppercase">{route.routeName}</p>
-                           <p className="text-[10px] font-bold text-slate-400 uppercase">{route.schedule} &bull; {route.estimatedDurationMinutes}m</p>
+                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-2">Route Analysis</p>
+                          <p className="text-sm font-bold text-slate-600 leading-relaxed">{route.description}</p>
                         </div>
-                     </div>
-                     <ChevronRight className="h-4 w-4 text-slate-300" />
-                  </div>
+                        <div className="space-y-3">
+                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Planned Stops</p>
+                          <div className="flex flex-wrap gap-2">
+                            {route.stops?.map((stop: string, i: number) => (
+                              <Badge key={i} variant="secondary" className="bg-slate-100 text-[9px] font-bold uppercase">{stop}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 ))
               )}
            </div>
