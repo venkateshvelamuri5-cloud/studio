@@ -32,10 +32,10 @@ import {
   Plus,
   BarChart3,
   ChevronRight,
-  Route as RouteIcon
+  Route as RouteIcon,
+  Trash2
 } from 'lucide-react';
-import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
-import { generateShuttleRoutes } from '@/ai/flows/admin-generate-shuttle-routes';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Polyline } from '@react-google-maps/api';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
 import { collection, query, doc, updateDoc, addDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
@@ -60,6 +60,12 @@ const mapOptions = {
   disableDefaultUI: true,
 };
 
+type Stop = {
+  name: string;
+  lat: number;
+  lng: number;
+};
+
 export default function AdminDashboard() {
   const db = useFirestore();
   const auth = useAuth();
@@ -75,8 +81,14 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'drivers' | 'scholars' | 'suggestions' | 'finance' | 'safety'>('dashboard');
   const [selectedDriver, setSelectedDriver] = useState<any>(null);
   const [isAddingRoute, setIsAddingRoute] = useState(false);
-  const [newRoute, setNewRoute] = useState({ routeName: '', stops: '', city: 'Vizag' });
+  const [newRoute, setNewRoute] = useState({ 
+    routeName: '', 
+    city: 'Vizag',
+    stops: [] as Stop[] 
+  });
   
+  const [tempStop, setTempStop] = useState<Stop>({ name: '', lat: 17.6868, lng: 83.2185 });
+
   const userRef = useMemo(() => {
     if (!db || !user?.uid) return null;
     return doc(db, 'users', user.uid);
@@ -98,7 +110,6 @@ export default function AdminDashboard() {
 
   const onTripDrivers = drivers?.filter(d => d.status === 'on-trip') || [];
   
-  // High Demand Analysis
   const routeDemand = useMemo(() => {
     const demand: Record<string, number> = {};
     allTrips?.forEach(trip => {
@@ -117,12 +128,29 @@ export default function AdminDashboard() {
     router.push('/admin/login');
   };
 
+  const addStopToRoute = () => {
+    if (!tempStop.name || !tempStop.lat || !tempStop.lng) return;
+    setNewRoute({
+      ...newRoute,
+      stops: [...newRoute.stops, tempStop]
+    });
+    setTempStop({ name: '', lat: 17.6868, lng: 83.2185 });
+  };
+
+  const removeStop = (index: number) => {
+    const updatedStops = [...newRoute.stops];
+    updatedStops.splice(index, 1);
+    setNewRoute({ ...newRoute, stops: updatedStops });
+  };
+
   const handleCreateRoute = async () => {
-    if (!db || !newRoute.routeName || !newRoute.stops) return;
+    if (!db || !newRoute.routeName || newRoute.stops.length < 2) {
+      toast({ variant: "destructive", title: "Invalid Architecture", description: "Route requires name and at least 2 nodes (Boarding & Dropping)." });
+      return;
+    }
     try {
       await addDoc(collection(db, 'routes'), {
         ...newRoute,
-        stops: newRoute.stops.split(',').map(s => s.trim()),
         status: 'active',
         isActive: true,
         baseFare: 50,
@@ -133,8 +161,8 @@ export default function AdminDashboard() {
         createdAt: new Date().toISOString()
       });
       setIsAddingRoute(false);
-      setNewRoute({ routeName: '', stops: '', city: profile?.city || 'Vizag' });
-      toast({ title: "Network Updated", description: "New regional route deployed." });
+      setNewRoute({ routeName: '', city: profile?.city || 'Vizag', stops: [] });
+      toast({ title: "Network Updated", description: "New high-precision regional route deployed." });
     } catch {
       toast({ variant: "destructive", title: "Deployment Error" });
     }
@@ -145,7 +173,7 @@ export default function AdminDashboard() {
     updateDoc(doc(db, 'routes', routeId), updates);
   };
 
-  if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-slate-950"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
+  if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-[#020617]"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
 
   return (
     <div className="flex h-screen bg-[#020617] font-body text-slate-200">
@@ -281,18 +309,50 @@ export default function AdminDashboard() {
                 >
                   {drivers.filter(d => d.currentLat).map((driver: any) => {
                     const driverTrip = activeTrips.find(t => t.driverId === driver.uid);
+                    const driverRoute = allRoutes?.find(r => r.routeName === driverTrip?.routeName);
+                    
                     return (
-                      <Marker
-                        key={driver.uid}
-                        position={{ lat: driver.currentLat, lng: driver.currentLng }}
-                        onClick={() => setSelectedDriver({ ...driver, activeTrip: driverTrip })}
-                        icon={{
-                          url: driver.status === 'on-trip' 
-                            ? 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png' 
-                            : 'https://cdn-icons-png.flaticon.com/512/3448/3448564.png',
-                          scaledSize: new window.google.maps.Size(32, 32)
-                        }}
-                      />
+                      <div key={driver.uid}>
+                        <Marker
+                          position={{ lat: driver.currentLat, lng: driver.currentLng }}
+                          onClick={() => setSelectedDriver({ ...driver, activeTrip: driverTrip, activeRoute: driverRoute })}
+                          icon={{
+                            url: driver.status === 'on-trip' 
+                              ? 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png' 
+                              : 'https://cdn-icons-png.flaticon.com/512/3448/3448564.png',
+                            scaledSize: new window.google.maps.Size(32, 32)
+                          }}
+                        />
+                        {/* Render Polyline if driver is selected and has a route */}
+                        {selectedDriver?.uid === driver.uid && driverRoute?.stops && (
+                          <>
+                            <Polyline
+                              path={driverRoute.stops.map((s: Stop) => ({ lat: s.lat, lng: s.lng }))}
+                              options={{
+                                strokeColor: "#3b82f6",
+                                strokeOpacity: 0.8,
+                                strokeWeight: 4,
+                                icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 1, scale: 4 }, offset: "0", repeat: "20px" }]
+                              }}
+                            />
+                            {driverRoute.stops.map((stop: Stop, i: number) => (
+                              <Marker 
+                                key={i}
+                                position={{ lat: stop.lat, lng: stop.lng }}
+                                label={{ text: stop.name, color: 'white', fontSize: '10px', fontWeight: 'bold' }}
+                                icon={{
+                                  url: i === 0 
+                                    ? 'https://cdn-icons-png.flaticon.com/512/8157/8157580.png' // Boarding
+                                    : i === driverRoute.stops.length - 1 
+                                      ? 'https://cdn-icons-png.flaticon.com/512/2776/2776067.png' // Dropping
+                                      : 'https://cdn-icons-png.flaticon.com/512/684/684908.png', // Stop
+                                  scaledSize: new window.google.maps.Size(20, 20)
+                                }}
+                              />
+                            ))}
+                          </>
+                        )}
+                      </div>
                     );
                   })}
 
@@ -301,7 +361,7 @@ export default function AdminDashboard() {
                       position={{ lat: selectedDriver.currentLat, lng: selectedDriver.currentLng }}
                       onCloseClick={() => setSelectedDriver(null)}
                     >
-                      <div className="p-4 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl min-w-[280px]">
+                      <div className="p-4 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl min-w-[300px]">
                         <div className="flex justify-between items-start mb-4">
                            <div>
                               <h4 className="font-black text-white uppercase italic text-sm leading-none">{selectedDriver.fullName}</h4>
@@ -315,24 +375,22 @@ export default function AdminDashboard() {
                         {selectedDriver.activeTrip ? (
                           <div className="space-y-4 pt-4 border-t border-white/5">
                              <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
-                                <span className="text-slate-400">Current Mission</span>
+                                <span className="text-slate-400">Mission Hub</span>
                                 <span className="text-primary">{selectedDriver.activeTrip.routeName}</span>
                              </div>
                              <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
-                                <span className="text-slate-400">Scholars Boarded</span>
+                                <span className="text-slate-400">Scholars Logged</span>
                                 <span className="text-white">{selectedDriver.activeTrip.verifiedPassengers?.length || 0}</span>
                              </div>
-                             <div className="space-y-1">
-                                <span className="text-[8px] font-black text-slate-500 uppercase">Mission Path</span>
-                                <div className="flex flex-wrap gap-1">
-                                   {allRoutes?.find(r => r.routeName === selectedDriver.activeTrip.routeName)?.stops?.map((stop: string, i: number) => (
-                                     <span key={i} className="text-[7px] bg-white/5 text-slate-300 px-1.5 py-0.5 rounded font-bold uppercase">{stop}</span>
-                                   ))}
-                                </div>
+                             <div className="space-y-2">
+                                <span className="text-[8px] font-black text-slate-500 uppercase">Boarding Node</span>
+                                <p className="text-[10px] font-bold text-green-400">{selectedDriver.activeRoute?.stops?.[0]?.name || 'N/A'}</p>
+                                <span className="text-[8px] font-black text-slate-500 uppercase">Dropping Node</span>
+                                <p className="text-[10px] font-bold text-red-400">{selectedDriver.activeRoute?.stops?.[selectedDriver.activeRoute?.stops?.length - 1]?.name || 'N/A'}</p>
                              </div>
                           </div>
                         ) : (
-                          <p className="text-[9px] font-bold text-slate-500 uppercase mt-2 italic">Awaiting mission assignment...</p>
+                          <p className="text-[9px] font-bold text-slate-500 uppercase mt-2 italic">Awaiting operational dispatch...</p>
                         )}
                       </div>
                     </InfoWindow>
@@ -361,40 +419,90 @@ export default function AdminDashboard() {
               </div>
 
               {isAddingRoute ? (
-                <Card className="bg-slate-900/50 border-white/5 rounded-[2rem] p-8 max-w-2xl mx-auto shadow-2xl border-l-4 border-primary">
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                       <Label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] ml-1">Corridor Name</Label>
-                       <Input 
-                         value={newRoute.routeName} 
-                         onChange={(e) => setNewRoute({ ...newRoute, routeName: e.target.value })}
-                         placeholder="e.g. Gitam Coast Express" 
-                         className="h-14 bg-slate-950 border-white/5 rounded-xl font-black text-white italic" 
-                       />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <Card className="bg-slate-900/50 border-white/5 rounded-[2rem] p-8 shadow-2xl border-l-4 border-primary">
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                         <Label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] ml-1">Corridor Name</Label>
+                         <Input 
+                           value={newRoute.routeName} 
+                           onChange={(e) => setNewRoute({ ...newRoute, routeName: e.target.value })}
+                           placeholder="e.g. Gitam Coast Express" 
+                           className="h-14 bg-slate-950 border-white/5 rounded-xl font-black text-white italic" 
+                         />
+                      </div>
+                      
+                      <div className="space-y-4 pt-4 border-t border-white/5">
+                        <Label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] ml-1">Add Mission Node</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <Input 
+                             placeholder="Node Name (e.g. Gitam Terminal)" 
+                             value={tempStop.name}
+                             onChange={(e) => setTempStop({...tempStop, name: e.target.value})}
+                             className="bg-slate-950 border-white/5"
+                           />
+                           <div className="flex gap-2">
+                             <Input 
+                               type="number" 
+                               placeholder="Lat" 
+                               value={tempStop.lat}
+                               onChange={(e) => setTempStop({...tempStop, lat: Number(e.target.value)})}
+                               className="bg-slate-950 border-white/5"
+                             />
+                             <Input 
+                               type="number" 
+                               placeholder="Lng" 
+                               value={tempStop.lng}
+                               onChange={(e) => setTempStop({...tempStop, lng: Number(e.target.value)})}
+                               className="bg-slate-950 border-white/5"
+                             />
+                           </div>
+                        </div>
+                        <Button onClick={addStopToRoute} variant="secondary" className="w-full h-12 rounded-xl font-black uppercase italic">
+                           Log Node to Architecture
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 pt-6">
+                         <Button 
+                           onClick={handleCreateRoute}
+                           disabled={!newRoute.routeName || newRoute.stops.length < 2}
+                           className="h-14 bg-primary hover:bg-primary/90 rounded-xl font-black uppercase italic"
+                         >
+                           Authorize Deployment
+                         </Button>
+                         <Button variant="ghost" onClick={() => setIsAddingRoute(false)} className="h-14 text-slate-500 font-black uppercase italic">
+                           Abort
+                         </Button>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                       <Label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] ml-1">University Hubs (Comma Separated)</Label>
-                       <Textarea 
-                         value={newRoute.stops} 
-                         onChange={(e) => setNewRoute({ ...newRoute, stops: e.target.value })}
-                         placeholder="Stop 1, Stop 2, Stop 3" 
-                         className="min-h-[120px] bg-slate-950 border-white/5 rounded-xl font-bold text-slate-300 italic" 
-                       />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                       <Button 
-                         onClick={handleCreateRoute}
-                         disabled={!newRoute.routeName || !newRoute.stops}
-                         className="h-14 bg-primary hover:bg-primary/90 rounded-xl font-black uppercase italic"
-                       >
-                         Authorize Deployment
-                       </Button>
-                       <Button variant="ghost" onClick={() => setIsAddingRoute(false)} className="h-14 text-slate-500 font-black uppercase italic">
-                         Abort
-                       </Button>
-                    </div>
-                  </div>
-                </Card>
+                  </Card>
+
+                  <Card className="bg-slate-900/50 border-white/5 rounded-[2rem] p-8">
+                     <h4 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-6">Mission Path Preview</h4>
+                     <div className="space-y-4">
+                        {newRoute.stops.map((stop, i) => (
+                          <div key={i} className="flex items-center justify-between p-4 bg-slate-950/50 rounded-xl border border-white/5 group">
+                             <div className="flex items-center gap-4">
+                                <div className={`h-8 w-8 rounded-lg flex items-center justify-center font-black text-[10px] ${i === 0 ? 'bg-green-500/10 text-green-400' : i === newRoute.stops.length - 1 ? 'bg-red-500/10 text-red-400' : 'bg-primary/10 text-primary'}`}>
+                                   {i === 0 ? 'START' : i === newRoute.stops.length - 1 ? 'END' : i}
+                                </div>
+                                <div>
+                                   <p className="text-xs font-black uppercase italic text-white">{stop.name}</p>
+                                   <p className="text-[8px] font-bold text-slate-500 uppercase">{stop.lat.toFixed(4)}, {stop.lng.toFixed(4)}</p>
+                                </div>
+                             </div>
+                             <Button size="icon" variant="ghost" onClick={() => removeStop(i)} className="text-red-500 opacity-0 group-hover:opacity-100">
+                                <Trash2 className="h-4 w-4" />
+                             </Button>
+                          </div>
+                        ))}
+                        {newRoute.stops.length === 0 && (
+                          <p className="text-center py-12 text-slate-500 font-bold italic uppercase text-[10px] tracking-widest">Architectural nodes pending...</p>
+                        )}
+                     </div>
+                  </Card>
+                </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {savedRoutes.map((route: any) => {
@@ -444,10 +552,12 @@ export default function AdminDashboard() {
                           </div>
                           
                           <div className="pt-4 border-t border-white/5">
-                             <Label className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-3 block">Mission Path Stops</Label>
+                             <Label className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-3 block">Boarding Node</Label>
+                             <p className="text-[10px] font-black text-green-400 uppercase italic mb-4">{route.stops?.[0]?.name || 'Unset'}</p>
+                             <Label className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-3 block">Mission Path Nodes</Label>
                              <div className="flex flex-wrap gap-1.5">
-                                {route.stops?.map((stop: string, i: number) => (
-                                  <Badge key={i} variant="secondary" className="bg-white/5 text-slate-400 text-[8px] font-bold uppercase border-none">{stop}</Badge>
+                                {route.stops?.map((stop: any, i: number) => (
+                                  <Badge key={i} variant="secondary" className="bg-white/5 text-slate-400 text-[8px] font-bold uppercase border-none">{stop.name}</Badge>
                                 ))}
                              </div>
                           </div>

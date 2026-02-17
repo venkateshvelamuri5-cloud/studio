@@ -60,7 +60,17 @@
         "id": { "type": "string" },
         "routeName": { "type": "string" },
         "description": { "type": "string" },
-        "stops": { "type": "array", "items": { "type": "string" } },
+        "stops": { 
+          "type": "array", 
+          "items": { 
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "lat": { "type": "number" },
+              "lng": { "type": "number" }
+            }
+          } 
+        },
         "city": { "type": "string", "enum": ["Vizag", "Vizianagaram"] },
         "baseFare": { "type": "number", "default": 50 },
         "surgeFare": { "type": "number", "default": 0 },
