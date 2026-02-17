@@ -42,7 +42,8 @@ import {
   AlertTriangle,
   BarChart3,
   MapPin,
-  ChevronRight,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -56,7 +57,7 @@ import {
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { generateShuttleRoutes } from '@/ai/flows/admin-generate-shuttle-routes';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
-import { collection, query, where, limit, doc, updateDoc, addDoc, deleteDoc, getDocs, orderBy, setDoc } from 'firebase/firestore';
+import { collection, query, where, limit, doc, updateDoc, addDoc, deleteDoc, getDocs, setDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { firebaseConfig } from '@/firebase/config';
@@ -136,7 +137,6 @@ export default function AdminDashboard() {
   }, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
-  // Simplified queries to avoid Index-related Permission Denied errors
   const { data: allUsers } = useCollection(
     useMemo(() => db ? query(collection(db, 'users')) : null, [db])
   );
@@ -153,7 +153,6 @@ export default function AdminDashboard() {
     useMemo(() => db ? query(collection(db, 'alerts')) : null, [db])
   );
 
-  // Client-side filtering to avoid complex indexes
   const drivers = useMemo(() => allUsers?.filter(u => u.role === 'driver') || [], [allUsers]);
   const riders = useMemo(() => allUsers?.filter(u => u.role === 'rider') || [], [allUsers]);
   const activeTrips = useMemo(() => allTrips?.filter(t => t.status === 'active') || [], [allTrips]);
@@ -193,6 +192,31 @@ export default function AdminDashboard() {
     if (!db) return;
     updateDoc(doc(db, 'alerts', id), { status: 'resolved' });
     toast({ title: "Signal Resolved", description: "Emergency protocol cleared." });
+  };
+
+  const handleApproveSuggestion = async (routeId: string) => {
+    if (!db) return;
+    try {
+      await updateDoc(doc(db, 'routes', routeId), {
+        status: 'active',
+        isActive: true,
+        basePayout: 150,
+        createdAt: new Date().toISOString()
+      });
+      toast({ title: "Route Authorized", description: "This route is now visible to the workforce." });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Authorization Failed" });
+    }
+  };
+
+  const handleRejectSuggestion = async (routeId: string) => {
+    if (!db) return;
+    try {
+      await updateDoc(doc(db, 'routes', routeId), { status: 'rejected' });
+      toast({ title: "Proposal Rejected" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Action Failed" });
+    }
   };
 
   const [isRegistering, setIsRegistering] = useState(false);
@@ -312,7 +336,7 @@ export default function AdminDashboard() {
   );
 
   return (
-    <div className="flex h-screen bg-[#F8F9FC] font-body">
+    <div className="flex h-screen bg-[#F8F9FC] font-body text-slate-900">
       <aside className="w-64 bg-primary text-white flex flex-col shrink-0 shadow-2xl z-20">
         <div className="p-6 h-20 flex items-center border-b border-white/10">
           <div className="flex items-center gap-2">
@@ -553,6 +577,52 @@ export default function AdminDashboard() {
                   )}
                 </CardContent>
               </Card>
+            </div>
+          )}
+
+          {activeTab === 'suggestions' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center px-2">
+                <h3 className="text-2xl font-black font-headline italic uppercase text-primary">Proposed Paths</h3>
+                <Badge className="bg-primary/10 text-primary uppercase font-black text-[10px] px-4 py-1.5">{suggestions.length} Pending Review</Badge>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {suggestions.map((route: any) => (
+                  <Card key={route.id} className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden flex flex-col">
+                    <CardHeader className="bg-secondary/20 pb-4">
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-black text-primary uppercase italic text-xl">{route.routeName}</h4>
+                        <Badge variant="outline" className="text-[8px] font-black uppercase tracking-widest">{route.city}</Badge>
+                      </div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">Suggested by: {route.driverName}</p>
+                    </CardHeader>
+                    <CardContent className="p-6 flex-1 space-y-4">
+                      <p className="text-xs font-bold text-slate-600 leading-relaxed italic">{route.description}</p>
+                      <div className="space-y-2">
+                        <p className="text-[9px] font-black uppercase text-slate-400">Proposed Hub Stops</p>
+                        <div className="flex flex-wrap gap-1">
+                          {route.stops?.map((stop: string, i: number) => (
+                            <Badge key={i} variant="secondary" className="text-[8px] font-bold uppercase px-2 py-0.5">{stop}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                    <div className="p-6 pt-0 flex gap-3 mt-auto">
+                      <Button onClick={() => handleApproveSuggestion(route.id)} className="flex-1 bg-green-500 hover:bg-green-600 h-12 rounded-xl font-black uppercase italic text-xs gap-2">
+                        <CheckCircle2 className="h-4 w-4" /> Approve
+                      </Button>
+                      <Button onClick={() => handleRejectSuggestion(route.id)} variant="outline" className="flex-1 border-red-100 text-red-500 hover:bg-red-50 h-12 rounded-xl font-black uppercase italic text-xs gap-2">
+                        <XCircle className="h-4 w-4" /> Reject
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+                {suggestions.length === 0 && (
+                  <div className="col-span-full py-24 text-center border-4 border-dashed rounded-[3rem] text-slate-300 font-black italic uppercase text-sm">
+                    No workforce proposals pending.
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

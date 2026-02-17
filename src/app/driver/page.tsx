@@ -67,12 +67,12 @@ export default function DriverConsole() {
   }, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
-  // Simplified query to avoid missing index errors
   const allRoutesQuery = useMemo(() => db ? query(collection(db, 'routes')) : null, [db]);
   const { data: allRoutes } = useCollection(allRoutesQuery);
 
   const regionalRoutes = useMemo(() => {
     if (!allRoutes || !profile?.city) return [];
+    // Show only active routes approved by admin
     return allRoutes.filter(r => r.city === profile.city && r.status === 'active');
   }, [allRoutes, profile?.city]);
 
@@ -230,19 +230,19 @@ export default function DriverConsole() {
         stops: suggestedStops.split(',').map(s => s.trim()),
         description: suggestedDescription,
         city: profile.city,
-        status: 'suggested',
+        status: 'suggested', // Admin needs to approve this
         isActive: false,
         suggestedBy: user.uid,
         driverName: profile.fullName,
         createdAt: new Date().toISOString()
       });
-      toast({ title: "Proposal Submitted" });
+      toast({ title: "Proposal Submitted", description: "Admin will review your suggested path." });
       setIsSuggestDialogOpen(false);
       setSuggestedRouteName('');
       setSuggestedStops('');
       setSuggestedDescription('');
     } catch {
-      toast({ variant: "destructive", title: "Error" });
+      toast({ variant: "destructive", title: "Error submitting suggestion" });
     } finally {
       setIsSuggesting(false);
     }
@@ -327,7 +327,7 @@ export default function DriverConsole() {
                             <div className="space-y-1">
                               <h3 className="text-xl font-black italic uppercase text-primary">{route.routeName}</h3>
                               <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase">
-                                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {route.scheduledTime}</span>
+                                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {route.scheduledTime || "On Demand"}</span>
                                 <span className="flex items-center gap-1"><IndianRupee className="h-3 w-3" /> ₹{route.basePayout || 150}</span>
                               </div>
                             </div>
