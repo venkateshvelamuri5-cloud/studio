@@ -46,6 +46,28 @@
       },
       "required": ["driverId", "routeName", "status"]
     },
+    "Route": {
+      "title": "Route",
+      "description": "A predefined shuttle route with stops.",
+      "type": "object",
+      "properties": {
+        "routeName": { "type": "string" },
+        "city": { "type": "string", "enum": ["Vizag", "Vizianagaram"] },
+        "baseFare": { "type": "number" },
+        "stops": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "lat": { "type": "number" },
+              "lng": { "type": "number" }
+            }
+          }
+        },
+        "status": { "type": "string", "enum": ["active", "inactive"] }
+      }
+    },
     "AppConfig": {
       "title": "App Config",
       "description": "Global settings for the mobility network.",
@@ -63,6 +85,7 @@
   "firestore": {
     "/users/{userId}": { "schema": "User", "description": "User profiles." },
     "/trips/{tripId}": { "schema": "Trip", "description": "Trip records." },
+    "/routes/{routeId}": { "schema": "Route", "description": "Route definitions." },
     "/config/global": { "schema": "AppConfig", "description": "Global network settings." }
   }
 }

@@ -16,18 +16,16 @@ import {
   Loader2,
   Users,
   TrendingUp,
-  Settings,
   QrCode,
   IndianRupee,
   ShieldCheck,
   MapPinned,
-  AlertCircle
+  Route as RouteIcon
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
-import { collection, query, doc, updateDoc, setDoc, orderBy, limit } from 'firebase/firestore';
+import { collection, query, doc, setDoc, orderBy, limit } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function AdminDashboard() {
   const db = useFirestore();
@@ -36,7 +34,7 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useUser();
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'payments'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'payments' | 'routes'>('dashboard');
   const [vizagUpi, setVizagUpi] = useState('');
   const [vzmUpi, setVzmUpi] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -59,6 +57,7 @@ export default function AdminDashboard() {
 
   const { data: allTrips } = useCollection(useMemo(() => db ? query(collection(db, 'trips'), orderBy('startTime', 'desc'), limit(50)) : null, [db]));
   const { data: allUsers } = useCollection(useMemo(() => db ? query(collection(db, 'users')) : null, [db]));
+  const { data: allRoutes } = useCollection(useMemo(() => db ? query(collection(db, 'routes')) : null, [db]));
 
   const saveConfig = async () => {
     if (!db) return;
@@ -69,9 +68,9 @@ export default function AdminDashboard() {
         vzmUpiId: vzmUpi,
         updatedAt: new Date().toISOString()
       }, { merge: true });
-      toast({ title: "Network Config Saved", description: "Payment IDs updated across the regional grid." });
+      toast({ title: "Network Config Saved", description: "Regional payment endpoints updated across the grid." });
     } catch {
-      toast({ variant: "destructive", title: "Failed to update config" });
+      toast({ variant: "destructive", title: "Failed to update configuration" });
     } finally {
       setIsSaving(false);
     }
@@ -93,7 +92,8 @@ export default function AdminDashboard() {
         <nav className="flex-1 p-6 space-y-2">
           {[
             { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
-            { id: 'payments', label: 'Payment Config', icon: QrCode },
+            { id: 'payments', label: 'Payment Hub', icon: QrCode },
+            { id: 'routes', label: 'Fleet Grid', icon: RouteIcon },
           ].map((item) => (
             <Button 
               key={item.id} variant="ghost" 
@@ -117,7 +117,7 @@ export default function AdminDashboard() {
             <h2 className="text-3xl font-black font-headline text-slate-900 italic uppercase tracking-tighter leading-none">{activeTab}</h2>
             <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.4em] mt-2">Regional Operations Terminal</p>
           </div>
-          <Badge className="bg-green-500/10 text-green-600 border-none font-black uppercase text-[10px] tracking-widest px-6 py-2 rounded-full">Network Online</Badge>
+          <Badge className="bg-green-500/10 text-green-600 border-none font-black uppercase text-[10px] tracking-widest px-6 py-2 rounded-full">Network Live</Badge>
         </header>
 
         <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar">
@@ -125,9 +125,9 @@ export default function AdminDashboard() {
             <div className="space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {[
-                  { label: 'Active Trips', value: allTrips?.filter(t => t.status === 'active').length || 0, icon: Navigation, color: 'text-blue-500', bg: 'bg-blue-50' },
+                  { label: 'Active Missions', value: allTrips?.filter(t => t.status === 'active').length || 0, icon: Navigation, color: 'text-blue-500', bg: 'bg-blue-50' },
+                  { label: 'Fleet Assets', value: allUsers?.filter(u => u.role === 'driver').length || 0, icon: Bus, color: 'text-orange-500', bg: 'bg-orange-50' },
                   { label: 'Total Scholars', value: allUsers?.filter(u => u.role === 'rider').length || 0, icon: Users, color: 'text-green-500', bg: 'bg-green-50' },
-                  { label: 'Live Revenue', value: `₹${allTrips?.reduce((acc, t) => acc + (t.riderCount * t.farePerRider || 0), 0).toFixed(0)}`, icon: IndianRupee, color: 'text-primary', bg: 'bg-primary/5' },
                 ].map((metric, i) => (
                   <Card key={i} className="border-none bg-white rounded-[2.5rem] shadow-sm hover:shadow-md transition-all">
                     <CardContent className="p-8">
@@ -140,14 +140,14 @@ export default function AdminDashboard() {
               </div>
 
               <Card className="border-none bg-white rounded-[3rem] shadow-sm overflow-hidden">
-                <CardHeader className="p-10 border-b border-slate-50"><CardTitle className="text-xl font-black italic uppercase text-slate-900 flex items-center gap-3"><TrendingUp className="h-6 w-6 text-primary" /> Live Mission Logs</CardTitle></CardHeader>
+                <CardHeader className="p-10 border-b border-slate-50"><CardTitle className="text-xl font-black italic uppercase text-slate-900 flex items-center gap-3"><TrendingUp className="h-6 w-6 text-primary" /> Live Network Manifest</CardTitle></CardHeader>
                 <CardContent className="p-0">
                   <table className="w-full text-left">
                     <thead>
                       <tr className="bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">
-                        <th className="py-6 px-10">Route</th>
-                        <th className="py-6">Driver</th>
-                        <th className="py-6">Boarded</th>
+                        <th className="py-6 px-10">Corridor</th>
+                        <th className="py-6">Operator</th>
+                        <th className="py-6">Payload</th>
                         <th className="py-6 px-10 text-right">Yield</th>
                       </tr>
                     </thead>
@@ -171,13 +171,13 @@ export default function AdminDashboard() {
             <div className="max-w-2xl space-y-10 animate-in fade-in slide-in-from-bottom-4">
               <Card className="border-none bg-white rounded-[3rem] p-12 shadow-sm space-y-10">
                 <div className="space-y-3">
-                  <h3 className="text-3xl font-black italic uppercase text-primary leading-none">Network Payment Config</h3>
-                  <p className="text-sm font-bold text-slate-400 italic">Set the official UPI IDs for direct regional payments.</p>
+                  <h3 className="text-3xl font-black italic uppercase text-primary leading-none">Regional Payment Config</h3>
+                  <p className="text-sm font-bold text-slate-400 italic">Configure the official UPI endpoints for city-specific hubs.</p>
                 </div>
                 
                 <div className="space-y-8">
                   <div className="space-y-4">
-                    <Label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Vizag Hub UPI ID</Label>
+                    <Label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Vizag Hub Payment ID</Label>
                     <div className="relative">
                       <IndianRupee className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
                       <Input value={vizagUpi} onChange={e => setVizagUpi(e.target.value)} placeholder="vizag.aago@upi" className="h-16 pl-14 rounded-2xl bg-slate-50 border-none font-black italic text-lg" />
@@ -185,7 +185,7 @@ export default function AdminDashboard() {
                   </div>
 
                   <div className="space-y-4">
-                    <Label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Vizianagaram Hub UPI ID</Label>
+                    <Label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Vizianagaram Hub Payment ID</Label>
                     <div className="relative">
                       <IndianRupee className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
                       <Input value={vzmUpi} onChange={e => setVzmUpi(e.target.value)} placeholder="vzm.aago@upi" className="h-16 pl-14 rounded-2xl bg-slate-50 border-none font-black italic text-lg" />
@@ -193,7 +193,7 @@ export default function AdminDashboard() {
                   </div>
 
                   <Button onClick={saveConfig} disabled={isSaving} className="w-full h-18 bg-primary text-white font-black uppercase italic text-lg rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">
-                    {isSaving ? <Loader2 className="animate-spin h-6 w-6" /> : "Update Regional Config"}
+                    {isSaving ? <Loader2 className="animate-spin h-6 w-6" /> : "Deploy Regional Endpoints"}
                   </Button>
                 </div>
               </Card>
@@ -201,9 +201,38 @@ export default function AdminDashboard() {
               <div className="bg-primary/5 p-10 rounded-[3rem] border border-primary/10 flex items-start gap-6">
                 <QrCode className="h-10 w-10 text-primary shrink-0" />
                 <div className="space-y-2">
-                  <h4 className="font-black uppercase italic text-primary">Direct-to-Bank Logic</h4>
-                  <p className="text-xs font-bold text-slate-500 italic leading-relaxed">Payment gateways are hub-specific. The student's app will automatically display the correct regional ID based on their registered hub city.</p>
+                  <h4 className="font-black uppercase italic text-primary">Mission Settlement Protocol</h4>
+                  <p className="text-xs font-bold text-slate-500 italic leading-relaxed">Students will scan the city-specific ID assigned above during the boarding sequence. Ensure these accounts are verified for high-volume transactions.</p>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'routes' && (
+            <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4">
+              <div className="flex justify-between items-center">
+                 <h3 className="text-3xl font-black italic uppercase text-slate-900 leading-none">Fleet Grid Corridors</h3>
+                 <Button className="bg-primary text-white font-black uppercase italic rounded-xl px-6 h-12 shadow-lg shadow-primary/20">+ Architect New Corridor</Button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {allRoutes?.map((route: any) => (
+                  <Card key={route.id} className="border-none bg-white rounded-[2.5rem] shadow-sm overflow-hidden hover:shadow-xl transition-all">
+                    <div className="p-8 space-y-6">
+                      <div className="flex justify-between items-start">
+                        <div className="p-3 bg-slate-50 rounded-xl"><RouteIcon className="h-5 w-5 text-slate-400" /></div>
+                        <Badge className={`${route.status === 'active' ? 'bg-green-500/10 text-green-600' : 'bg-slate-100 text-slate-400'} border-none font-black uppercase text-[8px]`}>{route.status}</Badge>
+                      </div>
+                      <div>
+                        <h4 className="text-xl font-black uppercase italic text-slate-900 leading-none mb-2">{route.routeName}</h4>
+                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{route.city} • {route.stops?.length} Stations</p>
+                      </div>
+                      <div className="pt-4 border-t border-slate-50 flex justify-between items-center">
+                         <p className="text-xs font-black italic text-primary">₹{route.baseFare} / Ride</p>
+                         <Button variant="ghost" className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-primary">Edit Schematic</Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
               </div>
             </div>
           )}

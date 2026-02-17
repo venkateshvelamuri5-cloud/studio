@@ -12,20 +12,17 @@ import {
   Power, 
   Loader2, 
   LogOut, 
-  IndianRupee, 
   CheckCircle2,
   Navigation,
   Phone,
   History,
   User as UserIcon,
-  ChevronRight,
   ShieldCheck,
-  ArrowRight,
   MapPinned,
   AlertCircle
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
-import { doc, updateDoc, collection, addDoc, onSnapshot, query, where, increment, arrayUnion, getDocs, limit, orderBy } from 'firebase/firestore';
+import { doc, updateDoc, collection, addDoc, onSnapshot, query, where, arrayUnion, getDocs, limit, orderBy } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -48,7 +45,10 @@ export default function DriverConsole() {
   const [verificationOtp, setVerificationOtp] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   
-  const { isLoaded, loadError } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: firebaseConfig.apiKey });
+  const { isLoaded, loadError } = useJsApiLoader({ 
+    id: 'google-map-script', 
+    googleMapsApiKey: firebaseConfig.apiKey 
+  });
   const prevPassengerCount = useRef(0);
 
   const userRef = useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
@@ -68,7 +68,7 @@ export default function DriverConsole() {
         const tripData = { ...snapshot.docs[0].data(), id: snapshot.docs[0].id };
         const currentCount = tripData.passengers?.length || 0;
         if (currentCount > prevPassengerCount.current) {
-          toast({ title: "New Scholar Alert!", description: "A student just secured a seat on your mission." });
+          toast({ title: "New Scholar Alert!", description: "A student just secured a seat on your corridor." });
         }
         prevPassengerCount.current = currentCount;
         setActiveTrip(tripData);
@@ -99,10 +99,10 @@ export default function DriverConsole() {
         riderCount: 0, maxCapacity,
         passengers: [], verifiedPassengers: [], startTime: new Date().toISOString()
       });
-      updateDoc(userRef!, { status: 'on-trip', activeTripId: tripRef.id });
-      toast({ title: "Mission Initiated", description: `Active on Route: ${route.routeName}` });
+      await updateDoc(userRef!, { status: 'on-trip', activeTripId: tripRef.id });
+      toast({ title: "Mission Corridor Initiated", description: `Active on Route: ${route.routeName}` });
     } catch {
-      toast({ variant: "destructive", title: "Could not start mission" });
+      toast({ variant: "destructive", title: "Could not start mission corridor" });
     } finally {
       setIsUpdating(false);
     }
@@ -114,12 +114,12 @@ export default function DriverConsole() {
     try {
       const snap = await getDocs(query(collection(db, 'users'), where('activeOtp', '==', verificationOtp.trim()), limit(1)));
       if (snap.empty) {
-        toast({ variant: "destructive", title: "Identity Error", description: "Verification code sequence invalid." });
+        toast({ variant: "destructive", title: "Identity Sequence Error", description: "Verification code invalid." });
       } else {
         const rider = snap.docs[0].data();
         await updateDoc(doc(db, 'trips', activeTrip.id), { verifiedPassengers: arrayUnion(rider.uid) });
         await updateDoc(doc(db, 'users', rider.uid), { activeOtp: null });
-        toast({ title: "Scholar Verified", description: `${rider.fullName} is now on-board.` });
+        toast({ title: "Scholar Authenticated", description: `${rider.fullName} is now on-board.` });
         setVerificationOtp("");
       }
     } catch {
@@ -137,7 +137,7 @@ export default function DriverConsole() {
       await updateDoc(userRef, { status: 'available', activeTripId: null });
       toast({ title: "Mission Completed", description: "All telemetry data pushed to regional hub." });
     } catch {
-      toast({ variant: "destructive", title: "Could not end mission corridor" });
+      toast({ variant: "destructive", title: "Could not close mission corridor" });
     } finally {
       setIsUpdating(false);
     }
@@ -193,7 +193,7 @@ export default function DriverConsole() {
           <div className="space-y-6 animate-in slide-in-from-bottom-4">
             <div className="relative rounded-[2.5rem] overflow-hidden border border-slate-200 shadow-xl h-64 bg-slate-100">
               {isLoaded && !loadError && validStops.length > 0 ? (
-                <GoogleMap mapContainerStyle={mapContainerStyle} center={{ lat: 17.6868, lng: 83.2185 }} zoom={13} options={mapOptions}>
+                <GoogleMap mapContainerStyle={mapContainerStyle} center={{ lat: Number(validStops[0].lat), lng: Number(validStops[0].lng) }} zoom={13} options={mapOptions}>
                   <Polyline 
                     path={validStops.map((s: any) => ({ lat: Number(s.lat), lng: Number(s.lng) }))} 
                     options={{ strokeColor: "#3b82f6", strokeOpacity: 0.8, strokeWeight: 6 }} 
@@ -203,6 +203,7 @@ export default function DriverConsole() {
                 <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50">
                    <MapPinned className="h-10 w-10 text-slate-200 mb-4" />
                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Tactical Map Offline</p>
+                   <p className="text-[8px] font-bold text-slate-400 mt-2 uppercase italic">Map API Not Activated</p>
                 </div>
               )}
             </div>
@@ -210,7 +211,7 @@ export default function DriverConsole() {
             <Card className="bg-white border-none rounded-[3rem] p-8 space-y-8 shadow-xl">
               <div className="flex justify-between items-start">
                 <div className="space-y-1">
-                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Mission Active</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Mission Corridor Active</p>
                   <h2 className="text-3xl font-black italic uppercase leading-none">{activeTrip.routeName}</h2>
                 </div>
                 <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase px-3 py-1">{activeTrip.riderCount} Boarded</Badge>
@@ -219,7 +220,7 @@ export default function DriverConsole() {
               <div className="bg-primary/5 p-6 rounded-[2rem] border border-primary/10 space-y-4">
                 <div className="flex items-center gap-2 mb-1 text-primary">
                   <ShieldCheck className="h-4 w-4" />
-                  <Label className="text-[10px] font-black uppercase tracking-[0.4em]">Scholar Auth ID</Label>
+                  <Label className="text-[10px] font-black uppercase tracking-[0.4em]">Scholar Auth Sequence</Label>
                 </div>
                 <div className="flex gap-3">
                   <Input value={verificationOtp} onChange={(e) => setVerificationOtp(e.target.value)} placeholder="000000" className="h-16 text-center font-black tracking-[0.4em] text-2xl rounded-2xl bg-white border-none shadow-inner" maxLength={6} />
@@ -253,7 +254,7 @@ export default function DriverConsole() {
                 </div>
               </div>
 
-              <Button onClick={endTrip} disabled={isUpdating} className="w-full h-18 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase italic text-lg shadow-xl hover:bg-slate-800 transition-all">End Mission Corridor</Button>
+              <Button onClick={endTrip} disabled={isUpdating} className="w-full h-18 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase italic text-lg shadow-xl hover:bg-slate-800 transition-all">Close Mission Corridor</Button>
             </Card>
           </div>
         ))}
@@ -292,7 +293,7 @@ export default function DriverConsole() {
               </div>
               <div>
                 <h2 className="text-4xl font-black italic uppercase text-slate-900 leading-none">{profile?.fullName}</h2>
-                <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase tracking-[0.4em] mt-3 px-4 py-1">Verified Partner</Badge>
+                <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase tracking-[0.4em] mt-3 px-4 py-1">Verified Fleet Partner</Badge>
               </div>
             </div>
             <div className="space-y-3">
@@ -317,7 +318,7 @@ export default function DriverConsole() {
       <nav className="fixed bottom-0 left-0 right-0 p-8 bg-white/90 backdrop-blur-3xl border-t border-slate-200 flex justify-around items-center rounded-t-[3.5rem] z-50 shadow-2xl">
         <Button variant="ghost" onClick={() => setActiveTab('trips')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'trips' ? 'text-primary scale-110' : 'text-slate-400'}`}><Navigation className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Radar</span></Button>
         <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'history' ? 'text-primary scale-110' : 'text-slate-400'}`}><History className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Ledger</span></Button>
-        <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'profile' ? 'text-primary scale-110' : 'text-slate-400'}`}><UserIcon className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Identity</span></Button>
+        <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'profile' ? 'text-primary scale-110' : 'text-slate-400'}`}><UserIcon className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Me</span></Button>
       </nav>
     </div>
   );

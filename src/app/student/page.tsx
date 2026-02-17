@@ -2,10 +2,9 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { 
   Dialog,
   DialogContent,
@@ -26,24 +25,18 @@ import {
   CheckCircle2,
   History,
   User as UserIcon,
-  Clock,
-  Info,
   ShieldCheck,
   MapPinned,
   LocateFixed,
-  Zap,
-  Phone,
-  ArrowRight,
   AlertCircle
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, increment, collection, query, where, arrayUnion, orderBy, limit, addDoc } from 'firebase/firestore';
+import { doc, updateDoc, increment, collection, query, where, arrayUnion, orderBy, limit } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { firebaseConfig } from '@/firebase/config';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const mapContainerStyle = { width: '100%', height: '100%', borderRadius: '2.5rem' };
 const mapOptions = { 
@@ -61,13 +54,16 @@ export default function StudentDashboard() {
   
   const [activeTab, setActiveTab] = useState<'home' | 'history' | 'profile'>('home');
   const [isBooking, setIsBooking] = useState(false);
-  const [bookingStep, setBookingStep] = useState(1); // 1: Search, 2: Payment, 3: Confirmation
+  const [bookingStep, setBookingStep] = useState(1); 
   const [selectedTrip, setSelectedTrip] = useState<any>(null);
   const [pickupStop, setPickupStop] = useState("");
   const [destinationStop, setDestinationStop] = useState("");
   const [currentPosition, setCurrentPosition] = useState<{lat: number, lng: number} | null>(null);
 
-  const { isLoaded, loadError } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: firebaseConfig.apiKey });
+  const { isLoaded, loadError } = useJsApiLoader({ 
+    id: 'google-map-script', 
+    googleMapsApiKey: firebaseConfig.apiKey 
+  });
 
   const userRef = useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
@@ -82,7 +78,7 @@ export default function StudentDashboard() {
   const allStops = useMemo(() => {
     const stops = new Set<string>();
     activeRoutes?.forEach(r => r.stops?.forEach((s: any) => stops.add(s.name)));
-    return Array.from(stops);
+    return Array.from(stops).sort();
   }, [activeRoutes]);
 
   const filteredTrips = useMemo(() => {
@@ -105,28 +101,38 @@ export default function StudentDashboard() {
     }
   }, []);
 
+  const handleUseCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setCurrentPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          toast({ title: "Radar Synced", description: "Positioning your scholar identity on the network." });
+        },
+        () => toast({ variant: "destructive", title: "Location Denied", description: "Enable GPS to sync with the regional hub." })
+      );
+    }
+  };
+
   const handleConfirmPayment = async () => {
     if (!db || !userRef || !selectedTrip || !destinationStop) return;
     
     if (selectedTrip.riderCount >= selectedTrip.maxCapacity) {
-      toast({ variant: "destructive", title: "Shuttle Full", description: "No seats remaining on this mission." });
+      toast({ variant: "destructive", title: "Shuttle Full", description: "No seats remaining on this mission corridor." });
       return;
     }
 
     setIsBooking(true);
     try {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      
       await updateDoc(userRef, { activeOtp: otp, destinationStopName: destinationStop });
       await updateDoc(doc(db, 'trips', selectedTrip.id), { 
         passengers: arrayUnion(user!.uid),
         riderCount: increment(1)
       });
-
       setBookingStep(3);
-      toast({ title: "Seat Secured", description: "Your unique Boarding ID is now active." });
+      toast({ title: "Mission Clearance Granted", description: "Your unique Boarding ID is now active." });
     } catch {
-      toast({ variant: "destructive", title: "Allotment failed" });
+      toast({ variant: "destructive", title: "Allotment Sequence Failed" });
     } finally {
       setIsBooking(false);
     }
@@ -150,8 +156,8 @@ export default function StudentDashboard() {
         {activeTab === 'home' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
             <div className="space-y-1">
-              <h2 className="text-4xl font-black text-slate-900 italic uppercase tracking-tighter leading-none">Hello, Scholar.</h2>
-              <p className="text-slate-400 font-bold italic text-[10px] uppercase tracking-widest">Regional Mobility Terminal</p>
+              <h2 className="text-4xl font-black text-slate-900 italic uppercase tracking-tighter leading-none">Hello, {profile?.fullName?.split(' ')[0]}.</h2>
+              <p className="text-slate-400 font-bold italic text-[10px] uppercase tracking-widest">Scholar Mobility Terminal</p>
             </div>
 
             {profile?.activeOtp && currentBooking ? (
@@ -181,10 +187,12 @@ export default function StudentDashboard() {
                     <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50">
                       <AlertCircle className="h-10 w-10 text-slate-300 mb-4" />
                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Network Radar Offline</p>
-                      <p className="text-[8px] font-bold text-slate-400 mt-2 uppercase italic">Map API Not Enabled</p>
+                      <p className="text-[8px] font-bold text-slate-400 mt-2 uppercase italic">Map API Not Activated</p>
                     </div>
                   )}
-                  {isLoaded && <Button onClick={() => setCurrentPosition(null)} className="absolute bottom-6 right-6 h-12 w-12 rounded-2xl bg-white text-primary shadow-xl p-0"><LocateFixed className="h-6 w-6" /></Button>}
+                  <Button onClick={handleUseCurrentLocation} className="absolute bottom-6 right-6 h-12 w-12 rounded-2xl bg-white text-primary shadow-xl p-0 hover:scale-110 transition-all">
+                    <LocateFixed className="h-6 w-6" />
+                  </Button>
                 </div>
 
                 <Dialog onOpenChange={(open) => { if (!open) { setBookingStep(1); setSelectedTrip(null); } }}>
@@ -214,31 +222,37 @@ export default function StudentDashboard() {
                             <div className="relative">
                               <MapPinned className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
                               <select value={pickupStop} onChange={e => setPickupStop(e.target.value)} className="w-full h-18 bg-slate-50 border-none rounded-2xl pl-14 pr-8 font-black italic text-base appearance-none focus:ring-2 focus:ring-primary">
-                                <option value="">Pickup Point</option>
+                                <option value="">Select Pickup Station</option>
                                 {allStops.map(s => <option key={s} value={s}>{s}</option>)}
                               </select>
                             </div>
                             <div className="relative">
                               <Navigation className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-accent" />
                               <select value={destinationStop} onChange={e => setDestinationStop(e.target.value)} className="w-full h-18 bg-slate-50 border-none rounded-2xl pl-14 pr-8 font-black italic text-base appearance-none focus:ring-2 focus:ring-accent">
-                                <option value="">Drop Point</option>
+                                <option value="">Select Drop Station</option>
                                 {allStops.map(s => <option key={s} value={s}>{s}</option>)}
                               </select>
                             </div>
                           </div>
                           <div className="space-y-4">
                             <p className="text-[10px] font-black uppercase text-slate-400 italic">Available Regional Shuttles</p>
-                            {filteredTrips.map((trip: any) => (
-                              <div key={trip.id} onClick={() => setSelectedTrip(trip)} className={`p-8 rounded-[2.5rem] border-2 flex justify-between items-center transition-all cursor-pointer ${selectedTrip?.id === trip.id ? 'bg-primary border-primary text-white shadow-xl scale-[1.02]' : 'bg-slate-50 border-transparent hover:bg-slate-100'}`}>
-                                <div>
-                                  <h4 className="font-black uppercase italic text-xl leading-none">{trip.routeName}</h4>
-                                  <p className={`text-[9px] font-bold uppercase mt-2 ${selectedTrip?.id === trip.id ? 'opacity-80' : 'text-slate-400'}`}>₹{trip.farePerRider} • {trip.riderCount}/{trip.maxCapacity} Seats</p>
+                            {filteredTrips.length === 0 ? (
+                               <div className="p-12 text-center bg-slate-50 rounded-[2.5rem] border-dashed border-2 border-slate-200">
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 italic">No shuttles found for this pair</p>
+                               </div>
+                            ) : (
+                              filteredTrips.map((trip: any) => (
+                                <div key={trip.id} onClick={() => setSelectedTrip(trip)} className={`p-8 rounded-[2.5rem] border-2 flex justify-between items-center transition-all cursor-pointer ${selectedTrip?.id === trip.id ? 'bg-primary border-primary text-white shadow-xl scale-[1.02]' : 'bg-slate-50 border-transparent hover:bg-slate-100'}`}>
+                                  <div>
+                                    <h4 className="font-black uppercase italic text-xl leading-none">{trip.routeName}</h4>
+                                    <p className={`text-[9px] font-bold uppercase mt-2 ${selectedTrip?.id === trip.id ? 'opacity-80' : 'text-slate-400'}`}>₹{trip.farePerRider} • {trip.riderCount}/{trip.maxCapacity} Seats</p>
+                                  </div>
+                                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${selectedTrip?.id === trip.id ? 'bg-white text-primary' : 'bg-white text-slate-300'}`}>
+                                    {selectedTrip?.id === trip.id ? <CheckCircle2 className="h-7 w-7" /> : <ChevronRight className="h-6 w-6" />}
+                                  </div>
                                 </div>
-                                <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${selectedTrip?.id === trip.id ? 'bg-white text-primary' : 'bg-white text-slate-300'}`}>
-                                  {selectedTrip?.id === trip.id ? <CheckCircle2 className="h-7 w-7" /> : <ChevronRight className="h-6 w-6" />}
-                                </div>
-                              </div>
-                            ))}
+                              ))
+                            )}
                           </div>
                         </>
                       )}
@@ -267,8 +281,8 @@ export default function StudentDashboard() {
                            <div className="h-24 w-24 bg-green-500 rounded-full flex items-center justify-center text-white shadow-2xl shadow-green-500/20">
                              <CheckCircle2 className="h-12 w-12" />
                            </div>
-                           <h3 className="text-3xl font-black italic uppercase text-slate-900">Seat Allotted</h3>
-                           <p className="text-sm font-bold text-slate-400 italic">Your boarding ID is now active on the dashboard. Use it to board your shuttle.</p>
+                           <h3 className="text-3xl font-black italic uppercase text-slate-900">Seat Secured</h3>
+                           <p className="text-sm font-bold text-slate-400 italic">Your boarding ID is now active on the dashboard. Present it to your driver.</p>
                         </div>
                       )}
                     </div>
@@ -278,10 +292,12 @@ export default function StudentDashboard() {
                         <Button onClick={() => setBookingStep(2)} disabled={!selectedTrip} className="w-full h-18 bg-primary text-white rounded-[1.5rem] font-black uppercase italic text-xl shadow-xl active:scale-95 transition-all">Initiate Regional Payment</Button>
                       )}
                       {bookingStep === 2 && (
-                        <Button onClick={handleConfirmPayment} disabled={isBooking} className="w-full h-18 bg-green-600 text-white rounded-[1.5rem] font-black uppercase italic text-xl shadow-xl active:scale-95 transition-all">Confirm Payment Success</Button>
+                        <Button onClick={handleConfirmPayment} disabled={isBooking} className="w-full h-18 bg-green-600 text-white rounded-[1.5rem] font-black uppercase italic text-xl shadow-xl active:scale-95 transition-all">
+                          {isBooking ? <Loader2 className="animate-spin h-6 w-6" /> : "Confirm Successful Transfer"}
+                        </Button>
                       )}
                       {bookingStep === 3 && (
-                        <Button onClick={() => window.location.reload()} className="w-full h-18 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase italic text-xl shadow-xl">Back to Dashboard</Button>
+                        <Button onClick={() => window.location.reload()} className="w-full h-18 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase italic text-xl shadow-xl">Back to Terminal</Button>
                       )}
                     </div>
                   </DialogContent>
@@ -291,8 +307,8 @@ export default function StudentDashboard() {
                   <Card className="bg-white border-slate-100 rounded-[2.5rem] p-8 shadow-sm flex flex-col justify-between group">
                     <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-6"><Bus className="h-6 w-6" /></div>
                     <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Local Network</p>
-                      <h3 className="text-3xl font-black text-slate-900 italic tracking-tighter">{activeRoutes?.length || 0} Routes</h3>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Local Grid</p>
+                      <h3 className="text-3xl font-black text-slate-900 italic tracking-tighter">{activeRoutes?.length || 0} Corridors</h3>
                     </div>
                   </Card>
                   <Card onClick={() => setActiveTab('history')} className="bg-white border-slate-100 rounded-[2.5rem] p-8 shadow-sm flex flex-col justify-between cursor-pointer hover:shadow-xl transition-all group">
@@ -351,9 +367,9 @@ export default function StudentDashboard() {
              </div>
              <div className="space-y-4">
                 {[ 
-                  { label: 'College Hub', value: profile?.collegeName, icon: Info }, 
+                  { label: 'College Hub', value: profile?.collegeName, icon: AlertCircle }, 
                   { label: 'Scholar ID', value: profile?.studentId, icon: ShieldCheck },
-                  { label: 'Registered Hub', value: profile?.city, icon: MapPin } 
+                  { label: 'Registered City', value: profile?.city, icon: MapPin } 
                 ].map((item, i) => (
                   <div key={i} className="p-8 bg-white border border-slate-100 rounded-[2.5rem] flex items-center gap-6 shadow-sm">
                     <div className="h-12 w-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 shadow-inner"><item.icon className="h-6 w-6" /></div>
