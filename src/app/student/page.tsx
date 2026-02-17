@@ -28,15 +28,11 @@ import {
   LocateFixed,
   AlertCircle,
   Activity,
-  CreditCard,
-  Settings,
-  Heart,
   Gift,
-  Bell,
   AlertTriangle
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, increment, collection, query, where, arrayUnion, orderBy, limit, addDoc } from 'firebase/firestore';
+import { doc, updateDoc, increment, collection, query, where, arrayUnion, limit, addDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -77,17 +73,21 @@ export default function StudentDashboard() {
   const { data: activeTrips } = useCollection(useMemo(() => (db && profile?.city) ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db, profile?.city]));
   const { data: activeRoutes } = useCollection(useMemo(() => (db && profile?.city) ? query(collection(db, 'routes'), where('city', '==', profile.city), where('status', '==', 'active')) : null, [db, profile?.city]));
   
-  // Refined History Query: Trips where user was a passenger and it's completed
-  const { data: pastTrips } = useCollection(useMemo(() => {
+  // History Query: Simplified to avoid index issues, sort locally
+  const { data: pastTripsRaw } = useCollection(useMemo(() => {
     if (!db || !user?.uid) return null;
     return query(
       collection(db, 'trips'), 
       where('passengers', 'array-contains', user.uid), 
-      where('status', '==', 'completed'), 
-      orderBy('endTime', 'desc'), 
-      limit(20)
+      where('status', '==', 'completed'),
+      limit(50)
     );
   }, [db, user?.uid]));
+
+  const pastTrips = useMemo(() => {
+    if (!pastTripsRaw) return [];
+    return [...pastTripsRaw].sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime());
+  }, [pastTripsRaw]);
 
   const currentBooking = useMemo(() => (activeTrips && user?.uid) ? activeTrips.find(t => t.passengers?.includes(user.uid)) : null, [activeTrips, user?.uid]);
   
@@ -139,7 +139,7 @@ export default function StudentDashboard() {
 
   const handleConfirmPayment = async () => {
     if (!db || !userRef || !selectedTrip || !destinationStop) return;
-    if (selectedTrip.riderCount >= selectedTrip.maxCapacity) {
+    if ((selectedTrip.passengers?.length || 0) >= selectedTrip.maxCapacity) {
       toast({ variant: "destructive", title: "Bus is Full", description: "Please pick another shuttle." });
       return;
     }
@@ -148,8 +148,7 @@ export default function StudentDashboard() {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       await updateDoc(userRef, { activeOtp: otp, destinationStopName: destinationStop });
       await updateDoc(doc(db, 'trips', selectedTrip.id), { 
-        passengers: arrayUnion(user!.uid),
-        riderCount: increment(1)
+        passengers: arrayUnion(user!.uid)
       });
       setBookingStep(3);
       toast({ title: "Seat Secured!", description: "Your boarding ID is now active." });
@@ -223,7 +222,13 @@ export default function StudentDashboard() {
                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Map Loading...</p>
                     </div>
                   )}
-                  <Button onClick={handleUseCurrentLocation} className="absolute bottom-6 right-6 h-12 w-12 rounded-2xl bg-white text-primary shadow-xl p-0 hover:scale-110 transition-all">
+                  <Button onClick={() => {
+                    if (navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition((pos) => {
+                        setCurrentPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                      });
+                    }
+                  }} className="absolute bottom-6 right-6 h-12 w-12 rounded-2xl bg-white text-primary shadow-xl p-0 hover:scale-110 transition-all">
                     <LocateFixed className="h-6 w-6" />
                   </Button>
                 </div>
@@ -276,7 +281,7 @@ export default function StudentDashboard() {
                                 <div key={trip.id} onClick={() => setSelectedTrip(trip)} className={`p-8 rounded-[2.5rem] border-2 flex justify-between items-center transition-all cursor-pointer ${selectedTrip?.id === trip.id ? 'bg-primary border-primary text-white shadow-xl scale-[1.02]' : 'bg-slate-50 border-transparent hover:bg-slate-100'}`}>
                                   <div>
                                     <h4 className="font-black uppercase italic text-xl leading-none">{trip.routeName}</h4>
-                                    <p className={`text-[9px] font-bold uppercase mt-2 ${selectedTrip?.id === trip.id ? 'opacity-80' : 'text-slate-400'}`}>₹{trip.farePerRider} • {trip.riderCount}/{trip.maxCapacity} Full</p>
+                                    <p className={`text-[9px] font-bold uppercase mt-2 ${selectedTrip?.id === trip.id ? 'opacity-80' : 'text-slate-400'}`}>₹{trip.farePerRider} • {trip.passengers?.length || 0}/{trip.maxCapacity} Full</p>
                                   </div>
                                   <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${selectedTrip?.id === trip.id ? 'bg-white text-primary' : 'bg-white text-slate-300'}`}>
                                     {selectedTrip?.id === trip.id ? <CheckCircle2 className="h-7 w-7" /> : <ChevronRight className="h-6 w-6" />}
@@ -389,7 +394,7 @@ export default function StudentDashboard() {
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Available Perks</p>
                 {[
                   { title: "Free Weekend Pass", pts: "500 PTS", icon: Gift },
-                  { title: "10% Off Hub Fare", pts: "200 PTS", icon: Heart },
+                  { title: "10% Off Hub Fare", pts: "200 PTS", icon: Activity },
                 ].map((perk, i) => (
                   <Card key={i} className="bg-white border border-slate-100 rounded-2xl p-6 flex justify-between items-center shadow-sm">
                     <div className="flex items-center gap-4">
@@ -442,13 +447,4 @@ export default function StudentDashboard() {
       </nav>
     </div>
   );
-}
-
-function handleUseCurrentLocation() {
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {},
-      () => {}
-    );
-  }
 }

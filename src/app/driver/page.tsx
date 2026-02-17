@@ -29,7 +29,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
-import { doc, updateDoc, collection, addDoc, onSnapshot, query, where, arrayUnion, getDocs, limit, orderBy } from 'firebase/firestore';
+import { doc, updateDoc, collection, addDoc, onSnapshot, query, where, arrayUnion, getDocs, limit } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -43,7 +43,7 @@ import {
   ChartTooltipContent,
   ChartConfig
 } from "@/components/ui/chart";
-import { Bar, BarChart, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, XAxis } from "recharts";
 
 const mapContainerStyle = { width: '100%', height: '240px', borderRadius: '2rem' };
 const mapOptions = { mapId: "da87e9c90896eba04be76dde", disableDefaultUI: true };
@@ -68,7 +68,7 @@ export default function DriverConsole() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [verificationOtp, setVerificationOtp] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
-  const [shiftStart, setShiftStart] = useState<Date | null>(null);
+  const [shiftStart, setShiftStart] = useState<string | null>(null);
   
   const { isLoaded, loadError } = useJsApiLoader({ 
     id: 'google-map-script', 
@@ -82,17 +82,21 @@ export default function DriverConsole() {
   const { data: allRoutes } = useCollection(useMemo(() => (db && user) ? query(collection(db, 'routes')) : null, [db, user]));
   const availableRoutes = useMemo(() => allRoutes?.filter(r => r.city === profile?.city && r.status === 'active') || [], [allRoutes, profile?.city]);
 
+  // History Query: Simple filter, local sort to avoid index issues
   const historyQuery = useMemo(() => {
     if (!db || !user?.uid) return null;
     return query(
       collection(db, 'trips'), 
       where('driverId', '==', user.uid), 
-      where('status', '==', 'completed'), 
-      orderBy('endTime', 'desc'), 
-      limit(20)
+      where('status', '==', 'completed')
     );
   }, [db, user?.uid]);
-  const { data: pastTrips } = useCollection(historyQuery);
+  const { data: pastTripsData } = useCollection(historyQuery);
+
+  const pastTrips = useMemo(() => {
+    if (!pastTripsData) return [];
+    return [...pastTripsData].sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime());
+  }, [pastTripsData]);
 
   const earningsData = useMemo(() => {
     if (!pastTrips) return [];
@@ -144,12 +148,14 @@ export default function DriverConsole() {
 
   const triggerSOS = async () => {
     if (!db || !user || !profile) return;
-    await addDoc(collection(db, 'alerts'), {
+    addDoc(collection(db, 'alerts'), {
       type: 'DRIVER_SOS',
       userId: user.uid,
       userName: profile.fullName,
       vehicleNumber: profile.vehicleNumber,
       timestamp: new Date().toISOString()
+    }).catch(async () => {
+       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: 'alerts', operation: 'create' }));
     });
     toast({ variant: "destructive", title: "Operator Alert Sent", description: "Hub ops have been notified." });
   };
@@ -159,13 +165,25 @@ export default function DriverConsole() {
     setIsUpdating(true);
     try {
       const maxCapacity = profile.vehicleType === 'Van' ? 12 : profile.vehicleType === 'Mini-Bus' ? 24 : 45;
-      const tripRef = await addDoc(collection(db, 'trips'), {
-        driverId: user.uid, driverName: profile.fullName,
-        routeName: route.routeName, farePerRider: route.baseFare, status: 'active', 
-        riderCount: 0, maxCapacity,
-        passengers: [], verifiedPassengers: [], startTime: new Date().toISOString()
+      const tripData = {
+        driverId: user.uid, 
+        driverName: profile.fullName,
+        routeName: route.routeName, 
+        farePerRider: route.baseFare, 
+        status: 'active', 
+        riderCount: 0, 
+        maxCapacity,
+        passengers: [], 
+        verifiedPassengers: [], 
+        startTime: new Date().toISOString()
+      };
+      
+      const tripRef = await addDoc(collection(db, 'trips'), tripData);
+      
+      updateDoc(userRef, { status: 'on-trip', activeTripId: tripRef.id }).catch(async () => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'update', requestResourceData: { status: 'on-trip' } }));
       });
-      await updateDoc(userRef, { status: 'on-trip', activeTripId: tripRef.id });
+      
       toast({ title: "Mission Started", description: `Driving ${route.routeName} corridor.` });
     } catch (e) {
       toast({ variant: "destructive", title: "Mission Failed to Start" });
@@ -178,7 +196,7 @@ export default function DriverConsole() {
     if (!db || !activeTrip || !verificationOtp) return;
     setIsVerifying(true);
     try {
-      const snap = await getDocs(query(collection(db, 'users'), where('activeOtp', '==', verificationOtp.trim()), limit(1)));
+      const snap = await getDocs(query(collection(db, 'users'), where('activeOtp', '==', verificationOtp.trim())));
       if (snap.empty) {
         toast({ variant: "destructive", title: "Invalid Boarding ID" });
       } else {
@@ -188,8 +206,17 @@ export default function DriverConsole() {
           setIsVerifying(false);
           return;
         }
-        await updateDoc(doc(db, 'trips', activeTrip.id), { verifiedPassengers: arrayUnion(rider.uid) });
-        await updateDoc(doc(db, 'users', rider.uid), { activeOtp: null });
+        
+        const tripDocRef = doc(db, 'trips', activeTrip.id);
+        updateDoc(tripDocRef, { verifiedPassengers: arrayUnion(rider.uid) }).catch(async () => {
+           errorEmitter.emit('permission-error', new FirestorePermissionError({ path: tripDocRef.path, operation: 'update' }));
+        });
+
+        const riderDocRef = doc(db, 'users', rider.uid);
+        updateDoc(riderDocRef, { activeOtp: null }).catch(async () => {
+           errorEmitter.emit('permission-error', new FirestorePermissionError({ path: riderDocRef.path, operation: 'update' }));
+        });
+
         toast({ title: "Boarding Verified", description: `${rider.fullName} is on board.` });
         setVerificationOtp("");
       }
@@ -204,14 +231,16 @@ export default function DriverConsole() {
     if (!db || !activeTrip || !userRef || !profile) return;
     setIsUpdating(true);
     try {
-      const totalYield = activeTrip.riderCount * activeTrip.farePerRider;
+      const totalYield = (activeTrip.passengers?.length || 0) * activeTrip.farePerRider;
       const driverShare = totalYield * 0.9;
       
-      await updateDoc(doc(db, 'trips', activeTrip.id), { 
+      const tripDocRef = doc(db, 'trips', activeTrip.id);
+      await updateDoc(tripDocRef, { 
         status: 'completed', 
         endTime: new Date().toISOString(),
         totalYield: totalYield,
-        driverShare: driverShare
+        driverShare: driverShare,
+        riderCount: activeTrip.passengers?.length || 0
       });
       
       await updateDoc(userRef, { 
@@ -234,9 +263,11 @@ export default function DriverConsole() {
   const handleToggleStatus = async () => {
     if (!userRef || !profile) return;
     const newStatus = profile.status === 'offline' ? 'available' : 'offline';
-    if (newStatus === 'available') setShiftStart(new Date());
+    if (newStatus === 'available') setShiftStart(new Date().toLocaleTimeString());
     else setShiftStart(null);
-    await updateDoc(userRef, { status: newStatus });
+    updateDoc(userRef, { status: newStatus }).catch(async () => {
+       errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'update' }));
+    });
     toast({ title: newStatus === 'available' ? "On-Duty" : "Off-Duty", description: "Network status updated." });
   };
 
@@ -279,10 +310,10 @@ export default function DriverConsole() {
             
             <div className="grid grid-cols-2 gap-4 mb-2">
                <Card className="p-4 bg-white border-none shadow-sm text-center rounded-[1.5rem]">
-                  <p className="text-[7px] font-black uppercase text-slate-400 mb-1">Shift Duration</p>
+                  <p className="text-[7px] font-black uppercase text-slate-400 mb-1">Shift Start</p>
                   <div className="flex items-center justify-center gap-2 text-primary">
                     <Clock className="h-3 w-3" />
-                    <span className="text-xs font-black uppercase italic">{shiftStart ? "Active" : "---"}</span>
+                    <span className="text-xs font-black uppercase italic">{shiftStart || "---"}</span>
                   </div>
                </Card>
                <Card className="p-4 bg-white border-none shadow-sm text-center rounded-[1.5rem]">
@@ -349,7 +380,7 @@ export default function DriverConsole() {
                   <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Live Mission</p>
                   <h2 className="text-3xl font-black italic uppercase leading-none">{activeTrip.routeName}</h2>
                 </div>
-                <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase px-3 py-1">{activeTrip.riderCount} Boarded</Badge>
+                <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase px-3 py-1">{activeTrip.passengers?.length || 0} Boarded</Badge>
               </div>
 
               <div className="bg-primary/5 p-6 rounded-[2rem] border border-primary/10 space-y-4">
