@@ -348,9 +348,10 @@ export default function AdminDashboard() {
                   zoom={12}
                   options={mapOptions}
                 >
-                  {drivers.filter(d => d.currentLat).map((driver: any) => {
+                  {drivers.filter(d => typeof d.currentLat === 'number' && isFinite(d.currentLat)).map((driver: any) => {
                     const driverTrip = activeTrips.find(t => t.driverId === driver.uid);
                     const driverRoute = allRoutes?.find(r => r.routeName === driverTrip?.routeName);
+                    const validStops = driverRoute?.stops?.filter((s: any) => typeof s.lat === 'number' && isFinite(s.lat) && typeof s.lng === 'number' && isFinite(s.lng)) || [];
                     
                     return (
                       <div key={driver.uid}>
@@ -364,24 +365,24 @@ export default function AdminDashboard() {
                             scaledSize: new window.google.maps.Size(32, 32)
                           }}
                         />
-                        {selectedDriver?.uid === driver.uid && driverRoute?.stops && (
+                        {selectedDriver?.uid === driver.uid && validStops.length > 0 && (
                           <>
                             <Polyline
-                              path={driverRoute.stops.map((s: Stop) => ({ lat: s.lat, lng: s.lng }))}
+                              path={validStops.map((s: Stop) => ({ lat: s.lat, lng: s.lng }))}
                               options={{
                                 strokeColor: "#3b82f6",
                                 strokeOpacity: 0.8,
                                 strokeWeight: 4,
                               }}
                             />
-                            {driverRoute.stops.map((stop: Stop, i: number) => (
+                            {validStops.map((stop: Stop, i: number) => (
                               <Marker 
                                 key={i}
                                 position={{ lat: stop.lat, lng: stop.lng }}
                                 icon={{
                                   url: i === 0 
                                     ? 'https://cdn-icons-png.flaticon.com/512/8157/8157580.png' 
-                                    : i === driverRoute.stops.length - 1 
+                                    : i === validStops.length - 1 
                                       ? 'https://cdn-icons-png.flaticon.com/512/2776/2776067.png' 
                                       : 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
                                   scaledSize: new window.google.maps.Size(20, 20)
@@ -394,7 +395,7 @@ export default function AdminDashboard() {
                     );
                   })}
 
-                  {selectedDriver && (
+                  {selectedDriver && typeof selectedDriver.currentLat === 'number' && (
                     <InfoWindow
                       position={{ lat: selectedDriver.currentLat, lng: selectedDriver.currentLng }}
                       onCloseClick={() => setSelectedDriver(null)}

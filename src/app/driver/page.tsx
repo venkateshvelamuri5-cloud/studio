@@ -52,6 +52,12 @@ const mapOptions = {
   zoomControl: false,
 };
 
+type Stop = {
+  name: string;
+  lat: number;
+  lng: number;
+};
+
 export default function DriverConsole() {
   const { user, loading: authLoading } = useUser();
   const db = useFirestore();
@@ -134,6 +140,23 @@ export default function DriverConsole() {
     if (!activeTrip || !allRoutes) return null;
     return allRoutes.find((r: any) => r.routeName === activeTrip.routeName);
   }, [activeTrip, allRoutes]);
+
+  const validStops = useMemo(() => {
+    if (!currentRoute?.stops) return [];
+    return currentRoute.stops.filter((s: any) => 
+      typeof s.lat === 'number' && isFinite(s.lat) && 
+      typeof s.lng === 'number' && isFinite(s.lng)
+    );
+  }, [currentRoute?.stops]);
+
+  const mapCenter = useMemo(() => {
+    const lat = Number(profile?.currentLat);
+    const lng = Number(profile?.currentLng);
+    if (isFinite(lat) && isFinite(lng) && lat !== 0 && lng !== 0) {
+      return { lat, lng };
+    }
+    return { lat: 17.6868, lng: 83.2185 };
+  }, [profile?.currentLat, profile?.currentLng]);
 
   const currentStopIndex = activeTrip?.currentStopIndex || 0;
   const currentStop = currentRoute?.stops?.[currentStopIndex];
@@ -333,26 +356,26 @@ export default function DriverConsole() {
             </div>
           ) : (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              {isLoaded && currentRoute?.stops && (
+              {isLoaded && validStops.length > 0 && (
                 <div className="relative rounded-[2rem] overflow-hidden border border-white/5 shadow-2xl h-60">
                    <GoogleMap
                     mapContainerStyle={mapContainerStyle}
-                    center={{ lat: profile?.currentLat || 17.6868, lng: profile?.currentLng || 83.2185 }}
+                    center={mapCenter}
                     zoom={14}
                     options={mapOptions}
                   >
                     <Polyline
-                      path={currentRoute.stops.map((s: any) => ({ lat: s.lat, lng: s.lng }))}
+                      path={validStops.map((s: any) => ({ lat: s.lat, lng: s.lng }))}
                       options={{ strokeColor: "#3b82f6", strokeOpacity: 0.8, strokeWeight: 5 }}
                     />
-                    {currentRoute.stops.map((stop: any, i: number) => (
+                    {validStops.map((stop: any, i: number) => (
                       <Marker 
                         key={i}
                         position={{ lat: stop.lat, lng: stop.lng }}
                         icon={{
                           url: i === 0 
                             ? 'https://cdn-icons-png.flaticon.com/512/8157/8157580.png' 
-                            : i === currentRoute.stops.length - 1 
+                            : i === validStops.length - 1 
                               ? 'https://cdn-icons-png.flaticon.com/512/2776/2776067.png' 
                               : 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
                           scaledSize: new window.google.maps.Size(20, 20)
