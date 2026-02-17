@@ -30,7 +30,8 @@ import {
   Map as MapIcon,
   MapPinned,
   CreditCard,
-  Clock
+  Clock,
+  ShieldCheck
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
 import { doc, updateDoc, collection, addDoc, onSnapshot, query, where, increment, arrayUnion, getDocs, limit, orderBy } from 'firebase/firestore';
@@ -103,8 +104,6 @@ export default function DriverConsole() {
   }, [db, user?.uid]);
   const { data: pastTrips } = useCollection(historyQuery);
 
-  const lastTrip = useMemo(() => pastTrips?.[0], [pastTrips]);
-
   // Listen for active trip
   useEffect(() => {
     if (!db || !user?.uid) return;
@@ -132,7 +131,7 @@ export default function DriverConsole() {
     return unsubscribe;
   }, [db, user?.uid, toast]);
 
-  // Fetch full passenger details
+  // Fetch passenger details
   const { data: passengerDetails } = useCollection(useMemo(() => {
     if (!db || !user || !activeTrip?.passengers?.length) return null;
     return query(collection(db, 'users'), where('uid', 'in', activeTrip.passengers));
@@ -145,10 +144,7 @@ export default function DriverConsole() {
 
   const validStops = useMemo(() => {
     if (!currentRoute?.stops) return [];
-    return currentRoute.stops.filter((s: any) => 
-      typeof s.lat === 'number' && isFinite(s.lat) && 
-      typeof s.lng === 'number' && isFinite(s.lng)
-    );
+    return currentRoute.stops.filter((s: any) => typeof s.lat === 'number' && isFinite(s.lat));
   }, [currentRoute?.stops]);
 
   const mapCenter = useMemo(() => {
@@ -192,6 +188,7 @@ export default function DriverConsole() {
       const tripData = {
         driverId: user.uid,
         driverName: profile.fullName,
+        driverPhone: profile.phoneNumber,
         routeName: route.routeName,
         farePerRider,
         status: 'active',
@@ -204,7 +201,7 @@ export default function DriverConsole() {
       
       const tripRef = await addDoc(collection(db, 'trips'), tripData);
       updateDoc(userRef!, { status: 'on-trip', activeTripId: tripRef.id }).catch(() => {});
-      toast({ title: "Trip Started", description: `You are now driving: ${route.routeName}` });
+      toast({ title: "Trip Started", description: `Route: ${route.routeName}` });
     } catch {
       toast({ variant: "destructive", title: "Could not start trip" });
     } finally {
@@ -219,9 +216,9 @@ export default function DriverConsole() {
       updateDoc(doc(db, 'trips', activeTrip.id), {
         currentStopIndex: currentStopIndex + 1
       }).catch(() => {});
-      toast({ title: "At Station", description: `Arrived at: ${nextStop?.name}` });
+      toast({ title: "Arrived at Stop", description: `${nextStop?.name}` });
     } catch {
-      toast({ variant: "destructive", title: "Error" });
+      toast({ variant: "destructive", title: "Action failed" });
     } finally {
       setIsUpdating(false);
     }
@@ -235,7 +232,7 @@ export default function DriverConsole() {
       const snap = await getDocs(q);
       
       if (snap.empty) {
-        toast({ variant: "destructive", title: "Wrong Code", description: "The student code you entered is not valid." });
+        toast({ variant: "destructive", title: "Invalid Code", description: "The boarding ID entered is incorrect." });
       } else {
         const rider = snap.docs[0].data();
         updateDoc(doc(db, 'trips', activeTrip.id), {
@@ -274,7 +271,7 @@ export default function DriverConsole() {
         weeklyEarnings: increment(driverPayout)
       }).catch(() => {});
 
-      toast({ title: "Trip Finished", description: `You earned ₹${driverPayout.toFixed(0)} for this trip.` });
+      toast({ title: "Trip Complete", description: `Earnings: ₹${driverPayout.toFixed(0)}` });
       setActiveTab('history');
     } catch {
       toast({ variant: "destructive", title: "Could not finish trip" });
@@ -289,27 +286,23 @@ export default function DriverConsole() {
     <div className="min-h-screen bg-[#020617] text-slate-200 flex flex-col font-body pb-28">
       <header className="p-6 flex items-center justify-between border-b border-white/5 bg-slate-950/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl overflow-hidden border border-primary/20 shadow-lg">
+          <div className="h-12 w-12 rounded-2xl overflow-hidden border border-primary/20">
             {profile?.photoUrl ? (
               <img src={profile.photoUrl} className="h-full w-full object-cover" alt="Me" />
             ) : (
-              <div className="h-full w-full bg-primary/10 flex items-center justify-center text-primary font-black italic">
-                {profile?.fullName?.[0]}
-              </div>
+              <div className="h-full w-full bg-primary/10 flex items-center justify-center text-primary font-black italic">{profile?.fullName?.[0]}</div>
             )}
           </div>
           <div>
-            <h1 className="font-black text-sm uppercase italic text-white tracking-tight">{profile?.fullName}</h1>
-            <Badge className={`${profile?.status === 'offline' ? 'bg-slate-800' : 'bg-green-500/10 text-green-400'} border-none text-[8px] font-black uppercase tracking-widest px-2 py-0`}>
-              {profile?.status === 'offline' ? 'Offline' : 'Ready to Drive'}
+            <h1 className="font-black text-sm uppercase italic text-white leading-none">{profile?.fullName}</h1>
+            <Badge className={`${profile?.status === 'offline' ? 'bg-slate-800' : 'bg-green-500/10 text-green-400'} border-none text-[8px] font-black uppercase tracking-widest px-2 mt-1`}>
+              {profile?.status === 'offline' ? 'Off Duty' : 'Ready To Board'}
             </Badge>
           </div>
         </div>
         <Button 
-          variant="ghost"
-          size="icon"
-          onClick={toggleDuty}
-          className={`rounded-2xl h-11 w-11 border border-white/5 ${profile?.status === 'offline' ? 'text-slate-500' : 'text-primary bg-primary/10 shadow-[0_0_20px_rgba(59,130,246,0.2)]'}`}
+          variant="ghost" size="icon" onClick={toggleDuty}
+          className={`rounded-2xl h-11 w-11 border border-white/5 ${profile?.status === 'offline' ? 'text-slate-500' : 'text-primary bg-primary/10 shadow-lg'}`}
         >
           <Power className="h-5 w-5" />
         </Button>
@@ -322,16 +315,16 @@ export default function DriverConsole() {
               <div className="flex justify-between items-end">
                 <div>
                   <h2 className="text-xl font-black italic uppercase text-white flex items-center gap-2">
-                    <Navigation className="h-5 w-5 text-primary" /> Start a Trip
+                    <Navigation className="h-5 w-5 text-primary" /> Start Trip
                   </h2>
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Pick a route to begin your shift</p>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Available regional routes</p>
                 </div>
               </div>
               
               {profile?.status === 'offline' ? (
                 <Card className="bg-slate-900/50 border-white/5 border-dashed border-2 rounded-[2rem] p-12 text-center">
                   <AlertCircle className="h-10 w-10 text-slate-600 mx-auto mb-6" />
-                  <p className="text-slate-500 font-black uppercase italic tracking-widest text-xs">Go Online to see routes.</p>
+                  <p className="text-slate-500 font-black uppercase italic tracking-widest text-xs">Switch to 'Ready' to see routes.</p>
                 </Card>
               ) : (
                 <div className="space-y-4">
@@ -340,49 +333,35 @@ export default function DriverConsole() {
                       <CardContent className="p-6 flex justify-between items-center">
                         <div className="space-y-1">
                           <h3 className="font-black text-lg text-white uppercase italic">{route.routeName}</h3>
-                          <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-                            {route.stops?.[0]?.name} <ArrowRight className="inline h-2 w-2 mx-1" /> {route.stops?.[route.stops.length-1]?.name}
-                          </p>
+                          <div className="flex items-center gap-2 text-[9px] font-bold text-slate-500 uppercase italic">
+                            <span>{route.stops?.[0]?.name}</span>
+                            <ArrowRight className="h-2 w-2" />
+                            <span>{route.stops?.[route.stops.length-1]?.name}</span>
+                          </div>
                         </div>
-                        <Button onClick={() => startTrip(route)} disabled={isUpdating} className="rounded-xl h-11 px-6 bg-primary font-black uppercase italic shadow-lg">
-                          Start
+                        <Button onClick={() => startTrip(route)} disabled={isUpdating} className="rounded-xl h-11 px-6 bg-primary text-slate-950 font-black uppercase italic shadow-lg hover:scale-105 transition-transform">
+                          Drive
                         </Button>
                       </CardContent>
                     </Card>
                   ))}
                   {availableRoutes.length === 0 && (
-                    <p className="text-center py-12 text-slate-600 font-bold uppercase italic text-[10px]">No trips available in your city.</p>
+                    <p className="text-center py-12 text-slate-600 font-bold uppercase italic text-[10px]">No active routes in this city.</p>
                   )}
                 </div>
               )}
             </div>
           ) : (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
               {isLoaded && validStops.length > 0 && (
                 <div className="relative rounded-[2rem] overflow-hidden border border-white/5 shadow-2xl h-60">
-                   <GoogleMap
-                    mapContainerStyle={mapContainerStyle}
-                    center={mapCenter}
-                    zoom={14}
-                    options={mapOptions}
-                  >
+                   <GoogleMap mapContainerStyle={mapContainerStyle} center={mapCenter} zoom={14} options={mapOptions}>
                     <Polyline
-                      path={validStops.map((s: any) => ({ lat: s.lat, lng: s.lng }))}
+                      path={validStops.map((s: any) => ({ lat: Number(s.lat), lng: Number(s.lng) }))}
                       options={{ strokeColor: "#3b82f6", strokeOpacity: 0.8, strokeWeight: 5 }}
                     />
                     {validStops.map((stop: any, i: number) => (
-                      <Marker 
-                        key={i}
-                        position={{ lat: stop.lat, lng: stop.lng }}
-                        icon={{
-                          url: i === 0 
-                            ? 'https://cdn-icons-png.flaticon.com/512/8157/8157580.png' 
-                            : i === validStops.length - 1 
-                              ? 'https://cdn-icons-png.flaticon.com/512/2776/2776067.png' 
-                              : 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
-                          scaledSize: new window.google.maps.Size(20, 20)
-                        }}
-                      />
+                      <Marker key={i} position={{ lat: Number(stop.lat), lng: Number(stop.lng) }} icon={{ url: i === 0 ? 'https://cdn-icons-png.flaticon.com/512/8157/8157580.png' : i === validStops.length - 1 ? 'https://cdn-icons-png.flaticon.com/512/2776/2776067.png' : 'https://cdn-icons-png.flaticon.com/512/684/684908.png', scaledSize: new window.google.maps.Size(20, 20)}} />
                     ))}
                   </GoogleMap>
                 </div>
@@ -391,39 +370,40 @@ export default function DriverConsole() {
               <Card className="bg-slate-900 border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl">
                 <CardContent className="p-8 space-y-8">
                   <div className="space-y-1">
-                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500">Currently Driving</p>
+                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500">Active Commute</p>
                     <h2 className="text-3xl font-black italic uppercase text-white leading-none">{activeTrip.routeName}</h2>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-slate-950/50 p-6 rounded-3xl border border-white/5">
-                      <p className="text-[8px] font-black uppercase text-slate-500 tracking-widest mb-1">Booked</p>
+                      <p className="text-[8px] font-black uppercase text-slate-500 tracking-widest mb-1">Expected</p>
                       <p className="text-2xl font-black text-white italic">{activeTrip.passengers?.length || 0}</p>
                     </div>
                     <div className="bg-slate-950/50 p-6 rounded-3xl border border-white/5">
-                      <p className="text-[8px] font-black uppercase text-slate-500 tracking-widest mb-1">On Board</p>
+                      <p className="text-[8px] font-black uppercase text-slate-500 tracking-widest mb-1">Boarded</p>
                       <p className="text-2xl font-black text-primary italic">{activeTrip.verifiedPassengers?.length || 0}</p>
                     </div>
                   </div>
 
                   <div className="space-y-4 bg-slate-950 p-6 rounded-[2rem] border border-white/5">
-                    <Label className="text-[10px] font-black uppercase tracking-[0.4em] text-primary ml-1">Enter Student Boarding Code</Label>
+                    <div className="flex items-center gap-2 mb-1">
+                      <ShieldCheck className="h-3 w-3 text-primary" />
+                      <Label className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Verify Boarding ID</Label>
+                    </div>
                     <div className="flex gap-3">
                       <Input 
-                        value={verificationOtp} 
-                        onChange={(e) => setVerificationOtp(e.target.value)}
-                        placeholder="000 000" 
-                        className="bg-slate-900 border-white/5 h-14 text-center font-black tracking-[0.5em] text-lg rounded-xl"
+                        value={verificationOtp} onChange={(e) => setVerificationOtp(e.target.value)}
+                        placeholder="6-DIGIT CODE" className="bg-slate-900 border-white/5 h-14 text-center font-black tracking-[0.5em] text-lg rounded-xl"
                         maxLength={6}
                       />
-                      <Button onClick={verifyPassenger} disabled={isVerifying || !verificationOtp} className="h-14 w-14 rounded-xl bg-primary hover:bg-primary/90">
-                        {isVerifying ? <Loader2 className="animate-spin h-5 w-5" /> : <Fingerprint className="h-6 w-6" />}
+                      <Button onClick={verifyPassenger} disabled={isVerifying || !verificationOtp} className="h-14 w-14 rounded-xl bg-primary text-slate-950 hover:bg-primary/90">
+                        {isVerifying ? <Loader2 className="animate-spin h-5 w-5" /> : <CheckCircle2 className="h-6 w-6" />}
                       </Button>
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Student List</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Scholar Manifest</h3>
                     <div className="space-y-3">
                       {passengerDetails?.map((p: any) => {
                         const isVerified = activeTrip.verifiedPassengers?.includes(p.uid);
@@ -438,11 +418,9 @@ export default function DriverConsole() {
                                   <p className="text-[8px] font-bold text-slate-500 uppercase mt-1 tracking-widest">{p.collegeName}</p>
                                </div>
                             </div>
-                            <a href={`tel:${p.phoneNumber}`}>
-                               <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl text-primary hover:bg-primary/10">
-                                 <Phone className="h-4 w-4" />
-                               </Button>
-                            </a>
+                            <Button size="icon" variant="ghost" onClick={() => window.open(`tel:${p.phoneNumber}`, '_self')} className="h-10 w-10 rounded-xl text-primary hover:bg-primary/10">
+                              <Phone className="h-4 w-4" />
+                            </Button>
                           </div>
                         );
                       })}
@@ -451,12 +429,12 @@ export default function DriverConsole() {
 
                   <div className="pt-4">
                     {nextStop ? (
-                      <Button onClick={goToNextStop} disabled={isUpdating} className="w-full h-16 bg-slate-950 border border-white/10 text-white rounded-2xl font-black uppercase italic text-lg">
-                        Arrive at {nextStop?.name}
+                      <Button onClick={goToNextStop} disabled={isUpdating} className="w-full h-16 bg-slate-950 border border-white/10 text-white rounded-2xl font-black uppercase italic text-lg shadow-xl">
+                        At {nextStop?.name} <ArrowRight className="ml-2 h-4 w-4" />
                       </Button>
                     ) : (
                       <Button onClick={endTrip} disabled={isUpdating} className="w-full h-16 bg-accent text-white rounded-2xl font-black uppercase italic text-lg shadow-2xl">
-                        Finish Trip & Get Paid
+                        End Trip & Process Earnings
                       </Button>
                     )}
                   </div>
@@ -469,15 +447,15 @@ export default function DriverConsole() {
         {activeTab === 'history' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
             <Card className="bg-primary text-slate-950 border-none rounded-[2.5rem] p-10 relative overflow-hidden">
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Ready to Collect</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Ready For Payout</p>
               <h3 className="text-5xl font-black italic mt-4 tracking-tighter">₹{(profile?.weeklyEarnings || 0).toFixed(0)}</h3>
-              <p className="text-[9px] font-black uppercase mt-8 opacity-60">Admin will pay this to you soon</p>
+              <p className="text-[9px] font-black uppercase mt-8 opacity-60">Automatic Settlement Protocol</p>
               <Wallet className="absolute -right-8 -bottom-8 h-40 w-40 opacity-10" />
             </Card>
 
             <div className="space-y-6">
                <h3 className="text-lg font-black italic uppercase text-white flex items-center gap-2">
-                <History className="h-5 w-5 text-primary" /> Past Trips
+                <History className="h-5 w-5 text-primary" /> Past Earnings
                </h3>
                <div className="space-y-4">
                   {pastTrips?.map((trip: any) => (
@@ -485,8 +463,8 @@ export default function DriverConsole() {
                        <div className="p-6 flex justify-between items-center">
                           <div className="space-y-1">
                              <h4 className="font-black text-sm text-white uppercase italic leading-none">{trip.routeName}</h4>
-                             <p className="text-[8px] font-bold text-slate-500 uppercase mt-1 tracking-widest">
-                               {new Date(trip.endTime).toLocaleDateString()} • {trip.verifiedPassengers?.length || 0} Students
+                             <p className="text-[8px] font-bold text-slate-500 uppercase mt-1 tracking-widest italic">
+                               {new Date(trip.endTime).toLocaleDateString()} • {trip.verifiedPassengers?.length || 0} Scholars
                              </p>
                           </div>
                           <p className="text-lg font-black text-primary italic">₹{trip.payoutAmount?.toFixed(0)}</p>
@@ -501,74 +479,52 @@ export default function DriverConsole() {
         {activeTab === 'profile' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
              <div className="flex flex-col items-center gap-6 py-8">
-                <div className="h-32 w-32 rounded-[2.5rem] overflow-hidden border-4 border-primary/20 shadow-2xl">
+                <div className="h-32 w-32 rounded-[2.5rem] overflow-hidden border-4 border-primary/20 shadow-2xl relative">
                    {profile?.photoUrl ? (
                      <img src={profile.photoUrl} className="h-full w-full object-cover" alt="Profile" />
                    ) : (
-                     <div className="h-full w-full bg-slate-900 flex items-center justify-center text-primary">
-                       <UserIcon className="h-12 w-12" />
-                     </div>
+                     <div className="h-full w-full bg-slate-900 flex items-center justify-center text-primary"><UserIcon className="h-12 w-12" /></div>
                    )}
                 </div>
                 <div className="text-center">
                    <h2 className="text-3xl font-black italic uppercase text-white tracking-tight">{profile?.fullName}</h2>
-                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mt-2">Verified Hub Driver</p>
+                   <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase tracking-[0.4em] mt-2">Certified AAGO Operator</Badge>
                 </div>
              </div>
 
              <div className="grid grid-cols-2 gap-4">
-                <Card className="bg-slate-900 border-white/5 p-6 rounded-3xl">
+                <Card className="bg-slate-900 border-white/5 p-6 rounded-3xl border-none">
                    <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Paid</p>
                    <p className="text-xl font-black text-green-400 italic">₹{(profile?.totalEarnings || 0).toFixed(0)}</p>
                 </Card>
-                <Card className="bg-slate-900 border-white/5 p-6 rounded-3xl">
-                   <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Pending Pay</p>
-                   <p className="text-xl font-black text-yellow-400 italic">₹{(profile?.weeklyEarnings || 0).toFixed(0)}</p>
+                <Card className="bg-slate-900 border-white/5 p-6 rounded-3xl border-none">
+                   <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Trips Done</p>
+                   <p className="text-xl font-black text-primary italic">{profile?.totalTrips || 0}</p>
                 </Card>
              </div>
 
              <div className="space-y-4">
-                <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-1">Asset & License</h4>
+                <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-1 italic">Registry Details</h4>
                 <div className="space-y-3">
                    {[
-                     { label: 'License ID', value: profile?.licenseNumber || '---', icon: Fingerprint },
-                     { label: 'Vehicle', value: profile?.vehicleNumber || '---', icon: Bus },
-                     { label: 'Region', value: profile?.city || '---', icon: MapPinned },
+                     { label: 'Asset Number', value: profile?.vehicleNumber, icon: Bus },
+                     { label: 'License ID', value: profile?.licenseNumber, icon: Fingerprint },
+                     { label: 'Hub Region', value: profile?.city, icon: MapPinned },
                    ].map((detail, i) => (
-                     <Card key={i} className="bg-slate-950 border-white/5 rounded-2xl p-6 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                           <detail.icon className="h-4 w-4 text-slate-500" />
-                           <div>
-                              <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">{detail.label}</p>
-                              <p className="text-sm font-black text-white uppercase italic mt-1">{detail.value}</p>
-                           </div>
+                     <div key={i} className="bg-slate-950 border border-white/5 rounded-2xl p-6 flex items-center gap-4">
+                        <detail.icon className="h-5 w-5 text-slate-500" />
+                        <div>
+                           <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">{detail.label}</p>
+                           <p className="text-sm font-black text-white uppercase italic mt-1 leading-none">{detail.value}</p>
                         </div>
-                     </Card>
-                   ))}
-                </div>
-             </div>
-
-             <div className="space-y-4">
-                <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest ml-1">Payment History</h4>
-                <div className="space-y-3">
-                   {profile?.payoutHistory?.map((p: any, i: number) => (
-                     <div key={i} className="p-4 bg-slate-950/50 rounded-xl border border-white/5 flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                           <CreditCard className="h-4 w-4 text-green-500" />
-                           <p className="text-[10px] font-bold text-slate-400 uppercase">{new Date(p.date).toLocaleDateString()}</p>
-                        </div>
-                        <p className="font-black text-white italic">₹{p.amount}</p>
                      </div>
                    ))}
-                   {(!profile?.payoutHistory || profile.payoutHistory.length === 0) && (
-                     <p className="text-center text-[9px] font-bold text-slate-600 uppercase italic">No bank transfers yet.</p>
-                   )}
                 </div>
              </div>
 
              <div className="pt-8">
-                <Button variant="ghost" onClick={handleSignOut} className="w-full h-16 bg-red-500/10 text-red-500 rounded-2xl font-black uppercase italic">
-                   <LogOut className="h-5 w-5 mr-3" /> Sign Out
+                <Button variant="ghost" onClick={handleSignOut} className="w-full h-18 bg-red-500/5 hover:bg-red-500/10 text-red-500 rounded-2xl font-black uppercase italic transition-all">
+                   <LogOut className="h-5 w-5 mr-3" /> Terminate Shift
                 </Button>
              </div>
           </div>
@@ -576,17 +532,17 @@ export default function DriverConsole() {
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 p-8 bg-slate-950/90 backdrop-blur-3xl border-t border-white/5 flex justify-around items-center rounded-t-[3.5rem] z-50 shadow-2xl">
-        <Button variant="ghost" onClick={() => setActiveTab('trips')} className={`flex-col h-auto py-2 gap-1 rounded-2xl ${activeTab === 'trips' ? 'text-primary' : 'text-slate-500'}`}>
+        <Button variant="ghost" onClick={() => setActiveTab('trips')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'trips' ? 'text-primary scale-110' : 'text-slate-500'}`}>
           <Navigation className="h-7 w-7" />
-          <span className="text-[8px] font-black uppercase tracking-widest">Trips</span>
+          <span className="text-[8px] font-black uppercase tracking-widest">Missions</span>
         </Button>
-        <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-2 gap-1 rounded-2xl ${activeTab === 'history' ? 'text-primary' : 'text-slate-500'}`}>
+        <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'history' ? 'text-primary scale-110' : 'text-slate-500'}`}>
           <History className="h-7 w-7" />
-          <span className="text-[8px] font-black uppercase tracking-widest">Earnings</span>
+          <span className="text-[8px] font-black uppercase tracking-widest">Ledger</span>
         </Button>
-        <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-2 gap-1 rounded-2xl ${activeTab === 'profile' ? 'text-primary' : 'text-slate-500'}`}>
+        <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'profile' ? 'text-primary scale-110' : 'text-slate-500'}`}>
           <UserIcon className="h-7 w-7" />
-          <span className="text-[8px] font-black uppercase tracking-widest">Me</span>
+          <span className="text-[8px] font-black uppercase tracking-widest">Account</span>
         </Button>
       </nav>
     </div>
