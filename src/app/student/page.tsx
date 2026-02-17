@@ -28,7 +28,8 @@ import {
   ShieldCheck,
   MapPinned,
   LocateFixed,
-  AlertCircle
+  AlertCircle,
+  Search
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, increment, collection, query, where, arrayUnion, orderBy, limit } from 'firebase/firestore';
@@ -59,6 +60,7 @@ export default function StudentDashboard() {
   const [pickupStop, setPickupStop] = useState("");
   const [destinationStop, setDestinationStop] = useState("");
   const [currentPosition, setCurrentPosition] = useState<{lat: number, lng: number} | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { isLoaded, loadError } = useJsApiLoader({ 
     id: 'google-map-script', 
@@ -82,15 +84,24 @@ export default function StudentDashboard() {
   }, [activeRoutes]);
 
   const filteredTrips = useMemo(() => {
-    if (!pickupStop || !destinationStop) return [];
-    return activeTrips?.filter(trip => {
-      const route = activeRoutes?.find(r => r.routeName === trip.routeName);
-      if (!route) return false;
-      const pickupIdx = route.stops?.findIndex((s: any) => s.name === pickupStop);
-      const destIdx = route.stops?.findIndex((s: any) => s.name === destinationStop);
-      return pickupIdx !== -1 && destIdx !== -1 && pickupIdx < destIdx;
-    }) || [];
-  }, [activeTrips, activeRoutes, pickupStop, destinationStop]);
+    let trips = activeTrips || [];
+    
+    if (pickupStop && destinationStop) {
+      trips = trips.filter(trip => {
+        const route = activeRoutes?.find(r => r.routeName === trip.routeName);
+        if (!route) return false;
+        const pickupIdx = route.stops?.findIndex((s: any) => s.name === pickupStop);
+        const destIdx = route.stops?.findIndex((s: any) => s.name === destinationStop);
+        return pickupIdx !== -1 && destIdx !== -1 && pickupIdx < destIdx;
+      });
+    }
+
+    if (searchQuery) {
+      trips = trips.filter(trip => trip.routeName.toLowerCase().includes(searchQuery.toLowerCase()));
+    }
+
+    return trips;
+  }, [activeTrips, activeRoutes, pickupStop, destinationStop, searchQuery]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
@@ -110,6 +121,12 @@ export default function StudentDashboard() {
         },
         () => toast({ variant: "destructive", title: "Location Denied", description: "Enable GPS to sync with the regional hub." })
       );
+    }
+  };
+
+  const handleInitiatePayment = () => {
+    if (selectedTrip) {
+      setBookingStep(2);
     }
   };
 
@@ -233,6 +250,15 @@ export default function StudentDashboard() {
                                 {allStops.map(s => <option key={s} value={s}>{s}</option>)}
                               </select>
                             </div>
+                            <div className="relative">
+                              <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300" />
+                              <input 
+                                value={searchQuery} 
+                                onChange={e => setSearchQuery(e.target.value)} 
+                                placeholder="Search by Route Name..." 
+                                className="w-full h-18 bg-slate-50 border-none rounded-2xl pl-14 pr-8 font-black italic text-base focus:ring-2 focus:ring-primary"
+                              />
+                            </div>
                           </div>
                           <div className="space-y-4">
                             <p className="text-[10px] font-black uppercase text-slate-400 italic">Available Regional Shuttles</p>
@@ -289,7 +315,7 @@ export default function StudentDashboard() {
 
                     <div className="pt-8 shrink-0">
                       {bookingStep === 1 && (
-                        <Button onClick={() => setBookingStep(2)} disabled={!selectedTrip} className="w-full h-18 bg-primary text-white rounded-[1.5rem] font-black uppercase italic text-xl shadow-xl active:scale-95 transition-all">Initiate Regional Payment</Button>
+                        <Button onClick={handleInitiatePayment} disabled={!selectedTrip} className="w-full h-18 bg-primary text-white rounded-[1.5rem] font-black uppercase italic text-xl shadow-xl active:scale-95 transition-all">Initiate Regional Payment</Button>
                       )}
                       {bookingStep === 2 && (
                         <Button onClick={handleConfirmPayment} disabled={isBooking} className="w-full h-18 bg-green-600 text-white rounded-[1.5rem] font-black uppercase italic text-xl shadow-xl active:scale-95 transition-all">

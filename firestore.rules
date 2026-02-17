@@ -25,13 +25,15 @@ service cloud.firestore {
 
     // Trips:
     match /trips/{tripId} {
-      allow read, create, update: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
       allow delete: if isAdmin();
     }
 
     // Routes:
     match /routes/{routeId} {
-      allow read, create, update: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow create, update: if isAdmin();
       allow delete: if isAdmin();
     }
 
@@ -39,6 +41,12 @@ service cloud.firestore {
     match /alerts/{alertId} {
       allow read, update, delete: if isAdmin();
       allow create: if isAuthenticated();
+    }
+
+    // Global Config:
+    match /config/global {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
   }
 }

@@ -143,11 +143,13 @@ export default function DriverConsole() {
     }
   };
 
+  const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/driver/login'); };
+
   if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-body pb-32">
-      <header className="p-6 flex items-center justify-between border-b border-slate-200 bg-white/80 backdrop-blur-xl sticky top-0 z-50">
+      <header className="p-6 flex items-center justify-between border-b border-slate-200 bg-white/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm">
         <div className="flex items-center gap-4">
           <div className="h-12 w-12 rounded-2xl overflow-hidden border-2 border-primary/20 bg-white flex items-center justify-center text-primary font-black italic">
             {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : profile?.fullName?.[0]}
@@ -310,7 +312,7 @@ export default function DriverConsole() {
                 </div>
               ))}
             </div>
-            <Button onClick={() => signOut(auth!)} className="w-full h-18 bg-red-50 text-red-500 rounded-[2rem] font-black uppercase italic mt-8 hover:bg-red-100 transition-all"><LogOut className="h-5 w-5 mr-3" /> Terminate Session</Button>
+            <Button onClick={handleSignOut} className="w-full h-18 bg-red-50 text-red-500 rounded-[2rem] font-black uppercase italic mt-8 hover:bg-red-100 transition-all"><LogOut className="h-5 w-5 mr-3" /> Terminate Session</Button>
           </div>
         )}
       </main>
