@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { 
   Bus, 
   Activity, 
@@ -33,7 +32,9 @@ import {
   BarChart3,
   ChevronRight,
   Route as RouteIcon,
-  Trash2
+  Trash2,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Polyline } from '@react-google-maps/api';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
@@ -171,6 +172,26 @@ export default function AdminDashboard() {
   const handleUpdateRoutePricing = async (routeId: string, updates: any) => {
     if (!db) return;
     updateDoc(doc(db, 'routes', routeId), updates);
+  };
+
+  const handleApproveSuggestion = async (routeId: string) => {
+    if (!db) return;
+    try {
+      await updateDoc(doc(db, 'routes', routeId), { status: 'active' });
+      toast({ title: "Proposal Authorized", description: "Route is now live in the regional mission grid." });
+    } catch {
+      toast({ variant: "destructive", title: "Authorization Failed" });
+    }
+  };
+
+  const handleRejectSuggestion = async (routeId: string) => {
+    if (!db) return;
+    try {
+      await deleteDoc(doc(db, 'routes', routeId));
+      toast({ title: "Proposal Rejected", description: "Route suggestion removed from terminal." });
+    } catch {
+      toast({ variant: "destructive", title: "Action Failed" });
+    }
   };
 
   if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-[#020617]"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
@@ -323,7 +344,6 @@ export default function AdminDashboard() {
                             scaledSize: new window.google.maps.Size(32, 32)
                           }}
                         />
-                        {/* Render Polyline if driver is selected and has a route */}
                         {selectedDriver?.uid === driver.uid && driverRoute?.stops && (
                           <>
                             <Polyline
@@ -332,20 +352,18 @@ export default function AdminDashboard() {
                                 strokeColor: "#3b82f6",
                                 strokeOpacity: 0.8,
                                 strokeWeight: 4,
-                                icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 1, scale: 4 }, offset: "0", repeat: "20px" }]
                               }}
                             />
                             {driverRoute.stops.map((stop: Stop, i: number) => (
                               <Marker 
                                 key={i}
                                 position={{ lat: stop.lat, lng: stop.lng }}
-                                label={{ text: stop.name, color: 'white', fontSize: '10px', fontWeight: 'bold' }}
                                 icon={{
                                   url: i === 0 
-                                    ? 'https://cdn-icons-png.flaticon.com/512/8157/8157580.png' // Boarding
+                                    ? 'https://cdn-icons-png.flaticon.com/512/8157/8157580.png' 
                                     : i === driverRoute.stops.length - 1 
-                                      ? 'https://cdn-icons-png.flaticon.com/512/2776/2776067.png' // Dropping
-                                      : 'https://cdn-icons-png.flaticon.com/512/684/684908.png', // Stop
+                                      ? 'https://cdn-icons-png.flaticon.com/512/2776/2776067.png' 
+                                      : 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
                                   scaledSize: new window.google.maps.Size(20, 20)
                                 }}
                               />
@@ -381,12 +399,6 @@ export default function AdminDashboard() {
                              <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
                                 <span className="text-slate-400">Scholars Logged</span>
                                 <span className="text-white">{selectedDriver.activeTrip.verifiedPassengers?.length || 0}</span>
-                             </div>
-                             <div className="space-y-2">
-                                <span className="text-[8px] font-black text-slate-500 uppercase">Boarding Node</span>
-                                <p className="text-[10px] font-bold text-green-400">{selectedDriver.activeRoute?.stops?.[0]?.name || 'N/A'}</p>
-                                <span className="text-[8px] font-black text-slate-500 uppercase">Dropping Node</span>
-                                <p className="text-[10px] font-bold text-red-400">{selectedDriver.activeRoute?.stops?.[selectedDriver.activeRoute?.stops?.length - 1]?.name || 'N/A'}</p>
                              </div>
                           </div>
                         ) : (
@@ -505,181 +517,122 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {savedRoutes.map((route: any) => {
-                    const routeTrips = allTrips?.filter(t => t.routeName === route.routeName) || [];
-                    const activeOnRoute = activeTrips.filter(t => t.routeName === route.routeName);
-                    
-                    return (
-                      <Card key={route.id} className="bg-slate-900/50 border-white/5 rounded-[2rem] overflow-hidden group hover:border-primary/20 transition-all">
-                        <div className="p-8 border-b border-white/5 bg-slate-950/30">
-                          <div className="flex justify-between items-start">
-                             <h4 className="font-black text-white uppercase italic text-xl leading-tight">{route.routeName}</h4>
-                             <Badge className="bg-primary/10 text-primary border border-primary/20 text-[8px] font-black uppercase tracking-widest px-3">Stable Node</Badge>
-                          </div>
-                          <div className="flex items-center gap-4 mt-6">
-                             <div className="space-y-1">
-                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Active Fleet</p>
-                                <p className="text-xl font-black italic text-white leading-none">{activeOnRoute.length}</p>
-                             </div>
-                             <div className="space-y-1 pl-4 border-l border-white/5">
-                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Net Scholars</p>
-                                <p className="text-xl font-black italic text-primary leading-none">
-                                  {routeTrips.reduce((acc, t) => acc + (t.verifiedPassengers?.length || 0), 0)}
-                                </p>
-                             </div>
-                          </div>
-                        </div>
-                        <CardContent className="space-y-6 p-8">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Base Rate (₹)</Label>
-                              <Input 
-                                type="number" 
-                                defaultValue={route.baseFare} 
-                                onBlur={(e) => handleUpdateRoutePricing(route.id, { baseFare: Number(e.target.value) })}
-                                className="h-11 rounded-xl bg-slate-950 border-white/5 font-black text-white" 
-                              />
+                  {savedRoutes.map((route: any) => (
+                    <Card key={route.id} className="bg-slate-900/50 border-white/5 rounded-[2rem] overflow-hidden group hover:border-primary/20 transition-all">
+                      <div className="p-8 border-b border-white/5 bg-slate-950/30">
+                        <h4 className="font-black text-white uppercase italic text-xl leading-tight">{route.routeName}</h4>
+                        <Badge className="bg-primary/10 text-primary border border-primary/20 text-[8px] font-black uppercase tracking-widest px-3 mt-2">Stable Node</Badge>
+                      </div>
+                      <CardContent className="p-8 space-y-4">
+                         <div className="grid grid-cols-2 gap-4">
+                           <div className="space-y-1">
+                              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Base Rate</p>
+                              <p className="text-lg font-black text-white">₹{route.baseFare}</p>
+                           </div>
+                           <div className="space-y-1">
+                              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Surge</p>
+                              <p className="text-lg font-black text-primary">+₹{route.surgeFare}</p>
+                           </div>
+                         </div>
+                         <div className="pt-4 border-t border-white/5">
+                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Network Nodes</p>
+                            <div className="flex flex-wrap gap-1.5">
+                               {route.stops?.map((stop: any, i: number) => (
+                                 <Badge key={i} variant="secondary" className="bg-white/5 text-slate-400 text-[8px] font-bold uppercase border-none">{stop.name}</Badge>
+                               ))}
                             </div>
-                            <div className="space-y-2">
-                              <Label className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Surge Mod</Label>
-                              <Input 
-                                type="number" 
-                                defaultValue={route.surgeFare} 
-                                onBlur={(e) => handleUpdateRoutePricing(route.id, { surgeFare: Number(e.target.value) })}
-                                className="h-11 rounded-xl bg-slate-950 border-white/5 font-black text-primary" 
-                              />
-                            </div>
-                          </div>
-                          
-                          <div className="pt-4 border-t border-white/5">
-                             <Label className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-3 block">Boarding Node</Label>
-                             <p className="text-[10px] font-black text-green-400 uppercase italic mb-4">{route.stops?.[0]?.name || 'Unset'}</p>
-                             <Label className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-3 block">Mission Path Nodes</Label>
-                             <div className="flex flex-wrap gap-1.5">
-                                {route.stops?.map((stop: any, i: number) => (
-                                  <Badge key={i} variant="secondary" className="bg-white/5 text-slate-400 text-[8px] font-bold uppercase border-none">{stop.name}</Badge>
-                                ))}
-                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                         </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               )}
             </div>
           )}
 
-          {activeTab === 'finance' && (
-            <div className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <Card className="bg-primary text-white border-none shadow-[0_20px_40px_rgba(59,130,246,0.2)] rounded-[2.5rem] p-10 relative overflow-hidden group">
-                  <div className="relative z-10">
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Network Fee (10%)</p>
-                    <h3 className="text-5xl font-black italic font-headline mt-3 tracking-tighter">₹{totalCommission.toFixed(2)}</h3>
-                    <div className="flex items-center gap-2 mt-8 py-2 px-4 bg-white/10 rounded-full w-fit">
-                      <TrendingUp className="h-3 w-3" />
-                      <p className="text-[9px] font-black uppercase tracking-widest text-glow">Yield Performance Active</p>
-                    </div>
-                  </div>
-                  <TrendingUp className="absolute -right-8 -bottom-8 h-48 w-48 opacity-10 group-hover:scale-110 transition-transform duration-700" />
-                </Card>
-                <Card className="bg-slate-900 border-white/5 text-white shadow-xl rounded-[2.5rem] p-10 relative overflow-hidden group">
-                  <div className="relative z-10">
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Fleet Net Share (90%)</p>
-                    <h3 className="text-5xl font-black italic font-headline mt-3 tracking-tighter">
-                      ₹{allTrips?.reduce((acc, t) => acc + (t.payoutAmount || 0), 0).toFixed(2) || '0.00'}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-8 py-2 px-4 bg-white/5 rounded-full w-fit">
-                      <Wallet className="h-3 w-3 text-primary" />
-                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Regional Partner Pool</p>
-                    </div>
-                  </div>
-                  <Wallet className="absolute -right-8 -bottom-8 h-48 w-48 opacity-5 group-hover:scale-110 transition-transform duration-700" />
-                </Card>
-              </div>
-
-              <Card className="bg-slate-900/50 border-white/5 rounded-[2rem] overflow-hidden shadow-2xl">
-                <div className="p-8 border-b border-white/5 bg-slate-950/30">
-                  <h4 className="font-black text-white uppercase italic text-lg leading-none">Workforce Settlement Terminal</h4>
-                  <p className="text-[9px] font-black text-slate-500 uppercase mt-2 tracking-widest">Real-time payouts by operator asset</p>
-                </div>
-                 <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="bg-slate-950/50 border-b border-white/5 text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">
-                        <th className="py-5 pl-10">Operator Node</th>
-                        <th className="py-5">Vehicle Class</th>
-                        <th className="py-5">Missions</th>
-                        <th className="py-5 pr-10 text-right">Net Credited (₹)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {drivers?.map((driver: any) => (
-                        <tr key={driver.uid} className="hover:bg-white/5 transition-colors group">
-                          <td className="py-5 pl-10 font-black text-white uppercase italic text-sm">{driver.fullName}</td>
-                          <td className="py-5">
-                             <Badge variant="outline" className="text-[8px] font-black uppercase border-white/10 text-slate-400">{driver.vehicleType}</Badge>
-                          </td>
-                          <td className="py-5 font-bold text-xs text-slate-400">{driver.totalTrips || 0}</td>
-                          <td className="py-5 pr-10 text-right font-black text-primary text-lg italic">₹{(driver.totalEarnings || 0).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                 </div>
-              </Card>
+          {activeTab === 'suggestions' && (
+            <div className="space-y-6">
+               <h3 className="text-lg font-black italic uppercase text-white flex items-center gap-2">
+                <MessageSquareShare className="h-5 w-5 text-primary" /> Workforce Network Proposals
+               </h3>
+               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                 {suggestions.map((route: any) => (
+                   <Card key={route.id} className="bg-slate-900 border-white/5 rounded-[2rem] overflow-hidden border-l-4 border-yellow-500/50 shadow-2xl">
+                     <div className="p-8 bg-slate-950/30 border-b border-white/5">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-black text-white uppercase italic text-xl leading-none">{route.routeName}</h4>
+                            <p className="text-[8px] font-black text-slate-500 uppercase mt-2 tracking-widest">Submitted by workforce operator</p>
+                          </div>
+                          <Badge className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 text-[8px] font-black uppercase tracking-widest">Pending Protocol</Badge>
+                        </div>
+                     </div>
+                     <CardContent className="p-8 space-y-6">
+                        <div className="space-y-2">
+                           <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Proposed Path Nodes</p>
+                           <div className="flex flex-wrap gap-2">
+                              {route.stops?.map((stop: any, i: number) => (
+                                <Badge key={i} variant="outline" className="border-white/10 text-slate-400 text-[8px] font-black uppercase">
+                                  {i === 0 ? 'START: ' : i === route.stops.length - 1 ? 'END: ' : ''}{stop.name}
+                                </Badge>
+                              ))}
+                           </div>
+                        </div>
+                        <div className="flex gap-4 pt-4 border-t border-white/5">
+                           <Button onClick={() => handleApproveSuggestion(route.id)} className="flex-1 bg-green-500 hover:bg-green-600 rounded-xl font-black uppercase italic h-12">
+                              <CheckCircle className="h-4 w-4 mr-2" /> Authorize Deployment
+                           </Button>
+                           <Button onClick={() => handleRejectSuggestion(route.id)} variant="ghost" className="text-red-500 hover:bg-red-500/10 rounded-xl font-black uppercase italic h-12">
+                              <XCircle className="h-4 w-4 mr-2" /> Reject
+                           </Button>
+                        </div>
+                     </CardContent>
+                   </Card>
+                 ))}
+                 {suggestions.length === 0 && (
+                   <div className="lg:col-span-2 p-20 text-center bg-slate-900/50 rounded-[3rem] border border-dashed border-white/10">
+                     <p className="text-slate-500 font-bold italic uppercase tracking-widest">No pending workforce proposals.</p>
+                   </div>
+                 )}
+               </div>
             </div>
           )}
 
-          {activeTab === 'safety' && (
-            <div className="space-y-8">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-black italic uppercase text-white flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-red-500" /> Incident Command Hub
-                </h3>
-                <Badge className="bg-red-500 text-white font-black animate-pulse px-6 py-2 rounded-xl text-[10px] tracking-[0.2em] shadow-lg shadow-red-500/20">
-                  {activeAlerts.length} PRIORITY ALERTS
-                </Badge>
-              </div>
-              <div className="space-y-4">
-                {activeAlerts.length === 0 ? (
-                  <Card className="p-20 text-center bg-green-500/5 border-dashed border-green-500/20 rounded-[3rem]">
-                    <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-6 opacity-40" />
-                    <p className="text-green-500 font-black uppercase italic tracking-[0.4em] text-sm">Regional Nodes Secured</p>
-                  </Card>
-                ) : (
-                  activeAlerts.map((alert: any) => (
-                    <Card key={alert.id} className="bg-slate-900/50 border-white/5 rounded-[2.5rem] p-8 flex flex-col md:flex-row items-center justify-between gap-8 border-l-8 border-red-500 shadow-2xl">
-                      <div className="flex items-center gap-8">
-                        <div className="bg-red-500/10 p-6 rounded-2xl shadow-inner">
-                          <AlertTriangle className="h-10 w-10 text-red-500" />
-                        </div>
-                        <div className="space-y-2">
-                          <h4 className="font-black text-red-500 uppercase italic text-2xl leading-none">SOS: {alert.userName || 'Unknown Scholar'}</h4>
-                          <div className="flex items-center gap-6">
-                             <Badge variant="outline" className="text-[10px] font-black border-red-500/20 text-red-400 uppercase tracking-widest">{alert.city || 'Vizag'}</Badge>
-                             <p className="text-[11px] font-bold text-slate-500 uppercase flex items-center gap-2">
-                               <Clock className="h-4 w-4" /> TRACE: {new Date(alert.createdAt).toLocaleTimeString()}
-                             </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-4">
-                        <Button variant="outline" className="rounded-xl font-black uppercase italic h-14 px-8 border-white/10 hover:bg-white/5 text-slate-400">
-                          <Phone className="h-5 w-5 mr-3" /> Voice Protocol
-                        </Button>
-                        <Button 
-                          onClick={() => updateDoc(doc(db, 'alerts', alert.id), { status: 'resolved' })} 
-                          className="bg-primary hover:bg-primary/90 rounded-xl font-black uppercase italic h-14 px-10 shadow-xl shadow-primary/20"
-                        >
-                          De-escalate
-                        </Button>
-                      </div>
-                    </Card>
-                  ))
-                )}
-              </div>
+          {activeTab === 'scholars' && (
+            <div className="space-y-6">
+               <h3 className="text-lg font-black italic uppercase text-white flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" /> Regional Scholar Registry
+               </h3>
+               <Card className="bg-slate-900/50 border-white/5 rounded-[2rem] overflow-hidden shadow-2xl">
+                 <div className="overflow-x-auto">
+                   <table className="w-full text-left">
+                     <thead>
+                       <tr className="bg-slate-950/50 border-b border-white/5 text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">
+                         <th className="py-6 pl-10">Scholar Name</th>
+                         <th className="py-6">University Hub</th>
+                         <th className="py-6">ID Node</th>
+                         <th className="py-6">Hub Credits</th>
+                         <th className="py-6 pr-10 text-right">Joined</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y divide-white/5">
+                       {riders.map((rider: any) => (
+                         <tr key={rider.uid} className="hover:bg-white/5 transition-colors">
+                           <td className="py-6 pl-10 font-black text-white uppercase italic text-sm">{rider.fullName}</td>
+                           <td className="py-6 font-bold text-xs text-slate-400">{rider.collegeName || 'AU / GITAM'}</td>
+                           <td className="py-6 font-mono text-[10px] text-slate-500">{rider.studentId || 'N/A'}</td>
+                           <td className="py-6">
+                              <Badge className="bg-primary/10 text-primary border-none text-[10px] font-black">₹{rider.credits || 0}</Badge>
+                           </td>
+                           <td className="py-6 pr-10 text-right text-[10px] font-bold text-slate-500 uppercase">
+                              {rider.createdAt ? new Date(rider.createdAt).toLocaleDateString() : 'Historical'}
+                           </td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                 </div>
+               </Card>
             </div>
           )}
 
@@ -697,7 +650,7 @@ export default function AdminDashboard() {
                         <th className="py-6">Asset ID</th>
                         <th className="py-6">Mission Count</th>
                         <th className="py-6">Status</th>
-                        <th className="py-6 pr-10 text-right">Last Sync</th>
+                        <th className="py-6 pr-10 text-right">Net Share (₹)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
@@ -716,8 +669,8 @@ export default function AdminDashboard() {
                                {driver.status}
                              </Badge>
                           </td>
-                          <td className="py-6 pr-10 text-right text-[10px] font-bold text-slate-500 uppercase">
-                             {driver.createdAt ? new Date(driver.createdAt).toLocaleDateString() : 'Historical Node'}
+                          <td className="py-6 pr-10 text-right font-black text-primary text-sm italic">
+                             ₹{(driver.totalEarnings || 0).toFixed(0)}
                           </td>
                         </tr>
                       ))}
@@ -725,6 +678,75 @@ export default function AdminDashboard() {
                   </table>
                  </div>
                </Card>
+            </div>
+          )}
+
+          {activeTab === 'finance' && (
+            <div className="space-y-8">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <Card className="bg-primary text-white border-none shadow-2xl rounded-[2.5rem] p-10 relative overflow-hidden group">
+                  <div className="relative z-10">
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Network Fee (10%)</p>
+                    <h3 className="text-5xl font-black italic font-headline mt-3 tracking-tighter">₹{totalCommission.toFixed(2)}</h3>
+                    <div className="flex items-center gap-2 mt-8 py-2 px-4 bg-white/10 rounded-full w-fit">
+                      <TrendingUp className="h-3 w-3" />
+                      <p className="text-[9px] font-black uppercase tracking-widest">Yield Performance Active</p>
+                    </div>
+                  </div>
+                </Card>
+                <Card className="bg-slate-900 border-white/5 text-white shadow-xl rounded-[2.5rem] p-10 relative overflow-hidden group">
+                  <div className="relative z-10">
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Fleet Net Share (90%)</p>
+                    <h3 className="text-5xl font-black italic font-headline mt-3 tracking-tighter">
+                      ₹{allTrips?.reduce((acc, t) => acc + (t.payoutAmount || 0), 0).toFixed(2) || '0.00'}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-8 py-2 px-4 bg-white/5 rounded-full w-fit">
+                      <Wallet className="h-3 w-3 text-primary" />
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Regional Partner Pool</p>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'safety' && (
+            <div className="space-y-8">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-black italic uppercase text-white flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-red-500" /> Incident Command Hub
+                </h3>
+              </div>
+              <div className="space-y-4">
+                {activeAlerts.length === 0 ? (
+                  <Card className="p-20 text-center bg-green-500/5 border-dashed border-green-500/20 rounded-[3rem]">
+                    <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-6 opacity-40" />
+                    <p className="text-green-500 font-black uppercase italic tracking-[0.4em] text-sm">Regional Nodes Secured</p>
+                  </Card>
+                ) : (
+                  activeAlerts.map((alert: any) => (
+                    <Card key={alert.id} className="bg-slate-900/50 border-white/5 rounded-[2.5rem] p-8 flex flex-col md:flex-row items-center justify-between gap-8 border-l-8 border-red-500 shadow-2xl">
+                      <div className="flex items-center gap-8">
+                        <div className="bg-red-500/10 p-6 rounded-2xl shadow-inner">
+                          <AlertTriangle className="h-10 w-10 text-red-500" />
+                        </div>
+                        <div className="space-y-2">
+                          <h4 className="font-black text-red-500 uppercase italic text-2xl leading-none">SOS: {alert.userName || 'Unknown'}</h4>
+                          <p className="text-[11px] font-bold text-slate-500 uppercase">TRACE: {new Date(alert.createdAt).toLocaleTimeString()}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-4">
+                        <Button 
+                          onClick={() => updateDoc(doc(db, 'alerts', alert.id), { status: 'resolved' })} 
+                          className="bg-primary hover:bg-primary/90 rounded-xl font-black uppercase italic h-14 px-10"
+                        >
+                          De-escalate
+                        </Button>
+                      </div>
+                    </Card>
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>

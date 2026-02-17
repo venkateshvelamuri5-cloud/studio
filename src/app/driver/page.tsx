@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -16,13 +16,30 @@ import {
   Fingerprint,
   Activity,
   CheckCircle2,
-  Navigation
+  Navigation,
+  MessageSquareShare,
+  Plus,
+  Trash2
 } from 'lucide-react';
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
 import { doc, updateDoc, collection, addDoc, onSnapshot, query, where, increment, arrayUnion, getDocs, limit } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+
+type Stop = {
+  name: string;
+  lat: number;
+  lng: number;
+};
 
 export default function DriverConsole() {
   const { user, loading: authLoading } = useUser();
@@ -31,11 +48,19 @@ export default function DriverConsole() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<'missions' | 'earnings'>('missions');
+  const [activeTab, setActiveTab] = useState<'missions' | 'earnings' | 'suggest'>('missions');
   const [activeTrip, setActiveTrip] = useState<any>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [verificationOtp, setVerificationOtp] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
+
+  // Route Suggestion State
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [suggestion, setSuggestion] = useState({ 
+    routeName: '', 
+    stops: [] as Stop[] 
+  });
+  const [tempStop, setTempStop] = useState<Stop>({ name: '', lat: 17.6868, lng: 83.2185 });
 
   const userRef = useMemo(() => {
     if (!db || !user?.uid) return null;
@@ -103,26 +128,22 @@ export default function DriverConsole() {
       const snap = await getDocs(q);
       
       if (snap.empty) {
-        toast({ variant: "destructive", title: "Invalid OTP", description: "Biometric match not found in scholar network." });
+        toast({ variant: "destructive", title: "Invalid OTP", description: "Biometric match not found." });
       } else {
         const riderDoc = snap.docs[0];
         const rider = riderDoc.data();
         const tripRef = doc(db, 'trips', activeTrip.id);
         
-        // Update Trip
         await updateDoc(tripRef, {
           verifiedPassengers: arrayUnion(rider.uid),
           totalFareCollected: increment(activeTrip.farePerRider)
         });
 
-        // Clear Rider OTP
         await updateDoc(doc(db, 'users', rider.uid), { activeOtp: null });
-        
-        toast({ title: "Scholar Verified", description: `${rider.fullName} cleared for boarding.` });
+        toast({ title: "Scholar Verified", description: `${rider.fullName} cleared.` });
         setVerificationOtp("");
       }
-    } catch (error) {
-      console.error(error);
+    } catch {
       toast({ variant: "destructive", title: "Verification Error" });
     } finally {
       setIsVerifying(false);
@@ -154,9 +175,39 @@ export default function DriverConsole() {
 
       toast({ title: "Shift Finalized", description: `Net Earnings: ₹${driverPayout.toFixed(2)} credited.` });
     } catch {
-      toast({ variant: "destructive", title: "Finalization Protocol Failed" });
+      toast({ variant: "destructive", title: "Finalization Failed" });
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleSuggestRoute = async () => {
+    if (!db || !suggestion.routeName || suggestion.stops.length < 2) {
+      toast({ variant: "destructive", title: "Protocol Violation", description: "Suggestion requires name and 2+ nodes." });
+      return;
+    }
+    setIsSuggesting(true);
+    try {
+      await addDoc(collection(db, 'routes'), {
+        ...suggestion,
+        city: profile?.city || 'Vizag',
+        status: 'suggested',
+        isActive: false,
+        baseFare: 50,
+        surgeFare: 0,
+        busMultiplier: 1.0,
+        miniBusMultiplier: 1.2,
+        vanMultiplier: 1.5,
+        createdAt: new Date().toISOString(),
+        suggestedBy: user?.uid
+      });
+      setSuggestion({ routeName: '', stops: [] });
+      setActiveTab('missions');
+      toast({ title: "Proposal Logged", description: "Architecture transmitted to Admin Terminal." });
+    } catch {
+      toast({ variant: "destructive", title: "Transmission Failed" });
+    } finally {
+      setIsSuggesting(false);
     }
   };
 
@@ -179,38 +230,29 @@ export default function DriverConsole() {
             <Badge className="bg-white/5 text-slate-500 uppercase text-[8px] mt-1 tracking-widest">{profile?.vehicleType}</Badge>
           </div>
         </div>
-        <div className="flex gap-3">
-          <Button 
-            size="icon" 
-            variant="ghost" 
-            onClick={toggleDuty} 
-            className={`rounded-2xl h-12 w-12 ${profile?.status !== 'offline' ? 'bg-green-500/10 text-green-500' : 'bg-slate-800 text-slate-500'}`}
-          >
-            <Power className="h-6 w-6" />
-          </Button>
-        </div>
+        <Button 
+          size="icon" 
+          variant="ghost" 
+          onClick={toggleDuty} 
+          className={`rounded-2xl h-12 w-12 ${profile?.status !== 'offline' ? 'bg-green-500/10 text-green-500' : 'bg-slate-800 text-slate-500'}`}
+        >
+          <Power className="h-6 w-6" />
+        </Button>
       </header>
 
-      <main className="flex-1 p-6 space-y-6">
-        {!activeTrip ? (
-          <section className="space-y-4">
-            <h2 className="text-xl font-black italic uppercase flex items-center gap-2">
-              <Navigation className="h-5 w-5 text-primary" /> Regional Dispatch
-            </h2>
-            {regionalRoutes.length === 0 ? (
-              <div className="p-12 text-center bg-slate-900/50 rounded-[2.5rem] border border-dashed border-white/10">
-                <p className="text-slate-500 font-bold italic">No active missions in your regional hub.</p>
-              </div>
-            ) : (
-              regionalRoutes.map((route: any) => (
+      <main className="flex-1 p-6 space-y-6 overflow-y-auto">
+        {activeTab === 'missions' && (
+          !activeTrip ? (
+            <section className="space-y-4">
+              <h2 className="text-xl font-black italic uppercase flex items-center gap-2">
+                <Navigation className="h-5 w-5 text-primary" /> Regional Dispatch
+              </h2>
+              {regionalRoutes.map((route: any) => (
                 <Card key={route.id} className="bg-slate-900 border-white/5 text-white rounded-[2rem] overflow-hidden shadow-2xl">
                   <CardContent className="p-6 flex justify-between items-center">
                     <div>
                       <h3 className="text-lg font-black uppercase italic text-primary leading-none">{route.routeName}</h3>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Badge variant="secondary" className="bg-white/5 text-slate-400 text-[8px] font-black uppercase tracking-tighter">Base: ₹{route.baseFare}</Badge>
-                        {route.surgeFare > 0 && <Badge className="bg-accent/20 text-accent text-[8px] font-black uppercase">+₹{route.surgeFare} Surge</Badge>}
-                      </div>
+                      <p className="text-[9px] font-bold text-slate-500 uppercase mt-2 italic">{route.stops?.[0]?.name} → {route.stops?.[route.stops.length-1]?.name}</p>
                     </div>
                     <Button 
                       onClick={() => startTrip(route)} 
@@ -221,66 +263,60 @@ export default function DriverConsole() {
                     </Button>
                   </CardContent>
                 </Card>
-              ))
-            )}
-          </section>
-        ) : (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <Card className="bg-primary text-white border-none rounded-[3rem] p-8 shadow-[0_20px_50px_rgba(59,130,246,0.3)]">
-              <div className="space-y-8">
-                <div>
-                  <Badge className="bg-white/20 text-white font-black uppercase text-[9px] mb-2 tracking-widest">Active Mission</Badge>
-                  <h2 className="text-4xl font-black italic uppercase leading-tight">{activeTrip.routeName}</h2>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Activity className="h-4 w-4 text-white/60 animate-pulse" />
-                    <p className="text-sm font-bold opacity-80 italic">Verified Boarding: ₹{activeTrip.farePerRider.toFixed(0)}/scholar</p>
-                  </div>
+              ))}
+              {regionalRoutes.length === 0 && (
+                <div className="p-12 text-center bg-slate-900/50 rounded-[2.5rem] border border-dashed border-white/10">
+                  <p className="text-slate-500 font-bold italic">No active missions in your regional hub.</p>
                 </div>
+              )}
+            </section>
+          ) : (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <Card className="bg-primary text-white border-none rounded-[3rem] p-8 shadow-[0_20px_50px_rgba(59,130,246,0.3)]">
+                <div className="space-y-8">
+                  <div>
+                    <Badge className="bg-white/20 text-white font-black uppercase text-[9px] mb-2 tracking-widest">Active Mission</Badge>
+                    <h2 className="text-4xl font-black italic uppercase leading-tight">{activeTrip.routeName}</h2>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Activity className="h-4 w-4 text-white/60 animate-pulse" />
+                      <p className="text-sm font-bold opacity-80 italic">Verified Boarding: ₹{activeTrip.farePerRider.toFixed(0)}/scholar</p>
+                    </div>
+                  </div>
 
-                <div className="bg-white/10 p-8 rounded-[2.5rem] space-y-6 border border-white/10">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Biometric Verification</span>
-                    <span className="text-3xl font-black italic">{activeTrip.verifiedPassengers?.length || 0} Boarded</span>
+                  <div className="bg-white/10 p-8 rounded-[2.5rem] space-y-6 border border-white/10">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Biometric Verification</span>
+                      <span className="text-3xl font-black italic">{activeTrip.verifiedPassengers?.length || 0} Boarded</span>
+                    </div>
+                    <div className="flex gap-3">
+                      <Input 
+                        value={verificationOtp} 
+                        onChange={(e) => setVerificationOtp(e.target.value)}
+                        placeholder="000000" 
+                        className="bg-white/10 border-none rounded-2xl h-16 font-black text-center text-2xl tracking-[0.5em] placeholder:text-white/20"
+                        maxLength={6}
+                      />
+                      <Button 
+                        onClick={verifyPassenger} 
+                        disabled={isVerifying || !verificationOtp || verificationOtp.length < 6} 
+                        className="bg-accent hover:bg-accent/90 h-16 w-16 rounded-2xl p-0 flex items-center justify-center shadow-xl shadow-accent/20"
+                      >
+                        {isVerifying ? <Loader2 className="animate-spin h-6 w-6" /> : <Fingerprint className="h-8 w-8" />}
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-3">
-                    <Input 
-                      value={verificationOtp} 
-                      onChange={(e) => setVerificationOtp(e.target.value)}
-                      placeholder="000000" 
-                      className="bg-white/10 border-none rounded-2xl h-16 font-black text-center text-2xl tracking-[0.5em] placeholder:text-white/20"
-                      maxLength={6}
-                    />
-                    <Button 
-                      onClick={verifyPassenger} 
-                      disabled={isVerifying || !verificationOtp || verificationOtp.length < 6} 
-                      className="bg-accent hover:bg-accent/90 h-16 w-16 rounded-2xl p-0 flex items-center justify-center shadow-xl shadow-accent/20"
-                    >
-                      {isVerifying ? <Loader2 className="animate-spin h-6 w-6" /> : <Fingerprint className="h-8 w-8" />}
-                    </Button>
-                  </div>
+
+                  <Button 
+                    onClick={endTrip} 
+                    disabled={isUpdating} 
+                    className="w-full bg-white text-primary h-16 rounded-2xl font-black uppercase italic text-lg shadow-2xl active:scale-95 transition-all"
+                  >
+                    {isUpdating ? <Loader2 className="animate-spin" /> : "Finalize Mission"}
+                  </Button>
                 </div>
-
-                <Button 
-                  onClick={endTrip} 
-                  disabled={isUpdating} 
-                  className="w-full bg-white text-primary h-16 rounded-2xl font-black uppercase italic text-lg shadow-2xl active:scale-95 transition-all"
-                >
-                  {isUpdating ? <Loader2 className="animate-spin" /> : "Finalize Mission"}
-                </Button>
-              </div>
-            </Card>
-
-            <div className="grid grid-cols-2 gap-4">
-               <Card className="bg-slate-900 border-white/5 p-6 rounded-[2rem] shadow-xl">
-                 <p className="text-[10px] font-black uppercase text-slate-500 mb-1 tracking-widest">Net Share (90%)</p>
-                 <h3 className="text-2xl font-black italic text-accent leading-none">₹{(activeTrip.totalFareCollected * 0.9).toFixed(2)}</h3>
-               </Card>
-               <Card className="bg-slate-900 border-white/5 p-6 rounded-[2rem] shadow-xl">
-                 <p className="text-[10px] font-black uppercase text-slate-500 mb-1 tracking-widest">Hub Fee (10%)</p>
-                 <h3 className="text-2xl font-black italic text-primary leading-none">₹{(activeTrip.totalFareCollected * 0.1).toFixed(2)}</h3>
-               </Card>
+              </Card>
             </div>
-          </div>
+          )
         )}
 
         {activeTab === 'earnings' && (
@@ -290,10 +326,6 @@ export default function DriverConsole() {
                <div className="relative z-10">
                 <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Total Regional Payout</p>
                 <h3 className="text-5xl font-black italic font-headline mt-2 leading-none">₹{(profile?.totalEarnings || 0).toFixed(2)}</h3>
-                <div className="flex items-center gap-2 mt-8">
-                  <CheckCircle2 className="h-4 w-4 text-white/80" />
-                  <p className="text-[10px] font-bold opacity-80 uppercase tracking-widest">90% Mission Share Credited</p>
-                </div>
                </div>
                <Wallet className="absolute -right-8 -bottom-8 h-48 w-48 opacity-10" />
             </Card>
@@ -304,10 +336,68 @@ export default function DriverConsole() {
                     <p className="text-[10px] font-black uppercase text-slate-500 mb-1 tracking-widest">Completed Missions</p>
                     <h4 className="text-3xl font-black italic text-white leading-none">{profile?.totalTrips || 0}</h4>
                   </div>
-                  <div className="h-16 w-16 bg-white/5 rounded-2xl flex items-center justify-center">
-                    <IndianRupee className="h-8 w-8 text-primary" />
+                  <IndianRupee className="h-8 w-8 text-primary opacity-20" />
+               </div>
+            </Card>
+          </section>
+        )}
+
+        {activeTab === 'suggest' && (
+          <section className="space-y-6 animate-in fade-in duration-500">
+            <h2 className="text-xl font-black italic uppercase flex items-center gap-2">
+              <MessageSquareShare className="h-5 w-5 text-primary" /> Corridor Architect
+            </h2>
+            <Card className="bg-slate-900 border-white/5 rounded-[2rem] p-8 space-y-6">
+               <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Proposed Corridor Name</Label>
+                  <Input 
+                    value={suggestion.routeName} 
+                    onChange={(e) => setSuggestion({...suggestion, routeName: e.target.value})}
+                    placeholder="e.g. AU Express" 
+                    className="h-14 bg-slate-800 border-none rounded-2xl font-bold" 
+                  />
+               </div>
+
+               <div className="space-y-4 pt-4 border-t border-white/5">
+                  <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Add Mission Node</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <Input 
+                       placeholder="Node Name" 
+                       value={tempStop.name}
+                       onChange={(e) => setTempStop({...tempStop, name: e.target.value})}
+                       className="bg-slate-800 border-none"
+                     />
+                     <div className="flex gap-2">
+                       <Input type="number" placeholder="Lat" value={tempStop.lat} onChange={(e) => setTempStop({...tempStop, lat: Number(e.target.value)})} className="bg-slate-800 border-none" />
+                       <Input type="number" placeholder="Lng" value={tempStop.lng} onChange={(e) => setTempStop({...tempStop, lng: Number(e.target.value)})} className="bg-slate-800 border-none" />
+                     </div>
+                  </div>
+                  <Button onClick={() => { if(tempStop.name) { setSuggestion({...suggestion, stops: [...suggestion.stops, tempStop]}); setTempStop({name:'', lat:17.68, lng:83.21}); }}} variant="secondary" className="w-full h-12 rounded-xl font-black uppercase italic">
+                     Add Node
+                  </Button>
+               </div>
+
+               <div className="space-y-2">
+                  <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Architecture Path</p>
+                  <div className="space-y-2">
+                    {suggestion.stops.map((stop, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 bg-white/5 rounded-xl text-xs font-bold">
+                        <span>{i+1}. {stop.name}</span>
+                        <Button size="icon" variant="ghost" className="h-6 w-6 text-red-500" onClick={() => setSuggestion({...suggestion, stops: suggestion.stops.filter((_, idx) => idx !== i)})}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
                </div>
+
+               <Button 
+                onClick={handleSuggestRoute} 
+                disabled={isSuggesting || !suggestion.routeName || suggestion.stops.length < 2} 
+                className="w-full bg-primary hover:bg-primary/90 h-14 rounded-2xl font-black uppercase italic text-lg"
+               >
+                 {isSuggesting ? <Loader2 className="animate-spin" /> : "Transmit Architecture"}
+               </Button>
             </Card>
           </section>
         )}
@@ -324,6 +414,14 @@ export default function DriverConsole() {
         </Button>
         <Button 
           variant="ghost" 
+          onClick={() => setActiveTab('suggest')} 
+          className={`flex-col h-auto py-2 gap-1 rounded-2xl ${activeTab === 'suggest' ? 'text-primary' : 'text-slate-500'}`}
+        >
+          <MessageSquareShare className="h-6 w-6" />
+          <span className="text-[8px] font-black uppercase tracking-widest">Suggest</span>
+        </Button>
+        <Button 
+          variant="ghost" 
           onClick={() => setActiveTab('earnings')} 
           className={`flex-col h-auto py-2 gap-1 rounded-2xl ${activeTab === 'earnings' ? 'text-primary' : 'text-slate-500'}`}
         >
@@ -332,7 +430,7 @@ export default function DriverConsole() {
         </Button>
         <Button variant="ghost" onClick={handleSignOut} className="flex-col h-auto py-2 gap-1 rounded-2xl text-slate-500">
           <LogOut className="h-6 w-6" />
-          <span className="text-[8px] font-black uppercase tracking-widest">Log Off</span>
+          <span className="text-[8px] font-black uppercase tracking-widest">Exit</span>
         </Button>
       </nav>
     </div>
