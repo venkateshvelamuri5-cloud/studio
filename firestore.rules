@@ -16,10 +16,17 @@ service cloud.firestore {
       );
     }
 
+    // Helper function to check if the user is a driver
+    function isDriver() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'driver';
+    }
+
     // User profiles: 
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      // Allow the user themselves, admins, or drivers (to clear OTPs during boarding) to update
+      allow create: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin() || isDriver());
       allow delete: if isAdmin();
     }
 

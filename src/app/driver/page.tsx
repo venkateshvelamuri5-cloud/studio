@@ -30,6 +30,8 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { GoogleMap, useJsApiLoader, Polyline, Marker } from '@react-google-maps/api';
 import { googleMapsApiKey } from '@/firebase/config';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const mapContainerStyle = { width: '100%', height: '240px', borderRadius: '2rem' };
 const mapOptions = { mapId: "da87e9c90896eba04be76dde", disableDefaultUI: true };
@@ -75,7 +77,7 @@ export default function DriverConsole() {
         const tripData = { ...snapshot.docs[0].data(), id: snapshot.docs[0].id };
         const currentCount = (tripData as any).passengers?.length || 0;
         if (currentCount > prevPassengerCount.current) {
-          toast({ title: "New Passenger", description: "A student has just booked a seat." });
+          toast({ title: "New Booking", description: "A new student has joined your trip." });
         }
         prevPassengerCount.current = currentCount;
         setActiveTrip(tripData);
@@ -83,6 +85,9 @@ export default function DriverConsole() {
         setActiveTrip(null);
         prevPassengerCount.current = 0;
       }
+    }, (error) => {
+       const permissionError = new FirestorePermissionError({ path: 'trips', operation: 'list' });
+       errorEmitter.emit('permission-error', permissionError);
     });
     return unsubscribe;
   }, [db, user?.uid, toast]);
@@ -108,10 +113,14 @@ export default function DriverConsole() {
         riderCount: 0, maxCapacity,
         passengers: [], verifiedPassengers: [], startTime: new Date().toISOString()
       });
-      await updateDoc(userRef, { status: 'on-trip', activeTripId: tripRef.id });
-      toast({ title: "Trip Started", description: `You are now on route: ${route.routeName}` });
+      updateDoc(userRef, { status: 'on-trip', activeTripId: tripRef.id })
+        .catch(e => {
+          const err = new FirestorePermissionError({ path: userRef.path, operation: 'update' });
+          errorEmitter.emit('permission-error', err);
+        });
+      toast({ title: "Trip Started", description: `You are now driving the ${route.routeName} route.` });
     } catch (e) {
-      toast({ variant: "destructive", title: "Could not start trip" });
+      toast({ variant: "destructive", title: "Could Not Start Trip" });
     } finally {
       setIsUpdating(false);
     }
@@ -123,16 +132,32 @@ export default function DriverConsole() {
     try {
       const snap = await getDocs(query(collection(db, 'users'), where('activeOtp', '==', verificationOtp.trim()), limit(1)));
       if (snap.empty) {
-        toast({ variant: "destructive", title: "Wrong Code", description: "This code does not match any student." });
+        toast({ variant: "destructive", title: "Invalid Code", description: "The code you entered does not match any student." });
       } else {
         const rider = snap.docs[0].data();
-        await updateDoc(doc(db, 'trips', activeTrip.id), { verifiedPassengers: arrayUnion(rider.uid) });
-        await updateDoc(doc(db, 'users', rider.uid), { activeOtp: null });
-        toast({ title: "Boarded!", description: `${rider.fullName} is now on board.` });
+        
+        // Double check if this student is booked on THIS specific trip
+        if (!activeTrip.passengers?.includes(rider.uid)) {
+          toast({ variant: "destructive", title: "Not Found on Manifest", description: "This student has not booked a seat on your bus." });
+          setIsVerifying(false);
+          return;
+        }
+
+        const tripRef = doc(db, 'trips', activeTrip.id);
+        const riderRef = doc(db, 'users', rider.uid);
+
+        updateDoc(tripRef, { verifiedPassengers: arrayUnion(rider.uid) })
+          .catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: tripRef.path, operation: 'update' })));
+        
+        updateDoc(riderRef, { activeOtp: null })
+          .catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: riderRef.path, operation: 'update' })));
+
+        toast({ title: "Boarding Verified", description: `${rider.fullName} is now on board.` });
         setVerificationOtp("");
       }
     } catch (e) {
-      toast({ variant: "destructive", title: "Verification Error" });
+      console.error(e);
+      toast({ variant: "destructive", title: "Verification Failed" });
     } finally {
       setIsVerifying(false);
     }
@@ -142,11 +167,16 @@ export default function DriverConsole() {
     if (!db || !activeTrip || !userRef) return;
     setIsUpdating(true);
     try {
-      await updateDoc(doc(db, 'trips', activeTrip.id), { status: 'completed', endTime: new Date().toISOString() });
-      await updateDoc(userRef, { status: 'available', activeTripId: null });
-      toast({ title: "Trip Finished", description: "Route completed and manifest saved." });
+      const tripRef = doc(db, 'trips', activeTrip.id);
+      updateDoc(tripRef, { status: 'completed', endTime: new Date().toISOString() })
+        .catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: tripRef.path, operation: 'update' })));
+      
+      updateDoc(userRef, { status: 'available', activeTripId: null })
+        .catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'update' })));
+
+      toast({ title: "Trip Finished", description: "All students have reached their drop-off points." });
     } catch (e) {
-      toast({ variant: "destructive", title: "Error finishing trip" });
+      toast({ variant: "destructive", title: "Error Finishing Trip" });
     } finally {
       setIsUpdating(false);
     }
@@ -156,8 +186,9 @@ export default function DriverConsole() {
     if (!userRef || !profile) return;
     try {
       const newStatus = profile.status === 'offline' ? 'available' : 'offline';
-      await updateDoc(userRef, { status: newStatus });
-      toast({ title: newStatus === 'available' ? "You are Online" : "You are Offline", description: "Status updated successfully." });
+      updateDoc(userRef, { status: newStatus })
+        .catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'update' })));
+      toast({ title: newStatus === 'available' ? "You are Online" : "You are Offline", description: "Your regional status has been updated." });
     } catch (e) {
       console.error(e);
     }
@@ -177,7 +208,7 @@ export default function DriverConsole() {
           <div>
             <h1 className="font-black text-sm uppercase italic text-slate-900 leading-none">{profile?.fullName}</h1>
             <Badge className={`${profile?.status === 'offline' ? 'bg-slate-100 text-slate-400' : 'bg-green-500/10 text-green-600'} border-none text-[8px] font-black uppercase mt-1 tracking-widest`}>
-              {profile?.status === 'offline' ? 'Offline' : 'Ready to Work'}
+              {profile?.status === 'offline' ? 'Resting' : 'Ready to Work'}
             </Badge>
           </div>
         </div>
@@ -190,17 +221,17 @@ export default function DriverConsole() {
         {activeTab === 'trips' && (!activeTrip ? (
           <div className="space-y-6 animate-in fade-in">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-black italic uppercase text-slate-900">Available Routes</h2>
+              <h2 className="text-2xl font-black italic uppercase text-slate-900 leading-none">Open Routes</h2>
               <div className="bg-primary/10 px-4 py-2 rounded-xl flex items-center gap-2">
                 <Wallet className="h-4 w-4 text-primary" />
-                <span className="text-sm font-black text-primary italic">₹{totalEarnings}</span>
+                <span className="text-sm font-black text-primary italic">₹{totalEarnings.toFixed(0)}</span>
               </div>
             </div>
             <div className="space-y-4">
               {availableRoutes.length === 0 ? (
                 <Card className="p-12 text-center bg-white border-dashed border-2 border-slate-200 rounded-[2.5rem]">
                    <AlertCircle className="h-10 w-10 text-slate-300 mx-auto mb-4" />
-                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No Routes Found in your City</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No active routes for {profile?.city}</p>
                 </Card>
               ) : (
                 availableRoutes.map((route: any) => (
@@ -210,7 +241,7 @@ export default function DriverConsole() {
                         <h3 className="font-black text-xl text-slate-900 uppercase italic leading-none mb-2">{route.routeName}</h3>
                         <p className="text-[9px] font-bold text-slate-400 uppercase italic">₹{route.baseFare} per student</p>
                       </div>
-                      <Button onClick={() => startTrip(route)} disabled={isUpdating} className="rounded-xl h-12 px-8 bg-primary text-white font-black uppercase italic shadow-lg">Start</Button>
+                      <Button onClick={() => startTrip(route)} disabled={isUpdating} className="rounded-xl h-12 px-8 bg-primary text-white font-black uppercase italic shadow-lg">Go</Button>
                     </CardContent>
                   </Card>
                 ))
@@ -240,7 +271,7 @@ export default function DriverConsole() {
               ) : (
                 <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50">
                    <MapPinned className="h-10 w-10 text-slate-200 mb-4" />
-                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Map Loading...</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Radar Offline</p>
                 </div>
               )}
             </div>
@@ -248,7 +279,7 @@ export default function DriverConsole() {
             <Card className="bg-white border-none rounded-[3rem] p-8 space-y-8 shadow-xl">
               <div className="flex justify-between items-start">
                 <div className="space-y-1">
-                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Current Trip</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Current Mission</p>
                   <h2 className="text-3xl font-black italic uppercase leading-none">{activeTrip.routeName}</h2>
                 </div>
                 <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase px-3 py-1">{activeTrip.riderCount} Students</Badge>
@@ -257,7 +288,7 @@ export default function DriverConsole() {
               <div className="bg-primary/5 p-6 rounded-[2rem] border border-primary/10 space-y-4">
                 <div className="flex items-center gap-2 mb-1 text-primary">
                   <ShieldCheck className="h-4 w-4" />
-                  <Label className="text-[10px] font-black uppercase tracking-[0.4em]">Verify Student Code</Label>
+                  <Label className="text-[10px] font-black uppercase tracking-[0.4em]">Verify Student Boarding Code</Label>
                 </div>
                 <div className="flex gap-3">
                   <input value={verificationOtp} onChange={(e) => setVerificationOtp(e.target.value)} placeholder="000000" className="h-16 w-full text-center font-black tracking-[0.4em] text-2xl rounded-2xl bg-white border-none shadow-inner outline-none focus:ring-2 focus:ring-primary" maxLength={6} />
@@ -268,12 +299,12 @@ export default function DriverConsole() {
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Who is on board</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Live Passenger Manifest</h3>
                 <div className="space-y-3">
                   {!passengerDetails || passengerDetails.length === 0 ? (
                     <div className="p-12 text-center bg-slate-50 rounded-[2rem] border border-dashed border-slate-100">
                       <Activity className="h-8 w-8 text-slate-200 mx-auto mb-3" />
-                      <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest italic">Waiting for Bookings</p>
+                      <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest italic">Waiting for New Bookings</p>
                     </div>
                   ) : (
                     passengerDetails.map((p: any) => (
@@ -294,7 +325,7 @@ export default function DriverConsole() {
                 </div>
               </div>
 
-              <Button onClick={endTrip} disabled={isUpdating} className="w-full h-18 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase italic text-lg shadow-xl hover:bg-slate-800 transition-all">End Trip</Button>
+              <Button onClick={endTrip} disabled={isUpdating} className="w-full h-18 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase italic text-lg shadow-xl hover:bg-slate-800 transition-all">End Mission</Button>
             </Card>
           </div>
         ))}
@@ -303,26 +334,26 @@ export default function DriverConsole() {
           <div className="space-y-8 animate-in fade-in">
             <div className="flex justify-between items-end">
               <div>
-                <h3 className="text-4xl font-black italic uppercase text-slate-900 leading-none">My Ledger</h3>
-                <p className="text-slate-400 font-bold italic text-[10px] uppercase tracking-widest mt-2">Work History & Earnings</p>
+                <h3 className="text-4xl font-black italic uppercase text-slate-900 leading-none">Mission Ledger</h3>
+                <p className="text-slate-400 font-bold italic text-[10px] uppercase tracking-widest mt-2">Work History & Your Earnings</p>
               </div>
               <div className="text-right">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Yield</p>
-                <p className="text-2xl font-black italic text-primary">₹{totalEarnings}</p>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Hub Yield</p>
+                <p className="text-2xl font-black italic text-primary">₹{totalEarnings.toFixed(0)}</p>
               </div>
             </div>
             <div className="space-y-4">
               {!pastTrips || pastTrips.length === 0 ? (
                 <Card className="p-16 text-center bg-white rounded-[2.5rem] border-dashed border-2">
                    <History className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No trips completed yet</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">No completed missions yet</p>
                 </Card>
               ) : (
                 pastTrips.map((trip: any) => (
                   <Card key={trip.id} className="bg-white border-slate-100 rounded-[2rem] p-6 flex justify-between items-center shadow-sm">
                     <div>
                       <h4 className="font-black text-sm text-slate-900 uppercase italic leading-none mb-2">{trip.routeName}</h4>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest italic">{new Date(trip.endTime).toLocaleDateString()} • {trip.riderCount} Students</p>
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest italic">{new Date(trip.endTime).toLocaleDateString()} • {trip.riderCount} Scholars</p>
                     </div>
                     <div className="text-right">
                        <p className="text-xs font-black italic text-primary">₹{(trip.riderCount * trip.farePerRider || 0).toFixed(0)}</p>
@@ -343,14 +374,14 @@ export default function DriverConsole() {
               </div>
               <div>
                 <h2 className="text-4xl font-black italic uppercase text-slate-900 leading-none">{profile?.fullName}</h2>
-                <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase tracking-[0.4em] mt-3 px-4 py-1">Verified Fleet Partner</Badge>
+                <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase tracking-[0.4em] mt-3 px-4 py-1">Verified Fleet Operator</Badge>
               </div>
             </div>
             <div className="space-y-3 max-w-sm mx-auto">
               {[ 
-                { label: 'Vehicle Number', value: profile?.vehicleNumber, icon: Bus }, 
-                { label: 'Hub City', value: profile?.city, icon: MapPinned },
-                { label: 'License ID', value: (profile as any)?.licenseNumber, icon: ShieldCheck }
+                { label: 'Asset Number', value: profile?.vehicleNumber, icon: Bus }, 
+                { label: 'Operational Hub', value: profile?.city, icon: MapPinned },
+                { label: 'License Identification', value: (profile as any)?.licenseNumber, icon: ShieldCheck }
               ].map((item, i) => (
                 <div key={i} className="bg-white border border-slate-100 rounded-2xl p-6 flex items-center gap-5 text-left shadow-sm">
                   <div className="h-10 w-10 bg-slate-50 rounded-xl flex items-center justify-center text-primary">
@@ -366,9 +397,9 @@ export default function DriverConsole() {
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 p-8 bg-white/90 backdrop-blur-3xl border-t border-slate-200 flex justify-around items-center rounded-t-[4rem] z-50 shadow-2xl">
-        <Button variant="ghost" onClick={() => setActiveTab('trips')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'trips' ? 'text-primary scale-110' : 'text-slate-400'}`}><LayoutDashboard className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Trips</span></Button>
-        <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'history' ? 'text-primary scale-110' : 'text-slate-400'}`}><History className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">History</span></Button>
-        <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'profile' ? 'text-primary scale-110' : 'text-slate-400'}`}><UserIcon className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Profile</span></Button>
+        <Button variant="ghost" onClick={() => setActiveTab('trips')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'trips' ? 'text-primary scale-110' : 'text-slate-400'}`}><LayoutDashboard className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Missions</span></Button>
+        <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'history' ? 'text-primary scale-110' : 'text-slate-400'}`}><History className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Ledger</span></Button>
+        <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'profile' ? 'text-primary scale-110' : 'text-slate-400'}`}><UserIcon className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Identity</span></Button>
       </nav>
     </div>
   );
