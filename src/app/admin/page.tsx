@@ -36,7 +36,8 @@ import {
   CheckCircle,
   XCircle,
   ArrowRight,
-  MapPinned
+  MapPinned,
+  GanttChart
 } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Polyline } from '@react-google-maps/api';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
@@ -44,6 +45,14 @@ import { collection, query, doc, updateDoc, addDoc, deleteDoc, serverTimestamp }
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { firebaseConfig } from '@/firebase/config';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const mapContainerStyle = {
   width: '100%',
@@ -128,6 +137,7 @@ export default function AdminDashboard() {
   }, [allTrips]);
 
   const totalCommission = useMemo(() => allTrips?.reduce((acc, t) => acc + (t.commissionAmount || 0), 0) || 0, [allTrips]);
+  const totalPayout = useMemo(() => allTrips?.reduce((acc, t) => acc + (t.payoutAmount || 0), 0) || 0, [allTrips]);
 
   const handleSignOut = async () => {
     if (!auth) return;
@@ -176,6 +186,7 @@ export default function AdminDashboard() {
   const handleUpdateRoutePricing = async (routeId: string, updates: any) => {
     if (!db) return;
     updateDoc(doc(db, 'routes', routeId), updates);
+    toast({ title: "Pricing Synchronized", description: "Corridor fare protocols updated in real-time." });
   };
 
   const handleApproveSuggestion = async (routeId: string) => {
@@ -593,15 +604,55 @@ export default function AdminDashboard() {
                               <p className="text-xl font-black text-primary italic">+₹{route.surgeFare}</p>
                            </div>
                          </div>
-                         <div className="pt-4">
-                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Operational Nodes</p>
-                            <div className="flex flex-wrap gap-2">
-                               {route.stops?.map((stop: any, i: number) => (
-                                 <Badge key={i} variant="secondary" className="bg-white/5 text-slate-400 text-[8px] font-bold uppercase border-none px-3">
-                                   {i === 0 ? 'START' : i === route.stops.length - 1 ? 'END' : stop.name}
-                                 </Badge>
-                               ))}
-                            </div>
+                         <div className="flex gap-3">
+                           <Dialog>
+                             <DialogTrigger asChild>
+                               <Button variant="outline" className="flex-1 rounded-xl h-11 font-black uppercase italic border-white/10 text-[10px] hover:bg-white/5">
+                                 Adjust Pricing
+                               </Button>
+                             </DialogTrigger>
+                             <DialogContent className="bg-slate-950 border-white/10 text-white rounded-[2rem]">
+                               <DialogHeader>
+                                 <DialogTitle className="font-black italic uppercase">Adjust Protocol: {route.routeName}</DialogTitle>
+                                 <DialogDescription className="text-slate-500 font-bold italic">Update fare protocols for this corridor.</DialogDescription>
+                               </DialogHeader>
+                               <div className="space-y-6 pt-4">
+                                 <div className="grid grid-cols-2 gap-4">
+                                   <div className="space-y-2">
+                                     <Label className="text-[10px] uppercase font-black tracking-widest text-slate-500">Base Fare (₹)</Label>
+                                     <Input 
+                                       type="number" 
+                                       defaultValue={route.baseFare} 
+                                       className="bg-slate-900 border-none h-12 rounded-xl font-black"
+                                       id={`base-${route.id}`}
+                                     />
+                                   </div>
+                                   <div className="space-y-2">
+                                     <Label className="text-[10px] uppercase font-black tracking-widest text-slate-500">Surge Buffer (₹)</Label>
+                                     <Input 
+                                       type="number" 
+                                       defaultValue={route.surgeFare} 
+                                       className="bg-slate-900 border-none h-12 rounded-xl font-black"
+                                       id={`surge-${route.id}`}
+                                     />
+                                   </div>
+                                 </div>
+                                 <Button 
+                                   onClick={() => {
+                                     const base = (document.getElementById(`base-${route.id}`) as HTMLInputElement).value;
+                                     const surge = (document.getElementById(`surge-${route.id}`) as HTMLInputElement).value;
+                                     handleUpdateRoutePricing(route.id, { baseFare: Number(base), surgeFare: Number(surge) });
+                                   }}
+                                   className="w-full h-14 bg-primary font-black uppercase italic rounded-xl"
+                                 >
+                                   Synchronize Pricing
+                                 </Button>
+                               </div>
+                             </DialogContent>
+                           </Dialog>
+                           <Button size="icon" variant="ghost" className="rounded-xl h-11 w-11 text-red-500 hover:bg-red-500/10" onClick={() => deleteDoc(doc(db, 'routes', route.id))}>
+                             <Trash2 className="h-4 w-4" />
+                           </Button>
                          </div>
                       </CardContent>
                     </Card>
@@ -747,27 +798,63 @@ export default function AdminDashboard() {
                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <Card className="bg-primary text-white border-none shadow-2xl rounded-[2.5rem] p-10 relative overflow-hidden group">
                   <div className="relative z-10">
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Network Fee (10%)</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Network Protocol Fee (10%)</p>
                     <h3 className="text-5xl font-black italic font-headline mt-3 tracking-tighter">₹{totalCommission.toFixed(2)}</h3>
                     <div className="flex items-center gap-2 mt-8 py-2 px-4 bg-white/10 rounded-full w-fit">
                       <TrendingUp className="h-3 w-3" />
                       <p className="text-[9px] font-black uppercase tracking-widest">Yield Performance Active</p>
                     </div>
                   </div>
+                  <GanttChart className="absolute -right-8 -bottom-8 h-48 w-48 opacity-10" />
                 </Card>
                 <Card className="bg-slate-900 border-white/5 text-white shadow-xl rounded-[2.5rem] p-10 relative overflow-hidden group">
                   <div className="relative z-10">
-                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Fleet Net Share (90%)</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Workforce Net Share (90%)</p>
                     <h3 className="text-5xl font-black italic font-headline mt-3 tracking-tighter">
-                      ₹{allTrips?.reduce((acc, t) => acc + (t.payoutAmount || 0), 0).toFixed(2) || '0.00'}
+                      ₹{totalPayout.toFixed(2)}
                     </h3>
                     <div className="flex items-center gap-2 mt-8 py-2 px-4 bg-white/5 rounded-full w-fit">
                       <Wallet className="h-3 w-3 text-primary" />
                       <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Regional Partner Pool</p>
                     </div>
                   </div>
+                  <TrendingUp className="absolute -right-8 -bottom-8 h-48 w-48 text-primary opacity-5" />
                 </Card>
               </div>
+
+              <Card className="bg-slate-900/50 border-white/5 rounded-[2rem] overflow-hidden">
+                <CardHeader className="p-8 border-b border-white/5">
+                  <CardTitle className="text-lg font-black italic uppercase">Regional Settlement Log</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="bg-slate-950/50 text-[9px] font-black uppercase text-slate-500 tracking-widest border-b border-white/5">
+                          <th className="py-4 pl-10">Timestamp</th>
+                          <th className="py-4">Mission Corridor</th>
+                          <th className="py-4">Gross Revenue</th>
+                          <th className="py-4">Network Fee</th>
+                          <th className="py-4 pr-10 text-right">Partner Payout</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {allTrips?.filter(t => t.status === 'completed').slice(0, 10).map((trip: any) => (
+                          <tr key={trip.id} className="hover:bg-white/5 transition-colors">
+                            <td className="py-5 pl-10 text-[10px] font-bold text-slate-500">
+                              {new Date(trip.endTime).toLocaleString()}
+                            </td>
+                            <td className="py-5 font-black text-white uppercase italic text-xs">{trip.routeName}</td>
+                            <td className="py-5 font-bold text-white text-xs">₹{trip.totalFareCollected?.toFixed(2)}</td>
+                            <td className="py-5 text-primary font-black text-xs">₹{trip.commissionAmount?.toFixed(2)}</td>
+                            <td className="py-5 pr-10 text-right font-black text-green-400 text-xs">₹{trip.payoutAmount?.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
 
