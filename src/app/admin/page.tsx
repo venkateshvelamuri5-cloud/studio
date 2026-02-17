@@ -25,7 +25,9 @@ import {
   AlertCircle,
   Activity,
   ArrowUpRight,
-  ShieldCheck
+  ShieldCheck,
+  AlertTriangle,
+  History
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
 import { collection, query, doc, setDoc, orderBy, limit, where } from 'firebase/firestore';
@@ -40,7 +42,7 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useUser();
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'payments' | 'routes' | 'ai-architect'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'payments' | 'routes' | 'alerts' | 'ai-architect'>('dashboard');
   const [vizagUpi, setVizagUpi] = useState('');
   const [vzmUpi, setVzmUpi] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -77,11 +79,14 @@ export default function AdminDashboard() {
   const usersQuery = useMemo(() => db ? query(collection(db, 'users')) : null, [db]);
   const { data: allUsers } = useCollection(usersQuery);
 
+  const alertsQuery = useMemo(() => db ? query(collection(db, 'alerts'), orderBy('timestamp', 'desc'), limit(50)) : null, [db]);
+  const { data: allAlerts } = useCollection(alertsQuery);
+
   const stats = useMemo(() => {
     if (!allTrips) return { revenue: 0, payouts: 0, commissions: 0 };
     const completed = allTrips.filter(t => t.status === 'completed');
-    const revenue = completed.reduce((acc, t) => acc + (t.totalYield || (t.riderCount * t.farePerRider || 0)), 0);
-    const payouts = completed.reduce((acc, t) => acc + (t.driverShare || ((t.totalYield || t.riderCount * t.farePerRider) * 0.9)), 0);
+    const revenue = completed.reduce((acc, t) => acc + (t.totalYield || 0), 0);
+    const payouts = completed.reduce((acc, t) => acc + (t.driverShare || 0), 0);
     return { revenue, payouts, commissions: revenue - payouts };
   }, [allTrips]);
 
@@ -94,9 +99,9 @@ export default function AdminDashboard() {
         vzmUpiId: vzmUpi,
         updatedAt: new Date().toISOString()
       }, { merge: true });
-      toast({ title: "Network Config Saved", description: "Regional payment endpoints updated across the grid." });
+      toast({ title: "Network Config Saved", description: "Payment IDs updated." });
     } catch {
-      toast({ variant: "destructive", title: "Failed to update configuration" });
+      toast({ variant: "destructive", title: "Update Failed" });
     } finally {
       setIsSaving(false);
     }
@@ -107,7 +112,7 @@ export default function AdminDashboard() {
     try {
       const result = await generateShuttleRoutes(aiInput);
       setAiResult(result);
-      toast({ title: "AI Architect Complete", description: "New optimized corridor schematics generated." });
+      toast({ title: "AI Synthesis Complete", description: "New corridors generated." });
     } catch (e: any) {
       toast({ variant: "destructive", title: "AI Generation Failed", description: e.message });
     } finally {
@@ -132,6 +137,7 @@ export default function AdminDashboard() {
           {[
             { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
             { id: 'payments', label: 'Payment Hub', icon: QrCode },
+            { id: 'alerts', label: 'SOS Radar', icon: AlertTriangle },
             { id: 'routes', label: 'Fleet Grid', icon: RouteIcon },
             { id: 'ai-architect', label: 'AI Architect', icon: Sparkles },
           ].map((item) => (
@@ -155,9 +161,9 @@ export default function AdminDashboard() {
         <header className="h-24 bg-white border-b border-slate-100 px-10 flex items-center justify-between shadow-sm">
           <div>
             <h2 className="text-3xl font-black font-headline text-slate-900 italic uppercase tracking-tighter leading-none">{activeTab.replace('-', ' ')}</h2>
-            <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.4em] mt-2">Regional Operations Terminal</p>
+            <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.4em] mt-2">Regional Hub Management Terminal</p>
           </div>
-          <Badge className="bg-green-500/10 text-green-600 border-none font-black uppercase text-[10px] tracking-widest px-6 py-2 rounded-full">Network Live</Badge>
+          <Badge className="bg-green-500/10 text-green-600 border-none font-black uppercase text-[10px] tracking-widest px-6 py-2 rounded-full">Network Pulse: 100%</Badge>
         </header>
 
         <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar">
@@ -182,7 +188,7 @@ export default function AdminDashboard() {
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                 <Card className="border-none bg-white rounded-[3rem] shadow-sm overflow-hidden">
-                  <CardHeader className="p-10 border-b border-slate-50"><CardTitle className="text-xl font-black italic uppercase text-slate-900 flex items-center gap-3"><Activity className="h-6 w-6 text-primary" /> Recent Missions</CardTitle></CardHeader>
+                  <CardHeader className="p-10 border-b border-slate-50"><CardTitle className="text-xl font-black italic uppercase text-slate-900 flex items-center gap-3"><Activity className="h-6 w-6 text-primary" /> Active Missions</CardTitle></CardHeader>
                   <CardContent className="p-0">
                     <table className="w-full text-left">
                       <thead>
@@ -195,7 +201,7 @@ export default function AdminDashboard() {
                       </thead>
                       <tbody className="divide-y divide-slate-50">
                         {!allTrips || allTrips.length === 0 ? (
-                          <tr><td colSpan={4} className="py-20 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">No active mission data available</td></tr>
+                          <tr><td colSpan={4} className="py-20 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">No mission data detected</td></tr>
                         ) : (
                           allTrips.map((trip: any) => (
                             <tr key={trip.id} className="hover:bg-slate-50 transition-all">
@@ -206,7 +212,7 @@ export default function AdminDashboard() {
                                   {trip.status}
                                 </Badge>
                               </td>
-                              <td className="py-8 px-10 text-right font-black text-slate-900 italic text-base">₹{(trip.totalYield || trip.riderCount * trip.farePerRider || 0).toFixed(0)}</td>
+                              <td className="py-8 px-10 text-right font-black text-slate-900 italic text-base">₹{(trip.totalYield || 0).toFixed(0)}</td>
                             </tr>
                           ))
                         )}
@@ -216,7 +222,7 @@ export default function AdminDashboard() {
                 </Card>
 
                 <Card className="border-none bg-white rounded-[3rem] shadow-sm overflow-hidden">
-                  <CardHeader className="p-10 border-b border-slate-50"><CardTitle className="text-xl font-black italic uppercase text-slate-900 flex items-center gap-3"><Users className="h-6 w-6 text-primary" /> Active Fleet Assets</CardTitle></CardHeader>
+                  <CardHeader className="p-10 border-b border-slate-50"><CardTitle className="text-xl font-black italic uppercase text-slate-900 flex items-center gap-3"><Users className="h-6 w-6 text-primary" /> Workforce Tracking</CardTitle></CardHeader>
                   <CardContent className="p-0">
                     <div className="divide-y divide-slate-50">
                       {allUsers?.filter(u => u.role === 'driver').map((driver: any) => (
@@ -231,7 +237,7 @@ export default function AdminDashboard() {
                              </div>
                           </div>
                           <div className="text-right">
-                             <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Total Share</p>
+                             <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Lifetime Earnings</p>
                              <p className="text-lg font-black text-primary italic">₹{(driver.totalEarnings || 0).toFixed(0)}</p>
                           </div>
                         </div>
@@ -243,12 +249,48 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {activeTab === 'alerts' && (
+            <div className="space-y-10 animate-in fade-in max-w-4xl">
+              <Card className="border-none bg-white rounded-[3rem] p-12 shadow-sm space-y-10">
+                <div className="flex items-center gap-4">
+                  <div className="p-4 bg-red-50 rounded-2xl"><AlertTriangle className="h-8 w-8 text-red-500" /></div>
+                  <div>
+                    <h3 className="text-3xl font-black italic uppercase text-slate-900 leading-none">Emergency SOS Radar</h3>
+                    <p className="text-sm font-bold text-slate-400 italic mt-2">Live feed of regional safety alerts from scholars and operators.</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  {!allAlerts || allAlerts.length === 0 ? (
+                    <div className="p-20 text-center bg-slate-50 rounded-[2.5rem] border border-dashed border-slate-100">
+                       <Activity className="h-10 w-10 text-slate-200 mx-auto mb-4" />
+                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">No emergency signals detected.</p>
+                    </div>
+                  ) : (
+                    allAlerts.map((alert: any) => (
+                      <Card key={alert.id} className="p-8 bg-red-50 border-red-100 rounded-[2.5rem] flex items-center justify-between">
+                         <div className="flex items-center gap-6">
+                            <div className="p-3 bg-red-500 rounded-xl text-white animate-pulse"><AlertTriangle className="h-6 w-6" /></div>
+                            <div>
+                               <h4 className="font-black text-red-900 uppercase italic text-base leading-none mb-1">{alert.type} - {alert.userName}</h4>
+                               <p className="text-[10px] font-bold text-red-700 uppercase italic">{alert.city} • {new Date(alert.timestamp).toLocaleTimeString()}</p>
+                            </div>
+                         </div>
+                         <Button className="bg-red-500 text-white rounded-xl h-12 px-8 font-black uppercase italic shadow-lg shadow-red-200">Dispatch Response</Button>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </Card>
+            </div>
+          )}
+
           {activeTab === 'payments' && (
-            <div className="max-w-2xl space-y-10 animate-in fade-in slide-in-from-bottom-4">
+            <div className="max-w-2xl space-y-10 animate-in fade-in">
               <Card className="border-none bg-white rounded-[3rem] p-12 shadow-sm space-y-10">
                 <div className="space-y-3">
-                  <h3 className="text-3xl font-black italic uppercase text-primary leading-none">Regional Payment Config</h3>
-                  <p className="text-sm font-bold text-slate-400 italic">Configure the official UPI endpoints for city-specific hubs.</p>
+                  <h3 className="text-3xl font-black italic uppercase text-slate-900 leading-none">Regional Payment Config</h3>
+                  <p className="text-sm font-bold text-slate-400 italic">Set official UPI IDs for regional hubs.</p>
                 </div>
                 
                 <div className="space-y-8">
@@ -256,7 +298,7 @@ export default function AdminDashboard() {
                     <Label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Vizag Hub Payment ID</Label>
                     <div className="relative">
                       <IndianRupee className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
-                      <Input value={vizagUpi} onChange={e => setVizagUpi(e.target.value)} placeholder="vizag.aago@upi" className="h-16 pl-14 rounded-2xl bg-slate-50 border-none font-black italic text-lg" />
+                      <Input value={vizagUpi} onChange={e => setVizagUpi(e.target.value)} placeholder="vizag.aago@upi" className="h-16 pl-14 rounded-2xl bg-slate-50 border-none font-black italic text-lg outline-none" />
                     </div>
                   </div>
 
@@ -264,7 +306,7 @@ export default function AdminDashboard() {
                     <Label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Vizianagaram Hub Payment ID</Label>
                     <div className="relative">
                       <IndianRupee className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
-                      <Input value={vzmUpi} onChange={e => setVzmUpi(e.target.value)} placeholder="vzm.aago@upi" className="h-16 pl-14 rounded-2xl bg-slate-50 border-none font-black italic text-lg" />
+                      <Input value={vzmUpi} onChange={e => setVzmUpi(e.target.value)} placeholder="vzm.aago@upi" className="h-16 pl-14 rounded-2xl bg-slate-50 border-none font-black italic text-lg outline-none" />
                     </div>
                   </div>
 
@@ -273,49 +315,30 @@ export default function AdminDashboard() {
                   </Button>
                 </div>
               </Card>
-
-              <div className="bg-primary/5 p-10 rounded-[3rem] border border-primary/10 flex items-start gap-6">
-                <QrCode className="h-10 w-10 text-primary shrink-0" />
-                <div className="space-y-2">
-                  <h4 className="font-black uppercase italic text-primary">Mission Settlement Protocol</h4>
-                  <p className="text-xs font-bold text-slate-500 italic leading-relaxed">Network commission is 10%. Drivers are automatically paid 90% share upon mission completion. Ensure these UPI endpoints are correctly routed to the Hub accounts.</p>
-                </div>
-              </div>
             </div>
           )}
 
           {activeTab === 'ai-architect' && (
-            <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 max-w-4xl">
+            <div className="space-y-10 animate-in fade-in max-w-4xl">
               <Card className="border-none bg-white rounded-[3rem] p-12 shadow-sm space-y-10">
                 <div className="flex items-center gap-4">
                    <div className="p-4 bg-primary/10 rounded-2xl"><Sparkles className="h-8 w-8 text-primary" /></div>
                    <div>
                      <h3 className="text-3xl font-black italic uppercase text-slate-900 leading-none">AI Route Architect</h3>
-                     <p className="text-sm font-bold text-slate-400 italic mt-2">Generate optimized shuttle corridors using neural network planning.</p>
+                     <p className="text-sm font-bold text-slate-400 italic mt-2">Generate optimized shuttle corridors using regional demand patterns.</p>
                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-8">
                   <div className="space-y-3">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Student Demand Patterns</Label>
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Regional Demand Patterns</Label>
                     <Textarea 
                       value={aiInput.studentDemandPatterns} 
                       onChange={e => setAiInput({...aiInput, studentDemandPatterns: e.target.value})}
-                      placeholder="e.g. High volume from South Campus to Library between 4-6 PM..."
+                      placeholder="e.g. High volume from South Campus between 4-6 PM..."
                       className="min-h-[120px] rounded-2xl bg-slate-50 border-none font-bold italic p-6 focus:ring-2 focus:ring-primary outline-none"
                     />
                   </div>
-
-                  <div className="space-y-3">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Historical Traffic Summaries</Label>
-                    <Textarea 
-                      value={aiInput.historicalTrafficData} 
-                      onChange={e => setAiInput({...aiInput, historicalTrafficData: e.target.value})}
-                      placeholder="e.g. Heavy congestion on Beach Road during weekends..."
-                      className="min-h-[120px] rounded-2xl bg-slate-50 border-none font-bold italic p-6 focus:ring-2 focus:ring-primary outline-none"
-                    />
-                  </div>
-
                   <Button onClick={handleAiGeneration} disabled={isAiLoading} className="h-18 bg-primary text-white font-black uppercase italic text-lg rounded-2xl shadow-xl hover:scale-[1.02] transition-all">
                     {isAiLoading ? <Loader2 className="animate-spin h-6 w-6" /> : "Initiate AI Synthesis"}
                   </Button>
@@ -333,15 +356,10 @@ export default function AdminDashboard() {
                           <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase">{route.estimatedDurationMinutes} MINS</Badge>
                         </div>
                         <p className="text-xs font-bold text-slate-500 italic leading-relaxed">{route.description}</p>
-                        <div className="flex flex-wrap gap-2">
-                          {route.stops.map((stop: string, j: number) => (
-                            <Badge key={j} variant="outline" className="text-[8px] font-black uppercase border-slate-200">{stop}</Badge>
-                          ))}
-                        </div>
                       </div>
                     ))}
-                    <div className="p-8 bg-blue-50/50 rounded-[2.5rem] border border-blue-100">
-                      <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest mb-3">Optimization Summary</p>
+                    <div className="p-8 bg-blue-50 rounded-[2.5rem] border border-blue-100">
+                      <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest mb-3">AI Synthesis Summary</p>
                       <p className="text-sm font-bold text-blue-900 italic leading-relaxed">{aiResult.optimizationSummary}</p>
                     </div>
                   </div>

@@ -24,7 +24,7 @@ service cloud.firestore {
     // User profiles: 
     match /users/{userId} {
       allow read: if isAuthenticated();
-      // Allow the user themselves, admins, or drivers (to clear OTPs during boarding) to update
+      // Allow the user themselves, admins, or drivers (to verify codes) to update
       allow create: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin() || isDriver());
       allow delete: if isAdmin();
@@ -33,7 +33,8 @@ service cloud.firestore {
     // Trips:
     match /trips/{tripId} {
       allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
       allow delete: if isAdmin();
     }
 
