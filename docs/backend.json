@@ -18,15 +18,16 @@
         "city": { "type": "string", "enum": ["Vizag", "Vizianagaram"] },
         "role": { "type": "string", "enum": ["rider", "admin", "driver"] },
         "status": { "type": "string", "enum": ["available", "on-trip", "offline"] },
-        "photoUrl": { "type": "string", "description": "URL to the user's profile photo." },
+        "photoUrl": { "type": "string" },
         "currentLat": { "type": "number" },
         "currentLng": { "type": "number" },
         "totalTrips": { "type": "number", "default": 0 },
         "credits": { "type": "number", "default": 0 },
-        "totalEarnings": { "type": "number", "default": 0, "description": "Total earnings already paid out to the driver." },
-        "weeklyEarnings": { "type": "number", "default": 0, "description": "Earnings from the current week waiting for admin payout." },
+        "totalEarnings": { "type": "number", "default": 0 },
+        "weeklyEarnings": { "type": "number", "default": 0 },
         "createdAt": { "type": "string", "format": "date-time" },
-        "activeOtp": { "type": "string", "description": "Temporary 6-digit OTP for boarding verification." },
+        "activeOtp": { "type": "string" },
+        "destinationStopName": { "type": "string" },
         "payoutHistory": {
           "type": "array",
           "items": {
@@ -49,16 +50,17 @@
         "id": { "type": "string" },
         "driverId": { "type": "string" },
         "driverName": { "type": "string" },
+        "driverPhone": { "type": "string" },
         "routeName": { "type": "string" },
         "status": { "type": "string", "enum": ["active", "completed", "cancelled"] },
         "riderCount": { "type": "number" },
         "farePerRider": { "type": "number" },
-        "surgeFare": { "type": "number", "default": 0 },
         "totalFareCollected": { "type": "number" },
-        "commissionAmount": { "type": "number", "description": "10% platform share." },
-        "payoutAmount": { "type": "number", "description": "90% driver share." },
+        "commissionAmount": { "type": "number" },
+        "payoutAmount": { "type": "number" },
         "passengers": { "type": "array", "items": { "type": "string" } },
         "verifiedPassengers": { "type": "array", "items": { "type": "string" } },
+        "currentStopIndex": { "type": "number" },
         "startTime": { "type": "string", "format": "date-time" },
         "endTime": { "type": "string", "format": "date-time" }
       },
@@ -66,52 +68,81 @@
     },
     "Route": {
       "title": "Route",
-      "description": "An optimized shuttle route configuration.",
+      "description": "A shuttle route configuration.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "routeName": { "type": "string" },
-        "description": { "type": "string" },
-        "stops": { 
-          "type": "array", 
-          "items": { 
-            "object": {
-              "properties": {
-                "name": { "type": "string" },
-                "lat": { "type": "number" },
-                "lng": { "type": "number" }
-              }
-            }
-          } 
-        },
+        "stops": { "type": "array", "items": { "type": "object" } },
         "city": { "type": "string", "enum": ["Vizag", "Vizianagaram"] },
-        "baseFare": { "type": "number", "default": 50 },
-        "surgeFare": { "type": "number", "default": 0 },
-        "busMultiplier": { "type": "number", "default": 1.0 },
-        "miniBusMultiplier": { "type": "number", "default": 1.2 },
-        "vanMultiplier": { "type": "number", "default": 1.5 },
+        "baseFare": { "type": "number" },
+        "surgeFare": { "type": "number" },
         "isActive": { "type": "boolean" },
-        "status": { "type": "string", "enum": ["suggested", "active", "rejected"] },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "status": { "type": "string", "enum": ["active", "suggested"] }
       },
       "required": ["routeName", "stops", "city"]
+    },
+    "PassTemplate": {
+      "title": "Pass Template",
+      "description": "A ride pass configuration created by admin.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "city": { "type": "string" },
+        "totalRides": { "type": "number" },
+        "price": { "type": "number" },
+        "routeName": { "type": "string", "description": "Optional specific route restriction." },
+        "isActive": { "type": "boolean" }
+      }
+    },
+    "UserPass": {
+      "title": "User Pass",
+      "description": "An active pass owned by a student.",
+      "type": "object",
+      "properties": {
+        "passId": { "type": "string" },
+        "name": { "type": "string" },
+        "remainingRides": { "type": "number" },
+        "totalRides": { "type": "number" },
+        "routeName": { "type": "string" },
+        "purchasedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "PromoCode": {
+      "title": "Promo Code",
+      "description": "A promotional code for wallet credits.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "value": { "type": "number" },
+        "usageCount": { "type": "number", "default": 0 },
+        "isActive": { "type": "boolean" }
+      }
+    },
+    "FinancialTransaction": {
+      "title": "Financial Transaction",
+      "description": "A record of wallet top-ups or pass purchases.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["top-up", "pass-purchase"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
     "providers": ["phone", "password"]
   },
   "firestore": {
-    "/users/{userId}": {
-      "schema": "User",
-      "description": "User profile document."
-    },
-    "/trips/{tripId}": {
-      "schema": "Trip",
-      "description": "Historical and active trip records."
-    },
-    "/routes/{routeId}": {
-      "schema": "Route",
-      "description": "Optimized shuttle route templates."
-    }
+    "/users/{userId}": { "schema": "User", "description": "User profiles." },
+    "/trips/{tripId}": { "schema": "Trip", "description": "Trip records." },
+    "/routes/{routeId}": { "schema": "Route", "description": "Route definitions." },
+    "/passes/{passId}": { "schema": "PassTemplate", "description": "Available ride passes." },
+    "/users/{userId}/passes/{userPassId}": { "schema": "UserPass", "description": "Student owned passes." },
+    "/promoCodes/{codeId}": { "schema": "PromoCode", "description": "Promotional codes." },
+    "/transactions/{txId}": { "schema": "FinancialTransaction", "description": "Revenue logs." }
   }
 }
