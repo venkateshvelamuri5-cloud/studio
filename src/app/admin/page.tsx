@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,6 @@ import {
   LogOut,
   Loader2,
   Truck,
-  Map as MapIcon,
   MessageSquareShare,
   IndianRupee,
   Wallet,
@@ -25,15 +24,15 @@ import {
   TrendingUp,
   Settings2,
   CheckCircle2,
-  XCircle,
   Phone,
   Clock,
+  ChevronRight,
   MapPin
 } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { generateShuttleRoutes } from '@/ai/flows/admin-generate-shuttle-routes';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
-import { collection, query, doc, updateDoc, addDoc, deleteDoc, where } from 'firebase/firestore';
+import { collection, query, doc, updateDoc, addDoc, deleteDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { firebaseConfig } from '@/firebase/config';
@@ -41,17 +40,17 @@ import { firebaseConfig } from '@/firebase/config';
 const mapContainerStyle = {
   width: '100%',
   height: '100%',
-  borderRadius: '2rem'
+  borderRadius: '1.5rem'
 };
 
 const mapOptions = {
   styles: [
-    { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-    { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-    { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
-    { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
-    { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
+    { elementType: "geometry", stylers: [{ color: "#0f172a" }] },
+    { elementType: "labels.text.stroke", stylers: [{ color: "#0f172a" }] },
+    { elementType: "labels.text.fill", stylers: [{ color: "#475569" }] },
+    { featureType: "road", elementType: "geometry", stylers: [{ color: "#1e293b" }] },
+    { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#334155" }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: "#020617" }] },
   ],
   disableDefaultUI: true,
 };
@@ -104,42 +103,26 @@ export default function AdminDashboard() {
 
   const handleUpdateRoutePricing = async (routeId: string, updates: any) => {
     if (!db) return;
-    try {
-      await updateDoc(doc(db, 'routes', routeId), updates);
-      toast({ title: "Pricing Engine Updated", description: "Regional fares have been synchronized." });
-    } catch {
-      toast({ variant: "destructive", title: "Update Failed" });
-    }
+    updateDoc(doc(db, 'routes', routeId), updates);
+    toast({ title: "Pricing Updated", description: "Fare protocols synchronized." });
   };
 
   const handleApproveSuggestion = async (suggestionId: string) => {
     if (!db) return;
-    try {
-      await updateDoc(doc(db, 'routes', suggestionId), { status: 'active', isActive: true });
-      toast({ title: "Proposal Approved", description: "Route deployed to regional mission log." });
-    } catch {
-      toast({ variant: "destructive", title: "Approval Protocol Failed" });
-    }
+    updateDoc(doc(db, 'routes', suggestionId), { status: 'active', isActive: true });
+    toast({ title: "Proposal Approved", description: "Route deployed to regional mission log." });
   };
 
   const handleRejectSuggestion = async (suggestionId: string) => {
     if (!db) return;
-    try {
-      await deleteDoc(doc(db, 'routes', suggestionId));
-      toast({ title: "Proposal Rejected", description: "Route removed from suggest log." });
-    } catch {
-      toast({ variant: "destructive", title: "Rejection Protocol Failed" });
-    }
+    deleteDoc(doc(db, 'routes', suggestionId));
+    toast({ title: "Proposal Rejected", description: "Route removed from suggestion log." });
   };
 
   const handleResolveAlert = async (alertId: string) => {
     if (!db) return;
-    try {
-      await updateDoc(doc(db, 'alerts', alertId), { status: 'resolved', resolvedAt: new Date().toISOString() });
-      toast({ title: "Incident Resolved", description: "Safety status restored." });
-    } catch {
-      toast({ variant: "destructive", title: "Resolution Failed" });
-    }
+    updateDoc(doc(db, 'alerts', alertId), { status: 'resolved', resolvedAt: new Date().toISOString() });
+    toast({ title: "Incident Resolved", description: "Safety status restored." });
   };
 
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -167,7 +150,7 @@ export default function AdminDashboard() {
           createdAt: new Date().toISOString()
         });
       }
-      toast({ title: "AI Sync Complete", description: "Optimized routes deployed to regional fleet." });
+      toast({ title: "AI Sync Complete", description: "Optimized routes deployed." });
     } catch {
       toast({ variant: "destructive", title: "AI Sync Error" });
     } finally {
@@ -175,15 +158,17 @@ export default function AdminDashboard() {
     }
   };
 
-  if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-primary"><Loader2 className="animate-spin h-10 w-10 text-white" /></div>;
+  if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
 
   return (
-    <div className="flex h-screen bg-[#F8F9FC] font-body text-slate-900">
-      <aside className="w-64 bg-primary text-white flex flex-col shrink-0 shadow-2xl z-20">
-        <div className="p-6 h-20 flex items-center border-b border-white/10">
-          <div className="flex items-center gap-2">
-            <Bus className="h-6 w-6 text-accent" />
-            <span className="text-2xl font-black font-headline italic tracking-tighter uppercase leading-none">AAGO OPS</span>
+    <div className="flex h-screen bg-[#020617] font-body text-slate-200">
+      <aside className="w-64 bg-slate-950 flex flex-col shrink-0 shadow-2xl z-20 border-r border-white/5">
+        <div className="p-6 h-20 flex items-center border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/20 rounded-lg">
+              <Bus className="h-5 w-5 text-primary" />
+            </div>
+            <span className="text-xl font-black font-headline italic tracking-tighter uppercase leading-none text-glow">AAGO OPS</span>
           </div>
         </div>
         <nav className="flex-1 p-4 space-y-1">
@@ -201,44 +186,47 @@ export default function AdminDashboard() {
               key={item.id}
               variant="ghost" 
               onClick={() => setActiveTab(item.id as any)} 
-              className={`w-full justify-start text-white rounded-xl font-bold h-12 ${activeTab === item.id ? 'bg-white/10' : 'hover:bg-white/5 opacity-70'}`}
+              className={`w-full justify-start rounded-xl font-bold h-11 px-4 transition-all ${activeTab === item.id ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_20px_rgba(59,130,246,0.15)]' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
             >
-              <item.icon className="mr-3 h-4 w-4" /> {item.label}
-              {item.badge ? <Badge className="ml-auto bg-accent text-[8px] h-4 min-w-4 p-0 flex items-center justify-center">{item.badge}</Badge> : null}
+              <item.icon className={`mr-3 h-4 w-4 ${activeTab === item.id ? 'text-primary' : ''}`} /> {item.label}
+              {item.badge ? <Badge className="ml-auto bg-primary text-[8px] h-4 min-w-4 p-0 flex items-center justify-center font-black">{item.badge}</Badge> : null}
             </Button>
           ))}
-          <div className="pt-4 mt-4 border-t border-white/10">
-            <Button variant="ghost" className="w-full justify-start text-red-300 hover:bg-red-500/10" onClick={handleSignOut}>
-              <LogOut className="mr-3 h-4 w-4" /> Exit terminal
+          <div className="pt-4 mt-4 border-t border-white/5">
+            <Button variant="ghost" className="w-full justify-start text-red-500 hover:bg-red-500/10 hover:text-red-400" onClick={handleSignOut}>
+              <LogOut className="mr-3 h-4 w-4" /> Exit Terminal
             </Button>
           </div>
         </nav>
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-20 bg-white border-b px-8 flex items-center justify-between shadow-sm">
-          <h2 className="text-2xl font-black font-headline text-primary italic uppercase tracking-tight">{activeTab}</h2>
-          <Badge className="bg-slate-100 text-slate-500 font-bold uppercase text-[9px] tracking-wider">{profile?.city} Regional Hub</Badge>
+        <header className="h-20 bg-slate-950 border-b border-white/5 px-8 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-black font-headline text-white italic uppercase tracking-tight leading-none">{activeTab}</h2>
+            <p className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em] mt-1">Operational Environment: {profile?.city}</p>
+          </div>
+          <Badge className="bg-primary/10 text-primary border border-primary/20 font-black uppercase text-[10px] tracking-widest px-4 py-1.5">Hub Node v4.0</Badge>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-8 space-y-8">
+        <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
           {activeTab === 'dashboard' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {[
-                { label: 'Active Fleet', value: onTripDrivers.length, icon: Activity, color: 'text-green-600' },
-                { label: 'Platform Rev', value: `₹${totalCommission.toFixed(0)}`, icon: TrendingUp, color: 'text-accent' },
-                { label: 'Fleet Health', value: `${fleetHealth}%`, icon: Zap, color: 'text-primary' },
-                { label: 'Scholar Base', value: riders.length, icon: Users, color: 'text-blue-600' },
+                { label: 'Active Fleet', value: onTripDrivers.length, icon: Activity, color: 'text-green-400', bg: 'bg-green-400/10' },
+                { label: 'Platform Rev', value: `₹${totalCommission.toFixed(0)}`, icon: TrendingUp, color: 'text-primary', bg: 'bg-primary/10' },
+                { label: 'Fleet Health', value: `${fleetHealth}%`, icon: Zap, color: 'text-yellow-400', bg: 'bg-yellow-400/10' },
+                { label: 'Scholar Base', value: riders.length, icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/10' },
               ].map((metric, i) => (
-                <Card key={i} className="border-none shadow-xl rounded-[2rem] bg-white group">
+                <Card key={i} className="bg-slate-900/50 border-white/5 shadow-xl rounded-[1.5rem] group hover:border-primary/20 transition-all duration-500">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between mb-4">
-                      <div className="p-3 bg-secondary rounded-2xl group-hover:rotate-12 transition-transform">
-                        <metric.icon className={`h-6 w-6 ${metric.color}`} />
+                      <div className={`p-3 ${metric.bg} rounded-xl group-hover:scale-110 transition-transform duration-500`}>
+                        <metric.icon className={`h-5 w-5 ${metric.color}`} />
                       </div>
                     </div>
-                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">{metric.label}</p>
-                    <h3 className="text-3xl font-black text-primary font-headline italic">{metric.value}</h3>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{metric.label}</p>
+                    <h3 className="text-3xl font-black text-white font-headline italic">{metric.value}</h3>
                   </CardContent>
                 </Card>
               ))}
@@ -246,12 +234,12 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === 'fleet' && (
-            <div className="h-[calc(100vh-12rem)] relative">
+            <div className="h-[calc(100vh-14rem)] relative border border-white/5 rounded-[1.5rem] overflow-hidden shadow-2xl">
               {isLoaded ? (
                 <GoogleMap
                   mapContainerStyle={mapContainerStyle}
                   center={{ lat: profile?.currentLat || 17.6868, lng: profile?.currentLng || 83.2185 }}
-                  zoom={12}
+                  zoom={13}
                   options={mapOptions}
                 >
                   {drivers.filter(d => d.currentLat).map((driver: any) => (
@@ -261,7 +249,7 @@ export default function AdminDashboard() {
                       onClick={() => setSelectedDriver(driver)}
                       icon={{
                         url: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
-                        scaledSize: new window.google.maps.Size(40, 40)
+                        scaledSize: new window.google.maps.Size(32, 32)
                       }}
                     />
                   ))}
@@ -271,21 +259,21 @@ export default function AdminDashboard() {
                       position={{ lat: selectedDriver.currentLat, lng: selectedDriver.currentLng }}
                       onCloseClick={() => setSelectedDriver(null)}
                     >
-                      <div className="p-4 bg-white rounded-xl shadow-2xl min-w-[200px]">
-                        <h4 className="font-black text-primary uppercase italic text-sm">{selectedDriver.fullName}</h4>
-                        <Badge variant="outline" className="text-[8px] uppercase mt-1">{selectedDriver.vehicleType}</Badge>
-                        <hr className="my-2" />
-                        <div className="space-y-1">
-                          <p className="text-[9px] font-bold text-slate-500 uppercase">Status: <span className="text-primary">{selectedDriver.status}</span></p>
-                          <p className="text-[9px] font-bold text-slate-500 uppercase">Contact: {selectedDriver.phoneNumber}</p>
+                      <div className="p-4 bg-slate-900 border border-white/10 rounded-xl shadow-2xl min-w-[220px]">
+                        <h4 className="font-black text-white uppercase italic text-sm">{selectedDriver.fullName}</h4>
+                        <Badge variant="outline" className="text-[8px] uppercase mt-1 border-primary/20 text-primary">{selectedDriver.vehicleType}</Badge>
+                        <hr className="my-3 border-white/5" />
+                        <div className="space-y-2">
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">Status: <span className="text-primary">{selectedDriver.status}</span></p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">Contact: {selectedDriver.phoneNumber}</p>
                         </div>
                       </div>
                     </InfoWindow>
                   )}
                 </GoogleMap>
               ) : (
-                <div className="h-full flex items-center justify-center bg-slate-900 rounded-[2rem]">
-                  <Loader2 className="animate-spin text-white h-12 w-12" />
+                <div className="h-full flex items-center justify-center bg-slate-950">
+                  <Loader2 className="animate-spin text-primary h-10 w-10" />
                 </div>
               )}
             </div>
@@ -293,27 +281,34 @@ export default function AdminDashboard() {
 
           {activeTab === 'suggestions' && (
             <div className="space-y-6">
-              <h3 className="text-xl font-black italic uppercase text-primary">Workforce Proposals</h3>
+              <h3 className="text-lg font-black italic uppercase text-white flex items-center gap-2">
+                <MessageSquareShare className="h-5 w-5 text-primary" /> Workforce Proposals
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {suggestions.length === 0 ? (
-                  <p className="text-slate-500 font-bold italic">No pending route proposals from workforce.</p>
+                  <Card className="col-span-full p-12 text-center bg-slate-900/30 border-dashed border-white/5 rounded-[1.5rem]">
+                    <p className="text-slate-500 font-bold italic uppercase tracking-widest text-xs">No pending proposals in regional log.</p>
+                  </Card>
                 ) : (
                   suggestions.map((route: any) => (
-                    <Card key={route.id} className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden">
-                      <CardHeader className="bg-accent/5">
-                        <h4 className="font-black text-primary uppercase italic text-lg leading-none">{route.routeName}</h4>
-                        <p className="text-xs font-bold text-slate-400 mt-1 italic">{route.city} Hub Proposal</p>
-                      </CardHeader>
-                      <CardContent className="p-6 space-y-4">
-                        <div className="space-y-1">
-                           <Label className="text-[9px] font-black uppercase text-muted-foreground">Proposed Path</Label>
-                           <div className="flex flex-wrap gap-1">
+                    <Card key={route.id} className="bg-slate-900/50 border-white/5 rounded-[1.5rem] overflow-hidden group hover:border-primary/20 transition-all">
+                      <div className="p-6 border-b border-white/5 flex justify-between items-start">
+                        <div>
+                          <h4 className="font-black text-white uppercase italic text-lg leading-none">{route.routeName}</h4>
+                          <p className="text-[9px] font-black text-slate-500 mt-2 uppercase tracking-widest">{route.city} Node</p>
+                        </div>
+                        <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase">Pending</Badge>
+                      </div>
+                      <CardContent className="p-6 space-y-6">
+                        <div className="space-y-3">
+                           <Label className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Proposed Network Nodes</Label>
+                           <div className="flex flex-wrap gap-1.5">
                               {route.stops?.map((stop: string, i: number) => (
-                                <Badge key={i} variant="secondary" className="text-[8px] font-bold">{stop}</Badge>
+                                <Badge key={i} variant="secondary" className="bg-white/5 text-slate-400 text-[8px] font-bold border-none">{stop}</Badge>
                               ))}
                            </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3">
                           <Button onClick={() => handleApproveSuggestion(route.id)} className="bg-green-500 hover:bg-green-600 rounded-xl font-black uppercase italic text-xs h-10">
                             Approve
                           </Button>
@@ -332,37 +327,39 @@ export default function AdminDashboard() {
           {activeTab === 'safety' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-xl font-black italic uppercase text-primary">Incident Command Center</h3>
-                <Badge className="bg-red-500 text-white font-black animate-pulse px-4 py-2">{activeAlerts.length} Active Alerts</Badge>
+                <h3 className="text-lg font-black italic uppercase text-white flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-red-500" /> Incident Command
+                </h3>
+                <Badge className="bg-red-500 text-white font-black animate-pulse px-4 py-1.5 rounded-lg text-[10px] tracking-widest">{activeAlerts.length} Active Alerts</Badge>
               </div>
-              <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-4">
                 {activeAlerts.length === 0 ? (
-                  <Card className="p-12 text-center bg-green-500/5 border-dashed border-green-500/20 rounded-[2.5rem]">
-                    <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                    <p className="text-green-600 font-black uppercase italic">All hub nodes secured. No active incidents.</p>
+                  <Card className="p-16 text-center bg-green-500/5 border-dashed border-green-500/20 rounded-[1.5rem]">
+                    <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-4" />
+                    <p className="text-green-500 font-black uppercase italic tracking-widest text-xs">All regional hub nodes secured.</p>
                   </Card>
                 ) : (
                   activeAlerts.map((alert: any) => (
-                    <Card key={alert.id} className="border-none shadow-xl bg-white rounded-[2rem] p-6 flex flex-col md:row items-center justify-between gap-6 border-l-8 border-red-500">
+                    <Card key={alert.id} className="bg-slate-900/50 border-white/5 rounded-[1.5rem] p-6 flex flex-col md:flex-row items-center justify-between gap-6 border-l-4 border-red-500">
                       <div className="flex items-center gap-6">
-                        <div className="bg-red-500/10 p-4 rounded-2xl">
-                          <AlertTriangle className="h-8 w-8 text-red-500" />
+                        <div className="bg-red-500/10 p-4 rounded-xl">
+                          <AlertTriangle className="h-6 w-6 text-red-500" />
                         </div>
                         <div>
-                          <h4 className="font-black text-red-500 uppercase italic text-lg leading-none">SOS: {alert.userName || 'Scholar'}</h4>
-                          <div className="flex items-center gap-3 mt-2">
-                             <Badge variant="outline" className="text-[9px] font-black uppercase">{alert.city || 'Vizag'}</Badge>
-                             <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                          <h4 className="font-black text-red-500 uppercase italic text-lg leading-none">SOS: {alert.userName || 'Unknown Scholar'}</h4>
+                          <div className="flex items-center gap-4 mt-3">
+                             <Badge variant="outline" className="text-[9px] font-black border-red-500/20 text-red-400 uppercase">{alert.city || 'Vizag'}</Badge>
+                             <p className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">
                                <Clock className="h-3 w-3" /> {new Date(alert.createdAt).toLocaleTimeString()}
                              </p>
                           </div>
                         </div>
                       </div>
                       <div className="flex gap-3">
-                        <Button variant="outline" className="rounded-xl font-black uppercase italic h-12 px-6">
-                          <Phone className="h-4 w-4 mr-2" /> Call User
+                        <Button variant="outline" className="rounded-xl font-black uppercase italic h-11 px-6 border-white/10 hover:bg-white/5">
+                          <Phone className="h-4 w-4 mr-2" /> Voice Protocol
                         </Button>
-                        <Button onClick={() => handleResolveAlert(alert.id)} className="bg-primary hover:bg-primary/90 rounded-xl font-black uppercase italic h-12 px-6">
+                        <Button onClick={() => handleResolveAlert(alert.id)} className="bg-primary hover:bg-primary/90 rounded-xl font-black uppercase italic h-11 px-6 shadow-lg shadow-primary/20">
                           Resolve Incident
                         </Button>
                       </div>
@@ -375,72 +372,40 @@ export default function AdminDashboard() {
 
           {activeTab === 'drivers' && (
             <div className="space-y-6">
-               <h3 className="text-xl font-black italic uppercase text-primary">Fleet Workforce</h3>
-               <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
-                <CardContent className="p-0">
-                   <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="bg-secondary/20 border-b text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-                          <th className="py-6 pl-8">Operator Name</th>
-                          <th className="py-6">Asset ID</th>
-                          <th className="py-6">Class</th>
-                          <th className="py-6">Status</th>
-                          <th className="py-6 pr-8 text-right">Net Missions</th>
+               <h3 className="text-lg font-black italic uppercase text-white flex items-center gap-2">
+                <Truck className="h-5 w-5 text-primary" /> Workforce Terminal
+               </h3>
+               <Card className="bg-slate-900/50 border-white/5 rounded-[1.5rem] overflow-hidden">
+                 <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-slate-950/50 border-b border-white/5 text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">
+                        <th className="py-5 pl-8">Operator Name</th>
+                        <th className="py-5">Vehicle ID</th>
+                        <th className="py-5">Class</th>
+                        <th className="py-5">Shift Status</th>
+                        <th className="py-5 pr-8 text-right">Net Missions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {drivers.map((driver: any) => (
+                        <tr key={driver.uid} className="hover:bg-white/5 transition-colors group">
+                          <td className="py-5 pl-8 font-black text-white uppercase italic text-sm">{driver.fullName}</td>
+                          <td className="py-5 font-bold text-xs text-slate-400">{driver.vehicleNumber || '---'}</td>
+                          <td className="py-5">
+                            <Badge variant="outline" className="text-[8px] font-black uppercase border-primary/20 text-primary">{driver.vehicleType}</Badge>
+                          </td>
+                          <td className="py-5">
+                             <Badge className={`${driver.status === 'on-trip' ? 'bg-green-500' : driver.status === 'available' ? 'bg-blue-500' : 'bg-slate-700'} text-[8px] font-black uppercase border-none`}>
+                               {driver.status}
+                             </Badge>
+                          </td>
+                          <td className="py-5 pr-8 text-right font-black text-white text-sm">{driver.totalTrips || 0}</td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {drivers.map((driver: any) => (
-                          <tr key={driver.uid} className="hover:bg-secondary/5 transition-colors">
-                            <td className="py-6 pl-8 font-black text-primary uppercase italic text-sm">{driver.fullName}</td>
-                            <td className="py-6 font-bold text-xs uppercase">{driver.vehicleNumber || 'N/A'}</td>
-                            <td className="py-6 font-bold text-xs uppercase">{driver.vehicleType}</td>
-                            <td className="py-6">
-                               <Badge className={`${driver.status === 'on-trip' ? 'bg-green-500' : driver.status === 'available' ? 'bg-blue-500' : 'bg-slate-400'} text-[8px] font-black uppercase`}>
-                                 {driver.status}
-                               </Badge>
-                            </td>
-                            <td className="py-6 pr-8 text-right font-black text-slate-900 text-sm">{driver.totalTrips || 0}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                   </div>
-                </CardContent>
-               </Card>
-            </div>
-          )}
-
-          {activeTab === 'scholars' && (
-            <div className="space-y-6">
-               <h3 className="text-xl font-black italic uppercase text-primary">Scholar Database</h3>
-               <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
-                <CardContent className="p-0">
-                   <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="bg-secondary/20 border-b text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-                          <th className="py-6 pl-8">Student Name</th>
-                          <th className="py-6">University Node</th>
-                          <th className="py-6">Scholar ID</th>
-                          <th className="py-6">Hub City</th>
-                          <th className="py-6 pr-8 text-right">Wallet Balance</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {riders.map((rider: any) => (
-                          <tr key={rider.uid} className="hover:bg-secondary/5 transition-colors">
-                            <td className="py-6 pl-8 font-black text-primary uppercase italic text-sm">{rider.fullName}</td>
-                            <td className="py-6 font-bold text-xs uppercase text-slate-400">{rider.collegeName || 'N/A'}</td>
-                            <td className="py-6 font-bold text-xs uppercase text-slate-400">{rider.studentId || 'N/A'}</td>
-                            <td className="py-6 font-bold text-xs uppercase text-slate-400">{rider.city}</td>
-                            <td className="py-6 pr-8 text-right font-black text-accent text-sm">₹{(rider.credits || 0).toFixed(0)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                   </div>
-                </CardContent>
+                      ))}
+                    </tbody>
+                  </table>
+                 </div>
                </Card>
             </div>
           )}
@@ -448,76 +413,66 @@ export default function AdminDashboard() {
           {activeTab === 'routes' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-xl font-black italic uppercase text-primary">Mission & Pricing Hub</h3>
-                <Button onClick={handleOptimize} disabled={isOptimizing} className="bg-accent rounded-xl font-black italic uppercase h-12 px-8">
-                  {isOptimizing ? <Loader2 className="animate-spin" /> : "Run AI Optimization"}
+                <h3 className="text-lg font-black italic uppercase text-white flex items-center gap-2">
+                  <Settings2 className="h-5 w-5 text-primary" /> Mission Configuration
+                </h3>
+                <Button onClick={handleOptimize} disabled={isOptimizing} className="bg-primary hover:bg-primary/90 rounded-xl font-black italic uppercase h-11 px-8 shadow-lg shadow-primary/20">
+                  {isOptimizing ? <Loader2 className="animate-spin" /> : "Initiate AI Sync"}
                 </Button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {savedRoutes.map((route: any) => (
-                  <Card key={route.id} className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden">
-                    <CardHeader className="pb-4 bg-secondary/5">
-                      <h4 className="font-black text-primary uppercase italic text-lg leading-none">{route.routeName}</h4>
-                      <Badge variant="outline" className="text-[8px] font-black w-fit mt-2">Active Path</Badge>
-                    </CardHeader>
+                  <Card key={route.id} className="bg-slate-900/50 border-white/5 rounded-[1.5rem] overflow-hidden group hover:border-primary/20 transition-all">
+                    <div className="p-6 border-b border-white/5 bg-slate-950/30">
+                      <h4 className="font-black text-white uppercase italic text-lg leading-none">{route.routeName}</h4>
+                      <Badge className="bg-primary/10 text-primary border border-primary/20 text-[8px] font-black uppercase mt-3 tracking-widest px-3">Active Terminal</Badge>
+                    </div>
                     <CardContent className="space-y-6 p-6">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label className="text-[9px] font-black uppercase text-muted-foreground">Base Fare</Label>
+                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-widest ml-1">Base Protocol (₹)</Label>
                           <Input 
                             type="number" 
                             defaultValue={route.baseFare} 
                             onBlur={(e) => handleUpdateRoutePricing(route.id, { baseFare: Number(e.target.value) })}
-                            className="h-12 rounded-xl bg-secondary/20 border-none font-bold text-sm" 
+                            className="h-11 rounded-xl bg-slate-950 border-white/5 font-black text-white text-sm focus:border-primary/50 transition-all" 
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-[9px] font-black uppercase text-muted-foreground">Surge Modifier</Label>
+                          <Label className="text-[9px] font-black uppercase text-slate-500 tracking-widest ml-1">Surge Modifier</Label>
                           <Input 
                             type="number" 
                             defaultValue={route.surgeFare} 
                             onBlur={(e) => handleUpdateRoutePricing(route.id, { surgeFare: Number(e.target.value) })}
-                            className="h-12 rounded-xl bg-accent/10 border-none font-bold text-sm text-accent" 
+                            className="h-11 rounded-xl bg-slate-950 border-white/5 font-black text-primary text-sm focus:border-primary/50 transition-all" 
                           />
                         </div>
                       </div>
                       
-                      <div className="space-y-3 pt-4 border-t">
-                        <Label className="text-[9px] font-black uppercase text-muted-foreground">Vehicle Class Multipliers</Label>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div className="space-y-1">
-                            <span className="text-[8px] font-bold text-slate-400">Bus</span>
-                            <Input 
-                              type="number" step="0.1" 
-                              defaultValue={route.busMultiplier || 1.0} 
-                              onBlur={(e) => handleUpdateRoutePricing(route.id, { busMultiplier: Number(e.target.value) })}
-                              className="h-10 rounded-xl bg-secondary/10 border-none text-xs font-bold" 
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <span className="text-[8px] font-bold text-slate-400">Mini-Bus</span>
-                            <Input 
-                              type="number" step="0.1" 
-                              defaultValue={route.miniBusMultiplier || 1.2} 
-                              onBlur={(e) => handleUpdateRoutePricing(route.id, { miniBusMultiplier: Number(e.target.value) })}
-                              className="h-10 rounded-xl bg-secondary/10 border-none text-xs font-bold" 
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <span className="text-[8px] font-bold text-slate-400">Van</span>
-                            <Input 
-                              type="number" step="0.1" 
-                              defaultValue={route.vanMultiplier || 1.5} 
-                              onBlur={(e) => handleUpdateRoutePricing(route.id, { vanMultiplier: Number(e.target.value) })}
-                              className="h-10 rounded-xl bg-secondary/10 border-none text-xs font-bold" 
-                            />
-                          </div>
+                      <div className="space-y-4 pt-4 border-t border-white/5">
+                        <Label className="text-[9px] font-black uppercase text-slate-500 tracking-widest ml-1">Fleet Multipliers</Label>
+                        <div className="grid grid-cols-3 gap-3">
+                          {[
+                            { id: 'busMultiplier', label: 'Bus' },
+                            { id: 'miniBusMultiplier', label: 'Mini' },
+                            { id: 'vanMultiplier', label: 'Van' }
+                          ].map((cls) => (
+                            <div key={cls.id} className="space-y-1.5">
+                              <span className="text-[8px] font-black text-slate-500 uppercase ml-1">{cls.label}</span>
+                              <Input 
+                                type="number" step="0.1" 
+                                defaultValue={route[cls.id] || 1.0} 
+                                onBlur={(e) => handleUpdateRoutePricing(route.id, { [cls.id]: Number(e.target.value) })}
+                                className="h-10 rounded-xl bg-slate-950 border-white/5 text-xs font-black text-white" 
+                              />
+                            </div>
+                          ))}
                         </div>
                       </div>
 
-                      <div className="pt-4 border-t flex flex-wrap gap-1">
+                      <div className="pt-4 border-t border-white/5 flex flex-wrap gap-1.5">
                         {route.stops?.map((stop: string, i: number) => (
-                          <Badge key={i} variant="secondary" className="text-[8px] font-bold uppercase">{stop}</Badge>
+                          <Badge key={i} variant="secondary" className="bg-white/5 text-slate-500 text-[8px] font-bold uppercase border-none">{stop}</Badge>
                         ))}
                       </div>
                     </CardContent>
@@ -530,53 +485,92 @@ export default function AdminDashboard() {
           {activeTab === 'finance' && (
             <div className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <Card className="bg-primary text-white border-none shadow-2xl rounded-[2.5rem] p-10 relative overflow-hidden">
+                <Card className="bg-primary text-white border-none shadow-[0_20px_40px_rgba(59,130,246,0.2)] rounded-[2rem] p-10 relative overflow-hidden group">
                   <div className="relative z-10">
-                    <p className="text-xs font-black uppercase tracking-widest opacity-60">Hub Commission (10%)</p>
-                    <h3 className="text-6xl font-black italic font-headline mt-2 tracking-tighter">₹{totalCommission.toFixed(2)}</h3>
-                    <p className="text-[10px] font-bold mt-6 opacity-80 uppercase tracking-widest">Platform operating revenue</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Hub Commission (10%)</p>
+                    <h3 className="text-5xl font-black italic font-headline mt-3 tracking-tighter">₹{totalCommission.toFixed(2)}</h3>
+                    <div className="flex items-center gap-2 mt-8 py-2 px-4 bg-white/10 rounded-full w-fit">
+                      <TrendingUp className="h-3 w-3" />
+                      <p className="text-[9px] font-black uppercase tracking-widest">Platform Yield Active</p>
+                    </div>
                   </div>
-                  <TrendingUp className="absolute -right-8 -bottom-8 h-48 w-48 opacity-10" />
+                  <TrendingUp className="absolute -right-8 -bottom-8 h-48 w-48 opacity-10 group-hover:scale-110 transition-transform duration-700" />
                 </Card>
-                <Card className="bg-accent text-white border-none shadow-2xl rounded-[2.5rem] p-10 relative overflow-hidden">
+                <Card className="bg-slate-900 border-white/5 text-white shadow-xl rounded-[2rem] p-10 relative overflow-hidden group">
                   <div className="relative z-10">
-                    <p className="text-xs font-black uppercase tracking-widest opacity-60">Workforce Payouts (90%)</p>
-                    <h3 className="text-6xl font-black italic font-headline mt-2 tracking-tighter">₹{totalDriverPayouts.toFixed(2)}</h3>
-                    <p className="text-[10px] font-bold mt-6 opacity-80 uppercase tracking-widest">Total regional fleet earnings</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Fleet Net Pay (90%)</p>
+                    <h3 className="text-5xl font-black italic font-headline mt-3 tracking-tighter">₹{totalDriverPayouts.toFixed(2)}</h3>
+                    <div className="flex items-center gap-2 mt-8 py-2 px-4 bg-white/5 rounded-full w-fit">
+                      <Wallet className="h-3 w-3 text-primary" />
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Regional Workforce Share</p>
+                    </div>
                   </div>
-                  <Wallet className="absolute -right-8 -bottom-8 h-48 w-48 opacity-10" />
+                  <Wallet className="absolute -right-8 -bottom-8 h-48 w-48 opacity-5 group-hover:scale-110 transition-transform duration-700" />
                 </Card>
               </div>
 
-              <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
-                <CardHeader className="bg-secondary/5 border-b p-8">
-                  <CardTitle className="font-black font-headline text-xl italic uppercase text-primary leading-none">Workforce Payout Terminal</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                   <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="bg-secondary/20 border-b text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-                          <th className="py-6 pl-8">Operator Name</th>
-                          <th className="py-6">Vehicle Asset</th>
-                          <th className="py-6">Total Missions</th>
-                          <th className="py-6 pr-8 text-right">Net Wallet (90%)</th>
+              <Card className="bg-slate-900/50 border-white/5 rounded-[1.5rem] overflow-hidden">
+                <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                  <h4 className="font-black text-white uppercase italic text-lg leading-none">Workforce Payout Terminal</h4>
+                  <Badge variant="outline" className="border-white/10 text-slate-500 text-[9px] uppercase tracking-widest">Auto-Settlement v1.0</Badge>
+                </div>
+                 <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-slate-950/50 border-b border-white/5 text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">
+                        <th className="py-5 pl-8">Operator Name</th>
+                        <th className="py-5">Vehicle Asset</th>
+                        <th className="py-5">Missions</th>
+                        <th className="py-5 pr-8 text-right">Net Wallet (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {drivers?.map((driver: any) => (
+                        <tr key={driver.uid} className="hover:bg-white/5 transition-colors group">
+                          <td className="py-5 pl-8 font-black text-white uppercase italic text-sm">{driver.fullName}</td>
+                          <td className="py-5 font-bold text-xs text-slate-400 uppercase">{driver.vehicleType}</td>
+                          <td className="py-5 font-bold text-xs text-slate-400">{driver.totalTrips || 0}</td>
+                          <td className="py-5 pr-8 text-right font-black text-primary text-lg">₹{(driver.totalEarnings || 0).toFixed(2)}</td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {drivers?.map((driver: any) => (
-                          <tr key={driver.uid} className="hover:bg-secondary/5 transition-colors">
-                            <td className="py-6 pl-8 font-black text-primary uppercase italic text-sm">{driver.fullName}</td>
-                            <td className="py-6 font-bold text-xs uppercase">{driver.vehicleType}</td>
-                            <td className="py-6 font-bold text-xs">{driver.totalTrips || 0}</td>
-                            <td className="py-6 pr-8 text-right font-black text-accent text-lg">₹{(driver.totalEarnings || 0).toFixed(2)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                   </div>
-                </CardContent>
+                      ))}
+                    </tbody>
+                  </table>
+                 </div>
               </Card>
+            </div>
+          )}
+
+          {activeTab === 'scholars' && (
+            <div className="space-y-6">
+               <h3 className="text-lg font-black italic uppercase text-white flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" /> Scholar Database
+               </h3>
+               <Card className="bg-slate-900/50 border-white/5 rounded-[1.5rem] overflow-hidden">
+                 <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-slate-950/50 border-b border-white/5 text-[9px] font-black uppercase text-slate-500 tracking-[0.2em]">
+                        <th className="py-5 pl-8">Student Name</th>
+                        <th className="py-5">University Hub</th>
+                        <th className="py-5">Scholar ID</th>
+                        <th className="py-5">Regional Hub</th>
+                        <th className="py-5 pr-8 text-right">Credit Wallet</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {riders.map((rider: any) => (
+                        <tr key={rider.uid} className="hover:bg-white/5 transition-colors group">
+                          <td className="py-5 pl-8 font-black text-white uppercase italic text-sm">{rider.fullName}</td>
+                          <td className="py-5 font-bold text-xs text-slate-400 uppercase">{rider.collegeName || '---'}</td>
+                          <td className="py-5 font-bold text-xs text-slate-400 uppercase">{rider.studentId || '---'}</td>
+                          <td className="py-5 font-bold text-xs text-slate-400 uppercase">{rider.city}</td>
+                          <td className="py-5 pr-8 text-right font-black text-primary text-sm">₹{(rider.credits || 0).toFixed(0)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                 </div>
+               </Card>
             </div>
           )}
         </div>

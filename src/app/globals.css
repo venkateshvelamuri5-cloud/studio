@@ -23,7 +23,7 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
-    --radius: 1.5rem;
+    --radius: 1.25rem;
   }
 }
 
@@ -41,10 +41,10 @@
 
 @layer utilities {
   .text-glow {
-    text-shadow: 0 0 30px rgba(59, 130, 246, 0.4);
+    text-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
   }
   .glass-card {
-    @apply bg-white/5 backdrop-blur-2xl border border-white/10;
+    @apply bg-white/5 backdrop-blur-xl border border-white/10;
   }
   .perspective-1000 {
     perspective: 1000px;
