@@ -141,8 +141,8 @@ export default function StudentDashboard() {
     setIsBooking(true);
     try {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      await updateDoc(userRef, { activeOtp: otp, destinationStopName: destinationStop });
-      await updateDoc(doc(db, 'trips', selectedTrip.id), { 
+      updateDoc(userRef, { activeOtp: otp, destinationStopName: destinationStop });
+      updateDoc(doc(db, 'trips', selectedTrip.id), { 
         passengers: arrayUnion(user!.uid),
         riderCount: increment(1)
       });

@@ -89,7 +89,7 @@ export default function DriverConsole() {
   const validStops = useMemo(() => currentRoute?.stops?.filter((s: any) => typeof s.lat === 'number' && isFinite(s.lat)) || [], [currentRoute?.stops]);
 
   const startTrip = async (route: any) => {
-    if (!db || !user || !profile) return;
+    if (!db || !user || !profile || !userRef) return;
     setIsUpdating(true);
     try {
       const maxCapacity = profile.vehicleType === 'Van' ? 12 : profile.vehicleType === 'Mini-Bus' ? 24 : 45;
@@ -99,7 +99,7 @@ export default function DriverConsole() {
         riderCount: 0, maxCapacity,
         passengers: [], verifiedPassengers: [], startTime: new Date().toISOString()
       });
-      await updateDoc(userRef!, { status: 'on-trip', activeTripId: tripRef.id });
+      updateDoc(userRef, { status: 'on-trip', activeTripId: tripRef.id });
       toast({ title: "Mission Corridor Initiated", description: `Active on Route: ${route.routeName}` });
     } catch {
       toast({ variant: "destructive", title: "Could not start mission corridor" });
@@ -117,8 +117,8 @@ export default function DriverConsole() {
         toast({ variant: "destructive", title: "Identity Sequence Error", description: "Verification code invalid." });
       } else {
         const rider = snap.docs[0].data();
-        await updateDoc(doc(db, 'trips', activeTrip.id), { verifiedPassengers: arrayUnion(rider.uid) });
-        await updateDoc(doc(db, 'users', rider.uid), { activeOtp: null });
+        updateDoc(doc(db, 'trips', activeTrip.id), { verifiedPassengers: arrayUnion(rider.uid) });
+        updateDoc(doc(db, 'users', rider.uid), { activeOtp: null });
         toast({ title: "Scholar Authenticated", description: `${rider.fullName} is now on-board.` });
         setVerificationOtp("");
       }
@@ -133,14 +133,19 @@ export default function DriverConsole() {
     if (!db || !activeTrip || !userRef) return;
     setIsUpdating(true);
     try {
-      await updateDoc(doc(db, 'trips', activeTrip.id), { status: 'completed', endTime: new Date().toISOString() });
-      await updateDoc(userRef, { status: 'available', activeTripId: null });
+      updateDoc(doc(db, 'trips', activeTrip.id), { status: 'completed', endTime: new Date().toISOString() });
+      updateDoc(userRef, { status: 'available', activeTripId: null });
       toast({ title: "Mission Completed", description: "All telemetry data pushed to regional hub." });
     } catch {
       toast({ variant: "destructive", title: "Could not close mission corridor" });
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const handleToggleStatus = () => {
+    if (!userRef || !profile) return;
+    updateDoc(userRef, { status: profile.status === 'offline' ? 'available' : 'offline' });
   };
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/driver/login'); };
@@ -152,7 +157,7 @@ export default function DriverConsole() {
       <header className="p-6 flex items-center justify-between border-b border-slate-200 bg-white/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm">
         <div className="flex items-center gap-4">
           <div className="h-12 w-12 rounded-2xl overflow-hidden border-2 border-primary/20 bg-white flex items-center justify-center text-primary font-black italic">
-            {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : profile?.fullName?.[0]}
+            {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" alt="Driver" /> : profile?.fullName?.[0]}
           </div>
           <div>
             <h1 className="font-black text-sm uppercase italic text-slate-900 leading-none">{profile?.fullName}</h1>
@@ -161,7 +166,7 @@ export default function DriverConsole() {
             </Badge>
           </div>
         </div>
-        <Button onClick={() => updateDoc(userRef!, { status: profile?.status === 'offline' ? 'available' : 'offline' })} className={`rounded-2xl h-11 w-11 p-0 transition-all ${profile?.status === 'offline' ? 'bg-slate-200 text-slate-400' : 'bg-primary text-white shadow-xl'}`}>
+        <Button onClick={handleToggleStatus} className={`rounded-2xl h-11 w-11 p-0 transition-all ${profile?.status === 'offline' ? 'bg-slate-200 text-slate-400' : 'bg-primary text-white shadow-xl'}`}>
           <Power className="h-5 w-5" />
         </Button>
       </header>
@@ -174,7 +179,7 @@ export default function DriverConsole() {
               {availableRoutes.length === 0 ? (
                 <Card className="p-12 text-center bg-white border-dashed border-2 border-slate-200 rounded-[2.5rem]">
                    <AlertCircle className="h-10 w-10 text-slate-300 mx-auto mb-4" />
-                   <p className="text-xs font-black uppercase tracking-widest text-slate-400">No Regional Routes Available</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No Regional Routes Available</p>
                 </Card>
               ) : (
                 availableRoutes.map((route: any) => (
@@ -204,7 +209,7 @@ export default function DriverConsole() {
               ) : (
                 <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50">
                    <MapPinned className="h-10 w-10 text-slate-200 mb-4" />
-                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Tactical Map Offline</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tactical Map Offline</p>
                    <p className="text-[8px] font-bold text-slate-400 mt-2 uppercase italic">Map API Not Activated</p>
                 </div>
               )}
@@ -268,7 +273,7 @@ export default function DriverConsole() {
               {pastTrips?.length === 0 ? (
                 <Card className="p-12 text-center bg-white rounded-[2.5rem]">
                    <History className="h-10 w-10 text-slate-200 mx-auto mb-4" />
-                   <p className="text-xs font-black uppercase tracking-widest text-slate-400">No Mission History</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No Mission History</p>
                 </Card>
               ) : (
                 pastTrips?.map((trip: any) => (
@@ -291,7 +296,7 @@ export default function DriverConsole() {
           <div className="space-y-8 animate-in fade-in text-center">
             <div className="flex flex-col items-center gap-6 py-8">
               <div className="h-40 w-40 rounded-[3rem] overflow-hidden border-4 border-primary/10 shadow-xl bg-white">
-                {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : <UserIcon className="h-16 w-16 text-slate-200 m-auto" />}
+                {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" alt="Driver Profile" /> : <UserIcon className="h-16 w-16 text-slate-200 m-auto" />}
               </div>
               <div>
                 <h2 className="text-4xl font-black italic uppercase text-slate-900 leading-none">{profile?.fullName}</h2>
