@@ -34,7 +34,9 @@ import {
   Route as RouteIcon,
   Trash2,
   CheckCircle,
-  XCircle
+  XCircle,
+  ArrowRight,
+  MapPinned
 } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Polyline } from '@react-google-maps/api';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
@@ -82,9 +84,13 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'drivers' | 'scholars' | 'suggestions' | 'finance' | 'safety'>('dashboard');
   const [selectedDriver, setSelectedDriver] = useState<any>(null);
   const [isAddingRoute, setIsAddingRoute] = useState(false);
+  
+  // Advanced Route Creation State
   const [newRoute, setNewRoute] = useState({ 
     routeName: '', 
     city: 'Vizag',
+    baseFare: 50,
+    surgeFare: 0,
     stops: [] as Stop[] 
   });
   
@@ -146,7 +152,7 @@ export default function AdminDashboard() {
 
   const handleCreateRoute = async () => {
     if (!db || !newRoute.routeName || newRoute.stops.length < 2) {
-      toast({ variant: "destructive", title: "Invalid Architecture", description: "Route requires name and at least 2 nodes (Boarding & Dropping)." });
+      toast({ variant: "destructive", title: "Architecture Violation", description: "Route requires name and at least 2 nodes (Boarding & Dropping)." });
       return;
     }
     try {
@@ -154,16 +160,14 @@ export default function AdminDashboard() {
         ...newRoute,
         status: 'active',
         isActive: true,
-        baseFare: 50,
-        surgeFare: 0,
         busMultiplier: 1.0,
         miniBusMultiplier: 1.2,
         vanMultiplier: 1.5,
         createdAt: new Date().toISOString()
       });
       setIsAddingRoute(false);
-      setNewRoute({ routeName: '', city: profile?.city || 'Vizag', stops: [] });
-      toast({ title: "Network Updated", description: "New high-precision regional route deployed." });
+      setNewRoute({ routeName: '', city: profile?.city || 'Vizag', baseFare: 50, surgeFare: 0, stops: [] });
+      toast({ title: "Network Updated", description: "New high-precision corridor deployed to regional grid." });
     } catch {
       toast({ variant: "destructive", title: "Deployment Error" });
     }
@@ -420,97 +424,149 @@ export default function AdminDashboard() {
             <div className="space-y-8">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-black italic uppercase text-white flex items-center gap-2">
-                  <RouteIcon className="h-5 w-5 text-primary" /> Network Grid
+                  <RouteIcon className="h-5 w-5 text-primary" /> Mission Architect
                 </h3>
                 <Button 
                   onClick={() => setIsAddingRoute(!isAddingRoute)} 
                   className="bg-primary hover:bg-primary/90 rounded-xl font-black italic uppercase h-11 px-8 shadow-lg shadow-primary/20"
                 >
-                  {isAddingRoute ? "View Grid" : "Deploy Corridor"}
+                  {isAddingRoute ? "View Network Grid" : "Deploy New Corridor"}
                 </Button>
               </div>
 
               {isAddingRoute ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <Card className="bg-slate-900/50 border-white/5 rounded-[2rem] p-8 shadow-2xl border-l-4 border-primary">
-                    <div className="space-y-6">
-                      <div className="space-y-2">
-                         <Label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] ml-1">Corridor Name</Label>
-                         <Input 
-                           value={newRoute.routeName} 
-                           onChange={(e) => setNewRoute({ ...newRoute, routeName: e.target.value })}
-                           placeholder="e.g. Gitam Coast Express" 
-                           className="h-14 bg-slate-950 border-white/5 rounded-xl font-black text-white italic" 
-                         />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <Card className="bg-slate-900/50 border-white/5 rounded-[2.5rem] p-10 shadow-2xl border-l-8 border-primary overflow-hidden relative">
+                    <div className="absolute top-0 right-0 p-8 opacity-5">
+                       <MapPinned className="h-32 w-32" />
+                    </div>
+                    <div className="space-y-8 relative z-10">
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                           <Label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] ml-1">Corridor Identity</Label>
+                           <Input 
+                             value={newRoute.routeName} 
+                             onChange={(e) => setNewRoute({ ...newRoute, routeName: e.target.value })}
+                             placeholder="e.g. AU Coast Express" 
+                             className="h-14 bg-slate-950 border-white/10 rounded-2xl font-black text-white italic" 
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <Label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] ml-1">Hub Region</Label>
+                           <Input 
+                             value={newRoute.city} 
+                             readOnly
+                             className="h-14 bg-slate-950/50 border-white/10 rounded-2xl font-black text-slate-500 italic cursor-not-allowed" 
+                           />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-6 p-6 bg-slate-950/50 rounded-[2rem] border border-white/5">
+                        <div className="space-y-2">
+                           <Label className="text-[10px] font-black uppercase text-primary tracking-[0.2em] ml-1">Base Protocol (₹)</Label>
+                           <Input 
+                             type="number"
+                             value={newRoute.baseFare} 
+                             onChange={(e) => setNewRoute({ ...newRoute, baseFare: Number(e.target.value) })}
+                             className="h-14 bg-slate-900 border-none rounded-xl font-black text-white" 
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <Label className="text-[10px] font-black uppercase text-accent tracking-[0.2em] ml-1">Surge Buffer (₹)</Label>
+                           <Input 
+                             type="number"
+                             value={newRoute.surgeFare} 
+                             onChange={(e) => setNewRoute({ ...newRoute, surgeFare: Number(e.target.value) })}
+                             className="h-14 bg-slate-900 border-none rounded-xl font-black text-white" 
+                           />
+                        </div>
                       </div>
                       
-                      <div className="space-y-4 pt-4 border-t border-white/5">
-                        <Label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] ml-1">Add Mission Node</Label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-4 pt-6 border-t border-white/5">
+                        <div className="flex items-center justify-between mb-2">
+                           <Label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] ml-1">Node Architecture</Label>
+                           <Badge variant="outline" className="text-[8px] uppercase border-white/10 text-slate-400">
+                             {newRoute.stops.length === 0 ? 'Add Boarding Point' : newRoute.stops.length === 1 ? 'Add Intermediate Stop' : 'Add Node'}
+                           </Badge>
+                        </div>
+                        <div className="space-y-4 bg-slate-950/30 p-6 rounded-[2rem] border border-dashed border-white/10">
                            <Input 
-                             placeholder="Node Name (e.g. Gitam Terminal)" 
+                             placeholder="Node Name (e.g. Main Terminal)" 
                              value={tempStop.name}
                              onChange={(e) => setTempStop({...tempStop, name: e.target.value})}
-                             className="bg-slate-950 border-white/5"
+                             className="h-12 bg-slate-900 border-none rounded-xl"
                            />
-                           <div className="flex gap-2">
-                             <Input 
-                               type="number" 
-                               placeholder="Lat" 
-                               value={tempStop.lat}
-                               onChange={(e) => setTempStop({...tempStop, lat: Number(e.target.value)})}
-                               className="bg-slate-950 border-white/5"
-                             />
-                             <Input 
-                               type="number" 
-                               placeholder="Lng" 
-                               value={tempStop.lng}
-                               onChange={(e) => setTempStop({...tempStop, lng: Number(e.target.value)})}
-                               className="bg-slate-950 border-white/5"
-                             />
+                           <div className="grid grid-cols-2 gap-4">
+                             <div className="space-y-1">
+                                <span className="text-[8px] font-black text-slate-500 ml-1">LATITUDE</span>
+                                <Input 
+                                  type="number" 
+                                  value={tempStop.lat}
+                                  onChange={(e) => setTempStop({...tempStop, lat: Number(e.target.value)})}
+                                  className="h-12 bg-slate-900 border-none rounded-xl"
+                                />
+                             </div>
+                             <div className="space-y-1">
+                                <span className="text-[8px] font-black text-slate-500 ml-1">LONGITUDE</span>
+                                <Input 
+                                  type="number" 
+                                  value={tempStop.lng}
+                                  onChange={(e) => setTempStop({...tempStop, lng: Number(e.target.value)})}
+                                  className="h-12 bg-slate-900 border-none rounded-xl"
+                                />
+                             </div>
                            </div>
+                           <Button onClick={addStopToRoute} variant="secondary" className="w-full h-12 rounded-xl font-black uppercase italic shadow-lg">
+                              Add Node to Path
+                           </Button>
                         </div>
-                        <Button onClick={addStopToRoute} variant="secondary" className="w-full h-12 rounded-xl font-black uppercase italic">
-                           Log Node to Architecture
-                        </Button>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 pt-6">
                          <Button 
                            onClick={handleCreateRoute}
                            disabled={!newRoute.routeName || newRoute.stops.length < 2}
-                           className="h-14 bg-primary hover:bg-primary/90 rounded-xl font-black uppercase italic"
+                           className="h-16 bg-primary hover:bg-primary/90 rounded-2xl font-black uppercase italic text-lg shadow-xl shadow-primary/20"
                          >
-                           Authorize Deployment
+                           Deploy Corridor
                          </Button>
-                         <Button variant="ghost" onClick={() => setIsAddingRoute(false)} className="h-14 text-slate-500 font-black uppercase italic">
-                           Abort
+                         <Button variant="ghost" onClick={() => setIsAddingRoute(false)} className="h-16 text-slate-500 font-black uppercase italic hover:text-white">
+                           Abort Mission
                          </Button>
                       </div>
                     </div>
                   </Card>
 
-                  <Card className="bg-slate-900/50 border-white/5 rounded-[2rem] p-8">
-                     <h4 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-6">Mission Path Preview</h4>
-                     <div className="space-y-4">
+                  <Card className="bg-slate-900/50 border-white/5 rounded-[2.5rem] p-10 flex flex-col shadow-2xl">
+                     <div className="flex items-center justify-between mb-8">
+                        <h4 className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Mission Path Preview</h4>
+                        {newRoute.stops.length > 0 && <Badge className="bg-primary/10 text-primary border-none">{newRoute.stops.length} Nodes</Badge>}
+                     </div>
+                     <div className="flex-1 space-y-4 overflow-y-auto max-h-[600px] pr-4 custom-scrollbar">
                         {newRoute.stops.map((stop, i) => (
-                          <div key={i} className="flex items-center justify-between p-4 bg-slate-950/50 rounded-xl border border-white/5 group">
-                             <div className="flex items-center gap-4">
-                                <div className={`h-8 w-8 rounded-lg flex items-center justify-center font-black text-[10px] ${i === 0 ? 'bg-green-500/10 text-green-400' : i === newRoute.stops.length - 1 ? 'bg-red-500/10 text-red-400' : 'bg-primary/10 text-primary'}`}>
+                          <div key={i} className="flex items-center justify-between p-6 bg-slate-950/50 rounded-[2rem] border border-white/5 group relative overflow-hidden">
+                             <div className="flex items-center gap-6 relative z-10">
+                                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center font-black text-[10px] shadow-lg ${i === 0 ? 'bg-green-500 text-white' : i === newRoute.stops.length - 1 ? 'bg-red-500 text-white' : 'bg-primary/20 text-primary border border-primary/20'}`}>
                                    {i === 0 ? 'START' : i === newRoute.stops.length - 1 ? 'END' : i}
                                 </div>
                                 <div>
-                                   <p className="text-xs font-black uppercase italic text-white">{stop.name}</p>
-                                   <p className="text-[8px] font-bold text-slate-500 uppercase">{stop.lat.toFixed(4)}, {stop.lng.toFixed(4)}</p>
+                                   <p className="text-sm font-black uppercase italic text-white leading-none">{stop.name}</p>
+                                   <p className="text-[9px] font-bold text-slate-500 uppercase mt-2 tracking-widest">{stop.lat.toFixed(6)}, {stop.lng.toFixed(6)}</p>
                                 </div>
                              </div>
-                             <Button size="icon" variant="ghost" onClick={() => removeStop(i)} className="text-red-500 opacity-0 group-hover:opacity-100">
+                             <Button size="icon" variant="ghost" onClick={() => removeStop(i)} className="text-red-500 h-10 w-10 rounded-xl hover:bg-red-500/10 relative z-10">
                                 <Trash2 className="h-4 w-4" />
                              </Button>
+                             {i < newRoute.stops.length - 1 && (
+                               <div className="absolute left-12 top-full w-0.5 h-10 bg-slate-800 -translate-x-1/2" />
+                             )}
                           </div>
                         ))}
                         {newRoute.stops.length === 0 && (
-                          <p className="text-center py-12 text-slate-500 font-bold italic uppercase text-[10px] tracking-widest">Architectural nodes pending...</p>
+                          <div className="flex-1 flex flex-col items-center justify-center text-center p-20 border-2 border-dashed border-white/5 rounded-[3rem]">
+                             <MapPinned className="h-16 w-16 text-slate-800 mb-6" />
+                             <p className="text-slate-500 font-bold italic uppercase tracking-widest text-xs leading-relaxed">Architecture nodes pending.<br/>Define start and end terminals.</p>
+                          </div>
                         )}
                      </div>
                   </Card>
@@ -518,27 +574,32 @@ export default function AdminDashboard() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {savedRoutes.map((route: any) => (
-                    <Card key={route.id} className="bg-slate-900/50 border-white/5 rounded-[2rem] overflow-hidden group hover:border-primary/20 transition-all">
+                    <Card key={route.id} className="bg-slate-900/50 border-white/5 rounded-[2.5rem] overflow-hidden group hover:border-primary/20 transition-all shadow-xl">
                       <div className="p-8 border-b border-white/5 bg-slate-950/30">
-                        <h4 className="font-black text-white uppercase italic text-xl leading-tight">{route.routeName}</h4>
-                        <Badge className="bg-primary/10 text-primary border border-primary/20 text-[8px] font-black uppercase tracking-widest px-3 mt-2">Stable Node</Badge>
+                        <div className="flex justify-between items-start">
+                          <h4 className="font-black text-white uppercase italic text-xl leading-tight">{route.routeName}</h4>
+                          <Badge className="bg-primary/10 text-primary border border-primary/20 text-[8px] font-black uppercase tracking-widest px-3">Stable Hub</Badge>
+                        </div>
+                        <p className="text-[8px] font-black text-slate-500 uppercase mt-2 tracking-widest">{route.stops?.[0]?.name} <ArrowRight className="inline h-2 w-2 mx-1" /> {route.stops?.[route.stops.length-1]?.name}</p>
                       </div>
-                      <CardContent className="p-8 space-y-4">
-                         <div className="grid grid-cols-2 gap-4">
+                      <CardContent className="p-8 space-y-6">
+                         <div className="grid grid-cols-2 gap-6 p-4 bg-slate-950 rounded-2xl border border-white/5">
                            <div className="space-y-1">
                               <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Base Rate</p>
-                              <p className="text-lg font-black text-white">₹{route.baseFare}</p>
+                              <p className="text-xl font-black text-white italic">₹{route.baseFare}</p>
                            </div>
                            <div className="space-y-1">
-                              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Surge</p>
-                              <p className="text-lg font-black text-primary">+₹{route.surgeFare}</p>
+                              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Current Surge</p>
+                              <p className="text-xl font-black text-primary italic">+₹{route.surgeFare}</p>
                            </div>
                          </div>
-                         <div className="pt-4 border-t border-white/5">
-                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Network Nodes</p>
-                            <div className="flex flex-wrap gap-1.5">
+                         <div className="pt-4">
+                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Operational Nodes</p>
+                            <div className="flex flex-wrap gap-2">
                                {route.stops?.map((stop: any, i: number) => (
-                                 <Badge key={i} variant="secondary" className="bg-white/5 text-slate-400 text-[8px] font-bold uppercase border-none">{stop.name}</Badge>
+                                 <Badge key={i} variant="secondary" className="bg-white/5 text-slate-400 text-[8px] font-bold uppercase border-none px-3">
+                                   {i === 0 ? 'START' : i === route.stops.length - 1 ? 'END' : stop.name}
+                                 </Badge>
                                ))}
                             </div>
                          </div>
