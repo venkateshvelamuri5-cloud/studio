@@ -18,14 +18,26 @@
         "city": { "type": "string", "enum": ["Vizag", "Vizianagaram"] },
         "role": { "type": "string", "enum": ["rider", "admin", "driver"] },
         "status": { "type": "string", "enum": ["available", "on-trip", "offline"] },
+        "photoUrl": { "type": "string", "description": "URL to the user's profile photo." },
         "currentLat": { "type": "number" },
         "currentLng": { "type": "number" },
         "totalTrips": { "type": "number", "default": 0 },
         "credits": { "type": "number", "default": 0 },
-        "totalEarnings": { "type": "number", "default": 0, "description": "Cumulative earnings for drivers (90% share)." },
-        "weeklyEarnings": { "type": "number", "default": 0, "description": "Current week's earnings for drivers." },
+        "totalEarnings": { "type": "number", "default": 0, "description": "Total earnings already paid out to the driver." },
+        "weeklyEarnings": { "type": "number", "default": 0, "description": "Earnings from the current week waiting for admin payout." },
         "createdAt": { "type": "string", "format": "date-time" },
-        "activeOtp": { "type": "string", "description": "Temporary 6-digit OTP for boarding verification." }
+        "activeOtp": { "type": "string", "description": "Temporary 6-digit OTP for boarding verification." },
+        "payoutHistory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "amount": { "type": "number" },
+              "date": { "type": "string", "format": "date-time" },
+              "status": { "type": "string", "default": "processed" }
+            }
+          }
+        }
       },
       "required": ["uid", "fullName", "role"]
     },
@@ -63,11 +75,12 @@
         "stops": { 
           "type": "array", 
           "items": { 
-            "type": "object",
-            "properties": {
-              "name": { "type": "string" },
-              "lat": { "type": "number" },
-              "lng": { "type": "number" }
+            "object": {
+              "properties": {
+                "name": { "type": "string" },
+                "lat": { "type": "number" },
+                "lng": { "type": "number" }
+              }
             }
           } 
         },
