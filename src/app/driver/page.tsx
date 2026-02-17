@@ -33,6 +33,7 @@ import { firebaseConfig } from '@/firebase/config';
 
 const mapContainerStyle = { width: '100%', height: '240px', borderRadius: '2rem' };
 const mapOptions = { mapId: "da87e9c90896eba04be76dde", disableDefaultUI: true };
+const DEFAULT_CENTER = { lat: 17.6868, lng: 83.2185 }; // Vizag Hub
 
 export default function DriverConsole() {
   const { user, loading: authLoading } = useUser();
@@ -203,12 +204,19 @@ export default function DriverConsole() {
         ) : (
           <div className="space-y-6 animate-in slide-in-from-bottom-4">
             <div className="relative rounded-[2.5rem] overflow-hidden border border-slate-200 shadow-xl h-64 bg-slate-100">
-              {isLoaded && !loadError && validStops.length > 0 ? (
-                <GoogleMap mapContainerStyle={mapContainerStyle} center={{ lat: Number(validStops[0].lat), lng: Number(validStops[0].lng) }} zoom={13} options={mapOptions}>
-                  <Polyline 
-                    path={validStops.map((s: any) => ({ lat: Number(s.lat), lng: Number(s.lng) }))} 
-                    options={{ strokeColor: "#3b82f6", strokeOpacity: 0.8, strokeWeight: 6 }} 
-                  />
+              {isLoaded && !loadError ? (
+                <GoogleMap 
+                  mapContainerStyle={mapContainerStyle} 
+                  center={validStops.length > 0 ? { lat: Number(validStops[0].lat), lng: Number(validStops[0].lng) } : DEFAULT_CENTER} 
+                  zoom={13} 
+                  options={mapOptions}
+                >
+                  {validStops.length > 1 && (
+                    <Polyline 
+                      path={validStops.map((s: any) => ({ lat: Number(s.lat), lng: Number(s.lng) }))} 
+                      options={{ strokeColor: "#3b82f6", strokeOpacity: 0.8, strokeWeight: 6 }} 
+                    />
+                  )}
                   {validStops.map((stop: any, idx: number) => (
                     <Marker key={idx} position={{ lat: Number(stop.lat), lng: Number(stop.lng) }} label={{ text: stop.name, fontSize: '10px', fontWeight: 'bold' }} />
                   ))}
@@ -236,8 +244,8 @@ export default function DriverConsole() {
                   <Label className="text-[10px] font-black uppercase tracking-[0.4em]">Scholar Authentication</Label>
                 </div>
                 <div className="flex gap-3">
-                  <Input value={verificationOtp} onChange={(e) => setVerificationOtp(e.target.value)} placeholder="000000" className="h-16 text-center font-black tracking-[0.4em] text-2xl rounded-2xl bg-white border-none shadow-inner" maxLength={6} />
-                  <Button onClick={verifyPassenger} disabled={isVerifying || !verificationOtp} className="h-16 w-16 rounded-2xl bg-primary text-white shadow-lg active:scale-95 transition-all">
+                  <input value={verificationOtp} onChange={(e) => setVerificationOtp(e.target.value)} placeholder="000000" className="h-16 w-full text-center font-black tracking-[0.4em] text-2xl rounded-2xl bg-white border-none shadow-inner outline-none focus:ring-2 focus:ring-primary" maxLength={6} />
+                  <Button onClick={verifyPassenger} disabled={isVerifying || !verificationOtp} className="h-16 w-16 rounded-2xl bg-primary text-white shadow-lg active:scale-95 transition-all p-0">
                     {isVerifying ? <Loader2 className="animate-spin h-6 w-6" /> : <CheckCircle2 className="h-8 w-8" />}
                   </Button>
                 </div>
@@ -246,10 +254,10 @@ export default function DriverConsole() {
               <div className="space-y-4">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Manifest Radar</h3>
                 <div className="space-y-3">
-                  {passengerDetails?.length === 0 ? (
+                  {!passengerDetails || passengerDetails.length === 0 ? (
                     <p className="text-[10px] text-center font-bold text-slate-300 italic py-8">Awaiting regional bookings...</p>
                   ) : (
-                    passengerDetails?.map((p: any) => (
+                    passengerDetails.map((p: any) => (
                       <div key={p.uid} className="p-5 bg-slate-50 rounded-[1.5rem] flex justify-between items-center border border-slate-100">
                         <div className="flex items-center gap-4">
                           <div className={`h-12 w-12 rounded-xl flex items-center justify-center font-black text-xs ${activeTrip.verifiedPassengers?.includes(p.uid) ? 'bg-green-100 text-green-600' : 'bg-primary/10 text-primary'}`}>
@@ -301,7 +309,7 @@ export default function DriverConsole() {
         {activeTab === 'profile' && (
           <div className="space-y-8 animate-in fade-in text-center">
             <div className="flex flex-col items-center gap-6 py-8">
-              <div className="h-40 w-40 rounded-[3rem] overflow-hidden border-4 border-primary/10 shadow-xl bg-white">
+              <div className="h-40 w-40 rounded-[3rem] overflow-hidden border-4 border-primary/10 shadow-xl bg-white flex items-center justify-center">
                 {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" alt="Driver Profile" /> : <UserIcon className="h-16 w-16 text-slate-200 m-auto" />}
               </div>
               <div>

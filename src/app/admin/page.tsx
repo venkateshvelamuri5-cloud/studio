@@ -24,10 +24,12 @@ import {
   Route as RouteIcon,
   Sparkles,
   ArrowRight,
-  ClipboardList
+  ClipboardList,
+  History,
+  AlertCircle
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
-import { collection, query, doc, setDoc, orderBy, limit } from 'firebase/firestore';
+import { collection, query, doc, setDoc, orderBy, limit, updateDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { generateShuttleRoutes, AdminGenerateShuttleRoutesInput } from '@/ai/flows/admin-generate-shuttle-routes';
@@ -39,7 +41,7 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useUser();
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'payments' | 'routes' | 'ai-architect'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'payments' | 'routes' | 'ai-architect' | 'payouts'>('dashboard');
   const [vizagUpi, setVizagUpi] = useState('');
   const [vzmUpi, setVzmUpi] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -66,13 +68,15 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (profile && profile.role !== 'admin' && !authLoading) {
-      router.push('/');
+      router.push('/admin/login');
     }
   }, [profile, authLoading, router]);
 
   const { data: allTrips } = useCollection(useMemo(() => db ? query(collection(db, 'trips'), orderBy('startTime', 'desc'), limit(50)) : null, [db]));
   const { data: allUsers } = useCollection(useMemo(() => db ? query(collection(db, 'users')) : null, [db]));
   const { data: allRoutes } = useCollection(useMemo(() => db ? query(collection(db, 'routes')) : null, [db]));
+
+  const driversWithPending = useMemo(() => allUsers?.filter(u => u.role === 'driver' && (u.weeklyEarnings || 0) > 0) || [], [allUsers]);
 
   const saveConfig = async () => {
     if (!db) return;
@@ -104,6 +108,25 @@ export default function AdminDashboard() {
     }
   };
 
+  const processPayout = async (driver: any) => {
+    if (!db) return;
+    try {
+      const driverRef = doc(db, 'users', driver.uid);
+      await updateDoc(driverRef, {
+        totalEarnings: (driver.totalEarnings || 0) + driver.weeklyEarnings,
+        weeklyEarnings: 0,
+        payoutHistory: [...(driver.payoutHistory || []), {
+          amount: driver.weeklyEarnings,
+          date: new Date().toISOString(),
+          status: 'processed'
+        }]
+      });
+      toast({ title: "Payout Dispatched", description: `₹${driver.weeklyEarnings} transferred to ${driver.fullName}.` });
+    } catch {
+      toast({ variant: "destructive", title: "Payout Sequence Failed" });
+    }
+  };
+
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/admin/login'); };
 
   if (authLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
@@ -117,11 +140,12 @@ export default function AdminDashboard() {
             <span className="text-2xl font-black font-headline italic tracking-tighter uppercase text-primary leading-none">AAGO OPS</span>
           </div>
         </div>
-        <nav className="flex-1 p-6 space-y-2 overflow-y-auto">
+        <nav className="flex-1 p-6 space-y-2 overflow-y-auto custom-scrollbar">
           {[
             { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
             { id: 'payments', label: 'Payment Hub', icon: QrCode },
             { id: 'routes', label: 'Fleet Grid', icon: RouteIcon },
+            { id: 'payouts', label: 'Finance Hub', icon: IndianRupee },
             { id: 'ai-architect', label: 'AI Architect', icon: Sparkles },
           ].map((item) => (
             <Button 
@@ -151,7 +175,7 @@ export default function AdminDashboard() {
 
         <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar">
           {activeTab === 'dashboard' && (
-            <div className="space-y-10">
+            <div className="space-y-10 animate-in fade-in">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {[
                   { label: 'Active Missions', value: allTrips?.filter(t => t.status === 'active').length || 0, icon: Navigation, color: 'text-blue-500', bg: 'bg-blue-50' },
@@ -237,6 +261,39 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {activeTab === 'payouts' && (
+            <div className="space-y-10 animate-in fade-in">
+               <h3 className="text-3xl font-black italic uppercase text-slate-900 leading-none">Workforce Settlements</h3>
+               <div className="grid grid-cols-1 gap-6">
+                 {driversWithPending.length === 0 ? (
+                   <Card className="p-20 text-center bg-white rounded-[3rem] border-dashed border-2 border-slate-200">
+                      <History className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No Pending Settlements Found</p>
+                   </Card>
+                 ) : (
+                   driversWithPending.map((driver: any) => (
+                     <Card key={driver.uid} className="bg-white border-none rounded-[2.5rem] shadow-sm overflow-hidden p-8 flex justify-between items-center hover:shadow-xl transition-all">
+                        <div className="flex items-center gap-6">
+                           <div className="h-16 w-16 bg-slate-50 rounded-2xl flex items-center justify-center font-black text-primary text-xl">{driver.fullName[0]}</div>
+                           <div>
+                             <h4 className="text-xl font-black uppercase italic text-slate-900 leading-none">{driver.fullName}</h4>
+                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">{driver.city} Hub • {driver.vehicleNumber}</p>
+                           </div>
+                        </div>
+                        <div className="flex items-center gap-10">
+                           <div className="text-right">
+                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Available Yield</p>
+                             <p className="text-2xl font-black text-primary italic leading-none">₹{driver.weeklyEarnings}</p>
+                           </div>
+                           <Button onClick={() => processPayout(driver)} className="h-14 px-8 bg-slate-900 text-white rounded-xl font-black uppercase italic">Push Payout</Button>
+                        </div>
+                     </Card>
+                   ))
+                 )}
+               </div>
+            </div>
+          )}
+
           {activeTab === 'routes' && (
             <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4">
               <div className="flex justify-between items-center">
@@ -284,7 +341,7 @@ export default function AdminDashboard() {
                       value={aiInput.studentDemandPatterns} 
                       onChange={e => setAiInput({...aiInput, studentDemandPatterns: e.target.value})}
                       placeholder="e.g. High volume from South Campus to Library between 4-6 PM..."
-                      className="min-h-[120px] rounded-2xl bg-slate-50 border-none font-bold italic p-6"
+                      className="min-h-[120px] rounded-2xl bg-slate-50 border-none font-bold italic p-6 focus:ring-2 focus:ring-primary outline-none"
                     />
                   </div>
 
@@ -294,7 +351,7 @@ export default function AdminDashboard() {
                       value={aiInput.historicalTrafficData} 
                       onChange={e => setAiInput({...aiInput, historicalTrafficData: e.target.value})}
                       placeholder="e.g. Heavy congestion on Beach Road during weekends..."
-                      className="min-h-[120px] rounded-2xl bg-slate-50 border-none font-bold italic p-6"
+                      className="min-h-[120px] rounded-2xl bg-slate-50 border-none font-bold italic p-6 focus:ring-2 focus:ring-primary outline-none"
                     />
                   </div>
 
