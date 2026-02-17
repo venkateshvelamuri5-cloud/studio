@@ -37,6 +37,8 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { GoogleMap, useJsApiLoader, Polyline, Marker } from '@react-google-maps/api';
 import { firebaseConfig } from '@/firebase/config';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const mapContainerStyle = {
   width: '100%',
@@ -112,6 +114,12 @@ export default function DriverConsole() {
         setActiveTrip(null);
         prevPassengerCount.current = 0;
       }
+    }, (error) => {
+      const permissionError = new FirestorePermissionError({
+        path: 'trips',
+        operation: 'list'
+      });
+      errorEmitter.emit('permission-error', permissionError);
     });
     return unsubscribe;
   }, [db, user?.uid, toast]);
@@ -140,7 +148,10 @@ export default function DriverConsole() {
   const toggleDuty = async () => {
     if (!userRef) return;
     const newStatus = profile?.status === 'offline' ? 'available' : 'offline';
-    await updateDoc(userRef, { status: newStatus });
+    updateDoc(userRef, { status: newStatus }).catch((e) => {
+      const error = new FirestorePermissionError({ path: userRef.path, operation: 'update' });
+      errorEmitter.emit('permission-error', error);
+    });
     toast({ title: `Shift Status: ${newStatus.toUpperCase()}` });
   };
 
@@ -169,7 +180,7 @@ export default function DriverConsole() {
       };
       
       const tripRef = await addDoc(collection(db, 'trips'), tripData);
-      await updateDoc(userRef!, { status: 'on-trip', activeTripId: tripRef.id });
+      updateDoc(userRef!, { status: 'on-trip', activeTripId: tripRef.id }).catch(() => {});
       toast({ title: "Trip Started", description: `Route: ${route.routeName}` });
     } catch {
       toast({ variant: "destructive", title: "Error starting trip" });
@@ -182,9 +193,9 @@ export default function DriverConsole() {
     if (!db || !activeTrip) return;
     setIsUpdating(true);
     try {
-      await updateDoc(doc(db, 'trips', activeTrip.id), {
+      updateDoc(doc(db, 'trips', activeTrip.id), {
         currentStopIndex: currentStopIndex + 1
-      });
+      }).catch(() => {});
       toast({ title: "Arrived", description: `Stop: ${nextStop?.name}` });
     } catch {
       toast({ variant: "destructive", title: "Error" });
@@ -204,11 +215,11 @@ export default function DriverConsole() {
         toast({ variant: "destructive", title: "Invalid Code", description: "Please ask the student for their current app code." });
       } else {
         const rider = snap.docs[0].data();
-        await updateDoc(doc(db, 'trips', activeTrip.id), {
+        updateDoc(doc(db, 'trips', activeTrip.id), {
           verifiedPassengers: arrayUnion(rider.uid),
           totalFareCollected: increment(activeTrip.farePerRider)
-        });
-        await updateDoc(doc(db, 'users', rider.uid), { activeOtp: null });
+        }).catch(() => {});
+        updateDoc(doc(db, 'users', rider.uid), { activeOtp: null }).catch(() => {});
         toast({ title: "Verified", description: `${rider.fullName} is now on board.` });
         setVerificationOtp("");
       }
@@ -226,19 +237,19 @@ export default function DriverConsole() {
       const totalCollected = activeTrip.totalFareCollected || 0;
       const driverPayout = totalCollected * 0.90;
 
-      await updateDoc(doc(db, 'trips', activeTrip.id), {
+      updateDoc(doc(db, 'trips', activeTrip.id), {
         status: 'completed',
         endTime: new Date().toISOString(),
         commissionAmount: totalCollected * 0.10,
         payoutAmount: driverPayout
-      });
+      }).catch(() => {});
 
-      await updateDoc(userRef, {
+      updateDoc(userRef, {
         status: 'available',
         activeTripId: null,
         totalTrips: increment(1),
         totalEarnings: increment(driverPayout)
-      });
+      }).catch(() => {});
 
       toast({ title: "Trip Completed", description: `Earnings: ₹${driverPayout.toFixed(0)}` });
       setActiveTab('history');

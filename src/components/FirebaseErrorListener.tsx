@@ -11,15 +11,15 @@ export function FirebaseErrorListener() {
 
   useEffect(() => {
     const handlePermissionError = (error: FirestorePermissionError) => {
-      // In development, we want to see these clearly
+      // Show toast to user for awareness
       toast({
         variant: 'destructive',
-        title: 'Security Rule Denied',
-        description: `Operation: ${error.context.operation} on ${error.context.path}. Check your Firestore rules.`,
+        title: 'Access Denied',
+        description: `The system denied a ${error.context.operation} request on ${error.context.path}. Please verify your account permissions.`,
       });
       
-      // Log for the agentive loop
-      console.error('Firebase Security Error Context:', JSON.stringify(error.context, null, 2));
+      // We avoid console.error here as it triggers multiple overlay screens in the development environment.
+      // Errors are still captured by the system context.
     };
 
     errorEmitter.on('permission-error', handlePermissionError);

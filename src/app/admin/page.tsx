@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -87,7 +87,6 @@ export default function AdminDashboard() {
   const [selectedDriver, setSelectedDriver] = useState<any>(null);
   const [isAddingRoute, setIsAddingRoute] = useState(false);
   
-  // Advanced Route Creation State
   const [newRoute, setNewRoute] = useState({ 
     routeName: '', 
     city: 'Vizag',
@@ -104,10 +103,22 @@ export default function AdminDashboard() {
   }, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
-  const { data: allUsers } = useCollection(useMemo(() => (db && user) ? query(collection(db, 'users')) : null, [db, user]));
-  const { data: allRoutes } = useCollection(useMemo(() => (db && user) ? query(collection(db, 'routes')) : null, [db, user]));
-  const { data: allTrips } = useCollection(useMemo(() => (db && user) ? query(collection(db, 'trips')) : null, [db, user]));
-  const { data: allAlerts } = useCollection(useMemo(() => (db && user) ? query(collection(db, 'alerts')) : null, [db, user]));
+  // Security check: Redirect non-admins
+  useEffect(() => {
+    if (profile && profile.role !== 'admin' && !authLoading && !profileLoading) {
+      toast({
+        variant: "destructive",
+        title: "Access Denied",
+        description: "This terminal is reserved for administrators."
+      });
+      router.push('/');
+    }
+  }, [profile, authLoading, profileLoading, router, toast]);
+
+  const { data: allUsers } = useCollection(useMemo(() => (db && user && profile?.role === 'admin') ? query(collection(db, 'users')) : null, [db, user, profile?.role]));
+  const { data: allRoutes } = useCollection(useMemo(() => (db && user && profile?.role === 'admin') ? query(collection(db, 'routes')) : null, [db, user, profile?.role]));
+  const { data: allTrips } = useCollection(useMemo(() => (db && user && profile?.role === 'admin') ? query(collection(db, 'trips')) : null, [db, user, profile?.role]));
+  const { data: allAlerts } = useCollection(useMemo(() => (db && user && profile?.role === 'admin') ? query(collection(db, 'alerts')) : null, [db, user, profile?.role]));
 
   const drivers = useMemo(() => allUsers?.filter(u => u.role === 'driver') || [], [allUsers]);
   const students = useMemo(() => allUsers?.filter(u => u.role === 'rider') || [], [allUsers]);
@@ -203,6 +214,7 @@ export default function AdminDashboard() {
   };
 
   if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-[#020617]"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
+  if (profile && profile.role !== 'admin') return null;
 
   return (
     <div className="flex h-screen bg-[#020617] font-body text-slate-200">
