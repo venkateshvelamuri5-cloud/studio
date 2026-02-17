@@ -22,9 +22,10 @@
         "currentLng": { "type": "number" },
         "totalTrips": { "type": "number", "default": 0 },
         "credits": { "type": "number", "default": 0 },
-        "totalEarnings": { "type": "number", "default": 0, "description": "Cumulative earnings for drivers." },
+        "totalEarnings": { "type": "number", "default": 0, "description": "Cumulative earnings for drivers (90% share)." },
         "weeklyEarnings": { "type": "number", "default": 0, "description": "Current week's earnings for drivers." },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "activeOtp": { "type": "string", "description": "Temporary 6-digit OTP for boarding verification." }
       },
       "required": ["uid", "fullName", "role"]
     },
@@ -39,8 +40,13 @@
         "routeName": { "type": "string" },
         "status": { "type": "string", "enum": ["active", "completed", "cancelled"] },
         "riderCount": { "type": "number" },
-        "payoutAmount": { "type": "number", "description": "Amount earned by the driver for this trip." },
-        "passengers": { "type": "array", "items": { "type": "string" }, "description": "List of student UIDs on board." },
+        "farePerRider": { "type": "number" },
+        "surgeFare": { "type": "number", "default": 0 },
+        "totalFareCollected": { "type": "number" },
+        "commissionAmount": { "type": "number", "description": "10% platform share." },
+        "payoutAmount": { "type": "number", "description": "90% driver share." },
+        "passengers": { "type": "array", "items": { "type": "string" } },
+        "verifiedPassengers": { "type": "array", "items": { "type": "string" } },
         "startTime": { "type": "string", "format": "date-time" },
         "endTime": { "type": "string", "format": "date-time" }
       },
@@ -55,32 +61,17 @@
         "routeName": { "type": "string" },
         "description": { "type": "string" },
         "stops": { "type": "array", "items": { "type": "string" } },
-        "schedule": { "type": "string" },
-        "scheduledTime": { "type": "string" },
         "city": { "type": "string", "enum": ["Vizag", "Vizianagaram"] },
-        "basePayout": { "type": "number", "default": 150 },
+        "baseFare": { "type": "number", "default": 50 },
+        "surgeFare": { "type": "number", "default": 0 },
+        "busMultiplier": { "type": "number", "default": 1.0 },
+        "miniBusMultiplier": { "type": "number", "default": 1.2 },
+        "vanMultiplier": { "type": "number", "default": 1.5 },
         "isActive": { "type": "boolean" },
         "status": { "type": "string", "enum": ["suggested", "active", "rejected"] },
-        "driverName": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["routeName", "stops", "city"]
-    },
-    "Alert": {
-      "title": "Alert",
-      "description": "An emergency SOS signal.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "senderId": { "type": "string" },
-        "senderName": { "type": "string" },
-        "role": { "type": "string" },
-        "status": { "type": "string", "enum": ["active", "resolved"] },
-        "lat": { "type": "number" },
-        "lng": { "type": "number" },
-        "timestamp": { "type": "string", "format": "date-time" }
-      },
-      "required": ["senderId", "senderName", "status"]
     }
   },
   "auth": {
@@ -98,10 +89,6 @@
     "/routes/{routeId}": {
       "schema": "Route",
       "description": "Optimized shuttle route templates."
-    },
-    "/alerts/{alertId}": {
-      "schema": "Alert",
-      "description": "Emergency signals from the workforce or scholars."
     }
   }
 }

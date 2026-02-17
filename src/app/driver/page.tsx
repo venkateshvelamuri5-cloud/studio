@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -19,11 +19,13 @@ import {
   MessageSquarePlus,
   IndianRupee,
   Wallet,
-  AlertTriangle
+  AlertTriangle,
+  Fingerprint,
+  CheckCircle2
 } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
-import { doc, updateDoc, serverTimestamp, collection, addDoc, onSnapshot, query, where, increment } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, collection, addDoc, onSnapshot, query, where, increment, arrayUnion, getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -38,10 +40,7 @@ import {
   DialogFooter as ShadDialogFooter
 } from "@/components/ui/dialog";
 
-const containerStyle = {
-  width: '100%',
-  height: '100%'
-};
+const containerStyle = { width: '100%', height: '100%' };
 
 export default function DriverConsole() {
   const { user, loading: authLoading } = useUser();
@@ -58,8 +57,8 @@ export default function DriverConsole() {
   const [activeTab, setActiveTab] = useState<'missions' | 'earnings' | 'support'>('missions');
   const [activeTrip, setActiveTrip] = useState<any>(null);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [isSendingSos, setIsSendingSos] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [verificationOtp, setVerificationOtp] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const userRef = useMemo(() => {
     if (!db || !user?.uid) return null;
@@ -67,128 +66,86 @@ export default function DriverConsole() {
   }, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
-  const allRoutesQuery = useMemo(() => db ? query(collection(db, 'routes')) : null, [db]);
-  const { data: allRoutes } = useCollection(allRoutesQuery);
-
-  const regionalRoutes = useMemo(() => {
-    if (!allRoutes || !profile?.city) return [];
-    // Show only active routes approved by admin
-    return allRoutes.filter(r => r.city === profile.city && r.status === 'active');
-  }, [allRoutes, profile?.city]);
-
-  const [isSuggesting, setIsSuggesting] = useState(false);
-  const [suggestedRouteName, setSuggestedRouteName] = useState('');
-  const [suggestedStops, setSuggestedStops] = useState('');
-  const [suggestedDescription, setSuggestedDescription] = useState('');
-  const [isSuggestDialogOpen, setIsSuggestDialogOpen] = useState(false);
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
-    return () => clearInterval(timer);
-  }, []);
+  const { data: allRoutes } = useCollection(useMemo(() => db ? query(collection(db, 'routes')) : null, [db]));
+  const regionalRoutes = useMemo(() => allRoutes?.filter(r => r.city === profile?.city && r.status === 'active') || [], [allRoutes, profile?.city]);
 
   useEffect(() => {
     if (!db || !user?.uid) return;
     const q = query(collection(db, 'trips'), where('driverId', '==', user.uid), where('status', '==', 'active'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        setActiveTrip({ ...snapshot.docs[0].data(), id: snapshot.docs[0].id });
-      } else {
-        setActiveTrip(null);
-      }
+      if (!snapshot.empty) setActiveTrip({ ...snapshot.docs[0].data(), id: snapshot.docs[0].id });
+      else setActiveTrip(null);
     });
     return unsubscribe;
   }, [db, user?.uid]);
 
-  useEffect(() => {
-    if (!userRef || profile?.status !== 'on-trip') return;
-    const interval = setInterval(() => {
-      const lat = (profile.currentLat || 17.6868) + (Math.random() - 0.5) * 0.002;
-      const lng = (profile.currentLng || 83.2185) + (Math.random() - 0.5) * 0.002;
-      updateDoc(userRef, { currentLat: lat, currentLng: lng, lastUpdated: serverTimestamp() }).catch(() => {});
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [userRef, profile?.status, profile?.currentLat, profile?.currentLng]);
-
-  const handleSOS = async () => {
-    if (!db || !user || !profile) return;
-    setIsSendingSos(true);
-    try {
-      await addDoc(collection(db, 'alerts'), {
-        senderId: user.uid,
-        senderName: profile.fullName,
-        role: 'driver',
-        status: 'active',
-        lat: profile.currentLat || 17.6868,
-        lng: profile.currentLng || 83.2185,
-        timestamp: new Date().toISOString()
-      });
-      toast({
-        variant: "destructive",
-        title: "SOS Alert Dispatched",
-        description: "Admin Terminal has received your emergency signal.",
-      });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSendingSos(false);
-    }
-  };
-
-  const isWithinTimeWindow = (scheduledTimeStr: string) => {
-    if (!scheduledTimeStr) return true;
-    try {
-      const [hours, minutes] = scheduledTimeStr.split(':').map(Number);
-      const scheduledTime = new Date();
-      scheduledTime.setHours(hours, minutes, 0, 0);
-      const diffMs = scheduledTime.getTime() - currentTime.getTime();
-      const diffMinutes = diffMs / (1000 * 60);
-      return diffMinutes <= 120 && diffMinutes >= -180; 
-    } catch {
-      return true;
-    }
-  };
-
   const toggleDuty = async () => {
     if (!userRef) return;
-    setIsUpdating(true);
-    try {
-      const newStatus = profile?.status === 'offline' || !profile?.status ? 'available' : 'offline';
-      await updateDoc(userRef, { status: newStatus });
-      toast({ title: `Shift: ${newStatus.toUpperCase()}` });
-    } catch {
-      toast({ variant: "destructive", title: "Network Error" });
-    } finally {
-      setIsUpdating(false);
-    }
+    const newStatus = profile?.status === 'offline' ? 'available' : 'offline';
+    await updateDoc(userRef, { status: newStatus });
+    toast({ title: `Shift Status: ${newStatus.toUpperCase()}` });
   };
 
-  const startTrip = async (routeName: string, basePay: number = 150) => {
+  const startTrip = async (route: any) => {
     if (!db || !user || !profile) return;
     setIsUpdating(true);
     try {
+      let fareMultiplier = 1.0;
+      if (profile.vehicleType === 'Mini-Bus') fareMultiplier = route.miniBusMultiplier || 1.2;
+      else if (profile.vehicleType === 'Van') fareMultiplier = route.vanMultiplier || 1.5;
+      
+      const farePerRider = (route.baseFare || 50 + (route.surgeFare || 0)) * fareMultiplier;
+
       const tripData = {
         driverId: user.uid,
-        driverName: profile.fullName || "Driver",
-        routeName,
-        basePayout: basePay,
+        driverName: profile.fullName,
+        routeName: route.routeName,
+        farePerRider,
+        surgeFare: route.surgeFare || 0,
         status: 'active',
         riderCount: 0,
         passengers: [],
+        verifiedPassengers: [],
+        totalFareCollected: 0,
         startTime: new Date().toISOString()
       };
       const tripRef = await addDoc(collection(db, 'trips'), tripData);
-      await updateDoc(userRef!, { 
-        status: 'on-trip', 
-        activeTripId: tripRef.id,
-        currentLat: 17.6868,
-        currentLng: 83.2185
-      });
-      toast({ title: "Mission Active", description: `Route: ${routeName}` });
+      await updateDoc(userRef!, { status: 'on-trip', activeTripId: tripRef.id });
+      toast({ title: "Mission Active", description: `Fare: ₹${farePerRider} per scholar` });
     } catch {
-      toast({ variant: "destructive", title: "Trip Error" });
+      toast({ variant: "destructive", title: "Mission Failed to Start" });
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const verifyPassenger = async () => {
+    if (!db || !activeTrip || !verificationOtp) return;
+    setIsVerifying(true);
+    try {
+      const q = query(collection(db, 'users'), where('activeOtp', '==', verificationOtp), limit(1));
+      const snap = await getDocs(q);
+      
+      if (snap.empty) {
+        toast({ variant: "destructive", title: "Invalid Protocol", description: "OTP match not found." });
+      } else {
+        const rider = snap.docs[0].data();
+        const tripRef = doc(db, 'trips', activeTrip.id);
+        
+        await updateDoc(tripRef, {
+          verifiedPassengers: arrayUnion(rider.uid),
+          totalFareCollected: increment(activeTrip.farePerRider)
+        });
+
+        await updateDoc(doc(db, 'users', rider.uid), { activeOtp: null });
+        
+        toast({ title: "Scholar Verified", description: `${rider.fullName} boarded successfully.` });
+        setVerificationOtp("");
+      }
+    } catch {
+      toast({ variant: "destructive", title: "Verification Error" });
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -196,55 +153,30 @@ export default function DriverConsole() {
     if (!db || !activeTrip || !userRef) return;
     setIsUpdating(true);
     try {
-      const finalPayout = (activeTrip.basePayout || 150) + (activeTrip.riderCount || 0) * 10;
-      const tripRef = doc(db, 'trips', activeTrip.id);
-      
-      await updateDoc(tripRef, { 
-        status: 'completed', 
+      const totalCollected = activeTrip.totalFareCollected || 0;
+      const commission = totalCollected * 0.10;
+      const driverPayout = totalCollected * 0.90;
+
+      await updateDoc(doc(db, 'trips', activeTrip.id), {
+        status: 'completed',
         endTime: new Date().toISOString(),
-        payoutAmount: finalPayout
+        commissionAmount: commission,
+        payoutAmount: driverPayout
       });
 
-      await updateDoc(userRef, { 
-        status: 'available', 
+      await updateDoc(userRef, {
+        status: 'available',
         activeTripId: null,
         totalTrips: increment(1),
-        totalEarnings: increment(finalPayout),
-        weeklyEarnings: increment(finalPayout)
+        totalEarnings: increment(driverPayout),
+        weeklyEarnings: increment(driverPayout)
       });
-      
-      toast({ title: "Mission Completed", description: `Earnings: ₹${finalPayout} synced.` });
+
+      toast({ title: "Trip Completed", description: `Earned ₹${driverPayout.toFixed(2)} (90% share)` });
     } catch {
-      toast({ variant: "destructive", title: "Sync Failed" });
+      toast({ variant: "destructive", title: "Finalization Failed" });
     } finally {
       setIsUpdating(false);
-    }
-  };
-
-  const handleSuggestRoute = async () => {
-    if (!db || !user || !profile) return;
-    setIsSuggesting(true);
-    try {
-      await addDoc(collection(db, 'routes'), {
-        routeName: suggestedRouteName,
-        stops: suggestedStops.split(',').map(s => s.trim()),
-        description: suggestedDescription,
-        city: profile.city,
-        status: 'suggested', // Admin needs to approve this
-        isActive: false,
-        suggestedBy: user.uid,
-        driverName: profile.fullName,
-        createdAt: new Date().toISOString()
-      });
-      toast({ title: "Proposal Submitted", description: "Admin will review your suggested path." });
-      setIsSuggestDialogOpen(false);
-      setSuggestedRouteName('');
-      setSuggestedStops('');
-      setSuggestedDescription('');
-    } catch {
-      toast({ variant: "destructive", title: "Error submitting suggestion" });
-    } finally {
-      setIsSuggesting(false);
     }
   };
 
@@ -253,163 +185,92 @@ export default function DriverConsole() {
     router.push('/');
   };
 
-  if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-slate-900"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
-
-  if (!user || profile?.role !== 'driver') return (
-    <div className="h-screen flex flex-col items-center justify-center bg-slate-950 text-white p-8">
-      <ShieldAlert className="h-20 w-20 text-destructive mb-6" />
-      <h2 className="text-2xl font-black italic uppercase">Terminal Restricted</h2>
-      <Button onClick={handleSignOut} className="mt-4 w-full max-w-xs h-14 bg-primary rounded-2xl font-black uppercase italic">Sign Out</Button>
-    </div>
-  );
+  if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-slate-900"><Loader2 className="animate-spin text-primary" /></div>;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col font-body pb-24">
       <header className="p-6 flex items-center justify-between border-b border-white/5 bg-slate-900">
         <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-primary flex items-center justify-center font-black text-xl">{profile?.fullName?.[0]}</div>
+          <div className="h-12 w-12 rounded-2xl bg-primary flex items-center justify-center font-black">{profile?.fullName?.[0]}</div>
           <div>
-            <h1 className="font-black italic uppercase text-sm leading-none">{profile?.fullName}</h1>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">HUB: {profile?.city}</p>
+            <h1 className="font-black italic uppercase text-sm">{profile?.fullName}</h1>
+            <Badge className="bg-white/5 text-slate-500 uppercase text-[8px]">{profile?.vehicleType}</Badge>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="destructive" 
-            onClick={handleSOS} 
-            disabled={isSendingSos} 
-            className="rounded-xl h-12 w-12 shadow-2xl shadow-red-500/20"
-          >
-            {isSendingSos ? <Loader2 className="animate-spin" /> : <AlertTriangle className="h-6 w-6" />}
-          </Button>
-          <Button size="icon" variant="ghost" disabled={isUpdating} onClick={toggleDuty} className="rounded-2xl bg-slate-800 h-12 w-12"><Power className={`h-6 w-6 ${profile?.status !== 'offline' ? 'text-green-500' : 'text-slate-500'}`} /></Button>
+        <div className="flex gap-3">
+          <Button size="icon" variant="ghost" onClick={toggleDuty} className={`rounded-2xl h-12 w-12 ${profile?.status !== 'offline' ? 'bg-green-500/10 text-green-500' : 'bg-slate-800'}`}><Power className="h-6 w-6" /></Button>
         </div>
       </header>
 
-      <main className="flex-1 p-6 space-y-6 overflow-y-auto">
-        {activeTab === 'missions' && (
-          <>
-            {!activeTrip ? (
+      <main className="flex-1 p-6 space-y-6">
+        {!activeTrip ? (
+          <section className="space-y-4">
+            <h2 className="text-xl font-black italic uppercase">Dispatch Board</h2>
+            {regionalRoutes.map((route: any) => (
+              <Card key={route.id} className="bg-slate-900 border-white/5 text-white">
+                <CardContent className="p-6 flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-black uppercase italic text-primary">{route.routeName}</h3>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase">Base Fare: ₹{route.baseFare}</p>
+                  </div>
+                  <Button onClick={() => startTrip(route)} disabled={profile?.status !== 'available'} className="bg-primary rounded-xl font-black italic uppercase h-12">Start Mission</Button>
+                </CardContent>
+              </Card>
+            ))}
+          </section>
+        ) : (
+          <div className="space-y-6 animate-in fade-in duration-500">
+            <Card className="bg-primary text-white border-none rounded-[2.5rem] p-8 shadow-2xl">
               <div className="space-y-6">
-                <div className="flex justify-between items-end">
-                  <h2 className="text-2xl font-black font-headline italic uppercase">Hub Missions</h2>
-                  <ShadDialog open={isSuggestDialogOpen} onOpenChange={setIsSuggestDialogOpen}>
-                    <ShadDialogTrigger asChild>
-                      <Button variant="outline" className="rounded-xl border-white/10 bg-white/5 text-xs font-bold gap-2">
-                        <MessageSquarePlus className="h-4 w-4" /> Propose Route
-                      </Button>
-                    </ShadDialogTrigger>
-                    <ShadDialogContent className="rounded-[2rem] bg-slate-900 border-white/10 text-white">
-                      <ShadDialogHeader>
-                        <ShadDialogTitle className="font-black italic uppercase text-primary">Suggest New Path</ShadDialogTitle>
-                      </ShadDialogHeader>
-                      <div className="space-y-4 py-4">
-                        <Input value={suggestedRouteName} onChange={(e) => setSuggestedRouteName(e.target.value)} placeholder="Route Name" className="bg-slate-800 border-none rounded-xl" />
-                        <Input value={suggestedStops} onChange={(e) => setSuggestedStops(e.target.value)} placeholder="Stops (comma separated)" className="bg-slate-800 border-none rounded-xl" />
-                        <Textarea value={suggestedDescription} onChange={(e) => setSuggestedDescription(e.target.value)} placeholder="Why is this route needed?" className="bg-slate-800 border-none rounded-xl" />
-                      </div>
-                      <ShadDialogFooter>
-                        <Button onClick={handleSuggestRoute} disabled={isSuggesting || !suggestedRouteName} className="w-full bg-primary h-14 rounded-xl font-black uppercase italic">Submit Proposal</Button>
-                      </ShadDialogFooter>
-                    </ShadDialogContent>
-                  </ShadDialog>
+                <div>
+                  <Badge className="bg-white/20 text-white font-black uppercase text-[9px] mb-2">Active Mission</Badge>
+                  <h2 className="text-4xl font-black italic uppercase">{activeTrip.routeName}</h2>
+                  <p className="text-sm font-bold opacity-80 mt-2 italic">Boarding Rate: ₹{activeTrip.farePerRider}/scholar</p>
                 </div>
 
-                <section className="space-y-4">
-                  {regionalRoutes.length === 0 ? (
-                    <div className="p-10 text-center border-4 border-dashed rounded-[2rem] text-slate-500 font-black italic uppercase">No active routes for this Hub.</div>
-                  ) : (
-                    regionalRoutes.map((route: any) => {
-                      const canStart = isWithinTimeWindow(route.scheduledTime);
-                      return (
-                        <Card key={route.id} className="bg-slate-900 border-white/5 text-white hover:ring-2 hover:ring-primary transition-all">
-                          <CardContent className="p-6 flex justify-between items-center">
-                            <div className="space-y-1">
-                              <h3 className="text-xl font-black italic uppercase text-primary">{route.routeName}</h3>
-                              <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase">
-                                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {route.scheduledTime || "On Demand"}</span>
-                                <span className="flex items-center gap-1"><IndianRupee className="h-3 w-3" /> ₹{route.basePayout || 150}</span>
-                              </div>
-                            </div>
-                            <Button onClick={() => startTrip(route.routeName, route.basePayout)} disabled={profile?.status !== 'available' || isUpdating || !canStart} className={`${canStart ? 'bg-primary' : 'bg-slate-800'} rounded-2xl h-12 font-black italic uppercase`}>
-                              {canStart ? 'Start Mission' : 'Locked'}
-                            </Button>
-                          </CardContent>
-                        </Card>
-                      );
-                    })
-                  )}
-                </section>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <Card className="bg-primary text-white border-none shadow-2xl rounded-[2.5rem] overflow-hidden">
-                  <div className="h-64 relative bg-slate-900">
-                    {isLoaded ? (
-                      <GoogleMap
-                        mapContainerStyle={containerStyle}
-                        center={{ lat: profile?.currentLat || 17.6868, lng: profile?.currentLng || 83.2185 }}
-                        zoom={16}
-                        options={{ disableDefaultUI: true }}
-                      >
-                        <Marker position={{ lat: profile?.currentLat || 17.6868, lng: profile?.currentLng || 83.2185 }} />
-                      </GoogleMap>
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center text-xs font-black uppercase italic">
-                        Loading GPS...
-                      </div>
-                    )}
+                <div className="bg-white/10 p-6 rounded-[2rem] space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-black uppercase">Verified Boarding</span>
+                    <span className="text-2xl font-black italic">{activeTrip.verifiedPassengers?.length || 0}</span>
                   </div>
-                  <CardContent className="p-8 space-y-6">
-                    <div>
-                      <Badge className="bg-white/20 text-white mb-2 font-black uppercase text-[8px]">Active Mission: {profile?.city}</Badge>
-                      <h2 className="text-3xl font-black italic uppercase">{activeTrip.routeName}</h2>
-                    </div>
-                    <div className="flex gap-4">
-                      <Button className="flex-1 bg-white text-primary hover:bg-white/90 font-black h-16 rounded-2xl uppercase italic">Navigate</Button>
-                      <Button onClick={endTrip} disabled={isUpdating} variant="outline" className="flex-1 border-white/40 text-white hover:bg-white/10 font-black h-16 rounded-2xl uppercase italic">
-                        {isUpdating ? <Loader2 className="animate-spin" /> : "Complete"}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-          </>
-        )}
+                  <div className="flex gap-2">
+                    <Input 
+                      value={verificationOtp} 
+                      onChange={(e) => setVerificationOtp(e.target.value)}
+                      placeholder="Enter Scholar OTP" 
+                      className="bg-white/10 border-none rounded-xl h-14 font-black text-center text-xl tracking-widest placeholder:text-white/30"
+                      maxLength={6}
+                    />
+                    <Button onClick={verifyPassenger} disabled={isVerifying || !verificationOtp} className="bg-accent h-14 rounded-xl px-6 font-black italic uppercase">
+                      {isVerifying ? <Loader2 className="animate-spin" /> : <Fingerprint className="h-6 w-6" />}
+                    </Button>
+                  </div>
+                </div>
 
-        {activeTab === 'earnings' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <Card className="bg-slate-900 border-white/5 p-6 rounded-[2rem]">
-                <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Today's Take</p>
-                <h3 className="text-3xl font-black italic text-primary mt-1">₹{(profile?.weeklyEarnings || 0) % 1000}</h3>
-              </Card>
-              <Card className="bg-slate-900 border-white/5 p-6 rounded-[2rem]">
-                <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Weekly Payout</p>
-                <h3 className="text-3xl font-black italic text-accent mt-1">₹{profile?.weeklyEarnings || 0}</h3>
-              </Card>
-            </div>
-            
-            <Card className="bg-primary text-white border-none rounded-[2.5rem] p-8">
-               <div className="flex items-center justify-between">
-                 <div>
-                    <p className="text-xs font-black uppercase tracking-widest opacity-60">Lifetime Earnings</p>
-                    <h2 className="text-5xl font-black italic font-headline mt-2">₹{profile?.totalEarnings || 0}</h2>
-                 </div>
-                 <Wallet className="h-16 w-16 opacity-20" />
-               </div>
-               <p className="text-xs font-bold mt-6 opacity-80 leading-relaxed">Payments are processed every Monday at 06:00 AM Regional Time.</p>
+                <div className="flex gap-4">
+                  <Button onClick={endTrip} disabled={isUpdating} className="flex-1 bg-white text-primary h-16 rounded-2xl font-black uppercase italic text-lg shadow-xl">Complete Shift</Button>
+                </div>
+              </div>
             </Card>
+
+            <div className="grid grid-cols-2 gap-4">
+               <Card className="bg-slate-900 border-white/5 p-6 rounded-[2rem]">
+                 <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Current Pot (90%)</p>
+                 <h3 className="text-2xl font-black italic text-accent">₹{(activeTrip.totalFareCollected * 0.9).toFixed(2)}</h3>
+               </Card>
+               <Card className="bg-slate-900 border-white/5 p-6 rounded-[2rem]">
+                 <p className="text-[10px] font-black uppercase text-slate-500 mb-1">Platform Share (10%)</p>
+                 <h3 className="text-2xl font-black italic text-primary">₹{(activeTrip.totalFareCollected * 0.1).toFixed(2)}</h3>
+               </Card>
+            </div>
           </div>
         )}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 p-6 bg-slate-900 border-t border-white/5 flex justify-around items-center rounded-t-[2.5rem] shadow-2xl z-50">
-        <Button variant="ghost" onClick={() => setActiveTab('missions')} className={`flex-col gap-1 h-auto py-1 ${activeTab === 'missions' ? 'text-primary' : 'text-slate-500'}`}><Bus className="h-6 w-6" /><span className="text-[8px] font-black uppercase italic">Missions</span></Button>
-        <Button variant="ghost" onClick={() => setActiveTab('earnings')} className={`flex-col gap-1 h-auto py-1 ${activeTab === 'earnings' ? 'text-primary' : 'text-slate-500'}`}><IndianRupee className="h-6 w-6" /><span className="text-[8px] font-black uppercase italic">Earnings</span></Button>
-        <Button variant="ghost" className="flex-col gap-1 h-auto py-1 text-slate-500"><Phone className="h-6 w-6" /><span className="text-[8px] font-black uppercase italic">Support</span></Button>
-        <Button variant="ghost" onClick={handleSignOut} className="flex-col gap-1 h-auto py-1 text-slate-500"><LogOut className="h-6 w-6" /><span className="text-[8px] font-black uppercase italic">Exit</span></Button>
+      <nav className="fixed bottom-0 left-0 right-0 p-6 bg-slate-900 border-t border-white/5 flex justify-around items-center rounded-t-[2.5rem] z-50">
+        <Button variant="ghost" onClick={() => setActiveTab('missions')} className={`flex-col h-auto py-1 ${activeTab === 'missions' ? 'text-primary' : 'text-slate-500'}`}><Bus className="h-6 w-6" /><span className="text-[8px] font-black uppercase">Missions</span></Button>
+        <Button variant="ghost" onClick={() => setActiveTab('earnings')} className={`flex-col h-auto py-1 ${activeTab === 'earnings' ? 'text-primary' : 'text-slate-500'}`}><IndianRupee className="h-6 w-6" /><span className="text-[8px] font-black uppercase">Earnings</span></Button>
+        <Button variant="ghost" onClick={handleSignOut} className="flex-col h-auto py-1 text-slate-500"><LogOut className="h-6 w-6" /><span className="text-[8px] font-black uppercase">Exit</span></Button>
       </nav>
     </div>
   );
