@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -54,7 +53,7 @@ import { firebaseConfig } from '@/firebase/config';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
-const mapContainerStyle = { width: '100%', height: '220px', borderRadius: '2rem' };
+const mapContainerStyle = { width: '100%', height: '220px', borderRadius: '1.5rem' };
 const mapOptions = { mapId: "da87e9c90896eba04be76dde", disableDefaultUI: true, zoomControl: false };
 
 export default function StudentDashboard() {
@@ -99,9 +98,9 @@ export default function StudentDashboard() {
         type: 'top-up',
         timestamp: new Date().toISOString()
       });
-      toast({ title: "Wallet Updated", description: `Added ₹${amount} to your scholar balance.` });
+      toast({ title: "Wallet Updated", description: `Added ₹${amount} to your wallet.` });
     } catch {
-      toast({ variant: "destructive", title: "Update failed" });
+      toast({ variant: "destructive", title: "Could not add money" });
     }
   };
 
@@ -112,16 +111,16 @@ export default function StudentDashboard() {
       const q = query(collection(db, 'promoCodes'), where('code', '==', promoCode.toUpperCase().trim()), where('isActive', '==', true), limit(1));
       const snap = await getDocs(q);
       if (snap.empty) {
-        toast({ variant: "destructive", title: "Invalid Code", description: "This promo code doesn't exist or is expired." });
+        toast({ variant: "destructive", title: "Invalid Code", description: "This code is not working or expired." });
       } else {
         const promo = snap.docs[0].data();
         await updateDoc(userRef, { credits: increment(promo.value) });
         await updateDoc(doc(db, 'promoCodes', snap.docs[0].id), { usageCount: increment(1) });
-        toast({ title: "Success!", description: `₹${promo.value} credited to your wallet.` });
+        toast({ title: "Promo Applied!", description: `₹${promo.value} added to your wallet.` });
         setPromoCode("");
       }
     } catch {
-      toast({ variant: "destructive", title: "Redemption failed" });
+      toast({ variant: "destructive", title: "Action failed" });
     } finally {
       setIsRedeeming(false);
     }
@@ -130,7 +129,7 @@ export default function StudentDashboard() {
   const buyPass = async (pass: any) => {
     if (!db || !userRef || !profile) return;
     if (profile.credits < pass.price) {
-      toast({ variant: "destructive", title: "Low Balance", description: "Top up your wallet to buy this pass." });
+      toast({ variant: "destructive", title: "Low Balance", description: "Please top up your wallet first." });
       return;
     }
     try {
@@ -150,7 +149,7 @@ export default function StudentDashboard() {
         type: 'pass-purchase',
         timestamp: new Date().toISOString()
       });
-      toast({ title: "Pass Activated", description: `You have ${pass.totalRides} rides ready to use.` });
+      toast({ title: "Pass Bought!", description: `You have ${pass.totalRides} rides to use.` });
     } catch {
       toast({ variant: "destructive", title: "Purchase failed" });
     }
@@ -159,11 +158,10 @@ export default function StudentDashboard() {
   const handleBoardRequest = async () => {
     if (!db || !userRef || !user?.uid || !selectedTrip || !destinationStop) return;
     
-    // Logic: Check for compatible pass first
     const compatiblePass = userPasses?.find(p => p.routeName === 'All Routes' || p.routeName === selectedTrip.routeName);
     
     if (!compatiblePass && (profile?.credits || 0) < selectedTrip.farePerRider) {
-      toast({ variant: "destructive", title: "Insufficient Funds", description: "Buy a pass or top up your wallet." });
+      toast({ variant: "destructive", title: "No Money", description: "Please add money to your wallet." });
       return;
     }
 
@@ -172,14 +170,12 @@ export default function StudentDashboard() {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       
       if (compatiblePass) {
-        // Use pass
         const passRef = doc(db, 'users', user.uid, 'passes', (compatiblePass as any).id);
         await updateDoc(passRef, {
           remainingRides: increment(-1)
         });
-        toast({ title: "Pass Ride Used", description: "A ride has been deducted from your active pass." });
+        toast({ title: "Pass Used", description: "One ride used from your pass." });
       } else {
-        // Use cash credits
         await updateDoc(userRef, { credits: increment(-selectedTrip.farePerRider) });
       }
 
@@ -189,50 +185,48 @@ export default function StudentDashboard() {
       setSelectedTrip(null);
       setDestinationStop("");
       setSearchQuery("");
-      toast({ title: "Booking Secure", description: "Your boarding ID is now active." });
+      toast({ title: "Booking Confirmed", description: "Your boarding code is ready." });
     } catch {
-      toast({ variant: "destructive", title: "Booking Error" });
+      toast({ variant: "destructive", title: "Booking failed" });
     } finally {
       setIsBooking(false);
     }
   };
 
-  if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-slate-950"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>;
+  if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 flex flex-col font-body pb-32">
-      <header className="px-8 py-6 flex items-center justify-between border-b border-white/5 bg-slate-900/50 backdrop-blur-xl sticky top-0 z-50">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-body pb-32">
+      <header className="px-8 py-6 flex items-center justify-between border-b border-slate-200 bg-white/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center gap-4">
-          <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary border border-primary/20"><Bus className="h-5 w-5" /></div>
-          <div><h1 className="text-xl font-black text-white italic uppercase tracking-tighter leading-none">AAGO SCHOLAR</h1><p className="text-[8px] font-black uppercase text-slate-500 tracking-[0.3em] mt-1">{profile?.city} HUB</p></div>
+          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-sm"><Bus className="h-5 w-5" /></div>
+          <div><h1 className="text-xl font-black text-slate-900 italic uppercase tracking-tighter leading-none">AAGO</h1><p className="text-[8px] font-black uppercase text-slate-400 tracking-[0.3em] mt-1">{profile?.city} HUB</p></div>
         </div>
         <div className="flex items-center gap-3">
-           <Button variant="ghost" size="icon" onClick={() => setActiveTab('wallet')} className="h-10 w-10 rounded-xl bg-white/5 text-primary"><Wallet className="h-5 w-5" /></Button>
-           <Button variant="ghost" size="icon" onClick={handleSignOut} className="h-10 w-10 rounded-xl bg-red-500/10 text-red-500"><LogOut className="h-5 w-5" /></Button>
+           <Button variant="ghost" size="icon" onClick={() => setActiveTab('wallet')} className="h-10 w-10 rounded-xl bg-slate-100 text-primary hover:bg-primary/10 transition-colors"><Wallet className="h-5 w-5" /></Button>
+           <Button variant="ghost" size="icon" onClick={handleSignOut} className="h-10 w-10 rounded-xl bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-500 transition-colors"><LogOut className="h-5 w-5" /></Button>
         </div>
       </header>
 
       <main className="flex-1 p-6 space-y-8 max-w-lg mx-auto w-full">
         {activeTab === 'home' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex justify-between items-center">
-              <div className="space-y-1">
-                <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter leading-none">Hi, {profile?.fullName?.split(' ')[0]}</h2>
-                <p className="text-slate-500 font-bold italic text-xs uppercase tracking-widest">AAGO Smart Commute</p>
-              </div>
+            <div className="space-y-1">
+              <h2 className="text-4xl font-black text-slate-900 italic uppercase tracking-tighter leading-none">Hi, {profile?.fullName?.split(' ')[0]}</h2>
+              <p className="text-slate-400 font-bold italic text-[10px] uppercase tracking-widest">Where are we going today?</p>
             </div>
 
             {profile?.activeOtp && currentBooking ? (
-              <Card className="bg-primary text-white border-none rounded-[3rem] p-8 text-center shadow-[0_32px_64px_-12px_rgba(59,130,246,0.5)] relative overflow-hidden">
-                <h3 className="text-7xl font-black tracking-[0.2em] italic font-headline leading-none mb-2">{profile.activeOtp}</h3>
-                <p className="text-[9px] font-black uppercase tracking-[0.4em] mb-8 opacity-70">Show This To Driver</p>
-                <div className="grid grid-cols-2 gap-4">
+              <Card className="bg-primary text-white border-none rounded-[2.5rem] p-8 text-center shadow-xl shadow-primary/20 relative overflow-hidden transition-all">
+                <h3 className="text-7xl font-black tracking-[0.1em] italic font-headline leading-none mb-2">{profile.activeOtp}</h3>
+                <p className="text-[9px] font-black uppercase tracking-[0.4em] mb-8 opacity-70">Show code to driver</p>
+                <div className="grid grid-cols-2 gap-3">
                   <div className="bg-white/10 p-4 rounded-2xl border border-white/10 text-left">
-                    <p className="text-[8px] font-black uppercase opacity-60">Shuttle Route</p>
+                    <p className="text-[7px] font-black uppercase opacity-60 tracking-widest">Route</p>
                     <p className="text-xs font-black italic uppercase truncate">{currentBooking.routeName}</p>
                   </div>
                   <div className="bg-white/10 p-4 rounded-2xl border border-white/10 text-left">
-                    <p className="text-[8px] font-black uppercase opacity-60">Drop-off</p>
+                    <p className="text-[7px] font-black uppercase opacity-60 tracking-widest">Drop-off</p>
                     <p className="text-xs font-black italic uppercase truncate">{profile.destinationStopName}</p>
                   </div>
                 </div>
@@ -241,53 +235,57 @@ export default function StudentDashboard() {
               <div className="space-y-6">
                 <Dialog>
                   <DialogTrigger asChild>
-                    <div className="p-10 bg-primary rounded-[3.5rem] text-white flex items-center justify-between cursor-pointer active:scale-95 transition-all shadow-2xl group relative overflow-hidden">
-                      <div className="space-y-2 relative z-10">
-                        <h3 className="text-4xl font-black italic uppercase leading-none">Find a Bus</h3>
-                        <Badge className="bg-white/20 text-white font-black uppercase text-[9px] tracking-widest border-none">Radar Active</Badge>
+                    <div className="p-10 bg-white border border-slate-100 rounded-[3rem] text-slate-900 flex items-center justify-between cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all shadow-sm group">
+                      <div className="space-y-2">
+                        <h3 className="text-4xl font-black italic uppercase leading-none">Find Bus</h3>
+                        <Badge className="bg-primary/10 text-primary font-black uppercase text-[8px] tracking-widest border-none">Radar Active</Badge>
                       </div>
-                      <Search className="h-14 w-14 relative z-10" />
+                      <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                        <Search className="h-8 w-8" />
+                      </div>
                     </div>
                   </DialogTrigger>
-                  <DialogContent className="bg-slate-900 border-white/5 text-white rounded-[3rem] p-8 max-w-[95vw] mx-auto w-full">
+                  <DialogContent className="bg-white border-none text-slate-900 rounded-[3rem] p-8 max-w-[95vw] mx-auto w-full shadow-2xl">
                     {!selectedTrip ? (
                       <div className="space-y-6 flex flex-col h-[70vh]">
-                        <DialogHeader><DialogTitle className="text-2xl font-black italic uppercase text-primary">Live Shuttle Search</DialogTitle></DialogHeader>
-                        <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" /><Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search Vizag Express..." className="bg-white/5 border-white/10 h-12 pl-12 rounded-xl text-white font-bold italic" /></div>
-                        <div className="flex-1 overflow-y-auto space-y-3">
-                          {filteredTrips.map((trip: any) => (
-                            <div key={trip.id} onClick={() => setSelectedTrip(trip)} className="p-6 bg-white/5 rounded-[2rem] flex justify-between items-center group cursor-pointer border border-white/5">
-                              <div><h4 className="font-black uppercase italic text-lg leading-none">{trip.routeName}</h4><p className="text-[10px] font-bold text-slate-500 uppercase mt-1">₹{trip.farePerRider.toFixed(0)} • {trip.driverName}</p></div>
-                              <ChevronRight className="h-5 w-5 text-slate-600 group-hover:text-primary" />
+                        <DialogHeader><DialogTitle className="text-2xl font-black italic uppercase text-primary">Live Bus Search</DialogTitle></DialogHeader>
+                        <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" /><Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Type route name..." className="bg-slate-50 border-slate-100 h-12 pl-12 rounded-xl text-slate-900 font-bold italic" /></div>
+                        <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
+                          {filteredTrips.length > 0 ? filteredTrips.map((trip: any) => (
+                            <div key={trip.id} onClick={() => setSelectedTrip(trip)} className="p-6 bg-slate-50 rounded-[2rem] flex justify-between items-center group cursor-pointer border border-transparent hover:border-primary/20 hover:bg-white hover:shadow-md transition-all">
+                              <div><h4 className="font-black uppercase italic text-lg leading-none">{trip.routeName}</h4><p className="text-[10px] font-bold text-slate-400 uppercase mt-1">₹{trip.farePerRider.toFixed(0)} • {trip.driverName}</p></div>
+                              <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center text-slate-300 group-hover:text-primary transition-colors"><ChevronRight className="h-5 w-5" /></div>
                             </div>
-                          ))}
+                          )) : <p className="text-center py-10 text-slate-400 font-bold italic uppercase text-xs">No buses active right now</p>}
                         </div>
                       </div>
                     ) : (
                       <div className="space-y-8 animate-in slide-in-from-right-4 h-[70vh] flex flex-col">
-                        <DialogHeader><DialogTitle className="text-2xl font-black italic uppercase text-primary">Select Drop-off</DialogTitle></DialogHeader>
-                        <div className="flex-1 overflow-y-auto space-y-3">
+                        <DialogHeader><DialogTitle className="text-2xl font-black italic uppercase text-primary">Choose Drop-off</DialogTitle></DialogHeader>
+                        <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar">
                           {activeRoutes?.find(r => r.routeName === selectedTrip.routeName)?.stops?.map((stop: any, idx: number) => (
-                            <div key={idx} onClick={() => setDestinationStop(stop.name)} className={`p-6 rounded-[2rem] border flex items-center justify-between ${destinationStop === stop.name ? 'bg-primary border-primary text-white shadow-lg' : 'bg-white/5 border-white/5'}`}>
+                            <div key={idx} onClick={() => setDestinationStop(stop.name)} className={`p-6 rounded-[2rem] border-2 transition-all flex items-center justify-between cursor-pointer ${destinationStop === stop.name ? 'bg-primary border-primary text-white shadow-lg' : 'bg-slate-50 border-transparent text-slate-600 hover:bg-white hover:border-slate-200'}`}>
                               <span className="font-black italic uppercase text-sm">{stop.name}</span>
-                              {destinationStop === stop.name && <CheckCircle2 className="h-6 w-6" />}
+                              {destinationStop === stop.name && <CheckCircle2 className="h-5 w-5" />}
                             </div>
                           ))}
                         </div>
-                        <Button onClick={handleBoardRequest} disabled={isBooking || !destinationStop} className="w-full h-18 bg-primary rounded-[1.5rem] font-black uppercase italic text-xl shadow-2xl">Authorize &amp; Book</Button>
+                        <Button onClick={handleBoardRequest} disabled={isBooking || !destinationStop} className="w-full h-18 bg-primary hover:bg-primary/90 rounded-[1.5rem] font-black uppercase italic text-xl shadow-xl shadow-primary/20 transition-all active:scale-95">
+                          {isBooking ? <Loader2 className="animate-spin" /> : "Book My Seat"}
+                        </Button>
                       </div>
                     )}
                   </DialogContent>
                 </Dialog>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <Card onClick={() => setActiveTab('wallet')} className="bg-slate-900 border-white/5 rounded-[2.5rem] p-6 shadow-xl border-none flex flex-col justify-between cursor-pointer active:scale-95 transition-all">
-                    <Wallet className="h-6 w-6 text-accent mb-4" />
-                    <div><p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Scholar Wallet</p><h3 className="text-3xl font-black text-white italic">₹{(profile?.credits || 0).toFixed(0)}</h3></div>
+                  <Card onClick={() => setActiveTab('wallet')} className="bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-sm flex flex-col justify-between cursor-pointer hover:shadow-md transition-all">
+                    <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent mb-4"><Wallet className="h-5 w-5" /></div>
+                    <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Wallet Balance</p><h3 className="text-3xl font-black text-slate-900 italic">₹{(profile?.credits || 0).toFixed(0)}</h3></div>
                   </Card>
-                  <Card onClick={() => setActiveTab('wallet')} className="bg-slate-900 border-white/5 rounded-[2.5rem] p-6 shadow-xl border-none flex flex-col justify-between cursor-pointer active:scale-95 transition-all">
-                    <Ticket className="h-6 w-6 text-primary mb-4" />
-                    <div><p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">My Passes</p><h3 className="text-3xl font-black text-white italic">{userPasses?.length || 0}</h3></div>
+                  <Card onClick={() => setActiveTab('wallet')} className="bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-sm flex flex-col justify-between cursor-pointer hover:shadow-md transition-all">
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-4"><Ticket className="h-5 w-5" /></div>
+                    <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Active Passes</p><h3 className="text-3xl font-black text-slate-900 italic">{userPasses?.length || 0}</h3></div>
                   </Card>
                 </div>
               </div>
@@ -297,63 +295,65 @@ export default function StudentDashboard() {
 
         {activeTab === 'wallet' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <Card className="bg-primary text-white border-none rounded-[3rem] p-10 relative overflow-hidden shadow-2xl">
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Total Scholar Balance</p>
+            <Card className="bg-primary text-white border-none rounded-[3rem] p-10 relative overflow-hidden shadow-xl shadow-primary/20">
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">My Wallet</p>
               <h3 className="text-5xl font-black italic mt-4 tracking-tighter">₹{(profile?.credits || 0).toFixed(0)}</h3>
               <Banknote className="absolute -right-8 -bottom-8 h-40 w-40 opacity-10" />
             </Card>
 
             <Tabs defaultValue="passes" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 bg-slate-900 p-1 rounded-2xl h-14">
-                <TabsTrigger value="passes" className="rounded-xl font-black uppercase italic text-[10px] data-[state=active]:bg-primary">Passes</TabsTrigger>
-                <TabsTrigger value="topup" className="rounded-xl font-black uppercase italic text-[10px] data-[state=active]:bg-primary">Top Up</TabsTrigger>
-                <TabsTrigger value="promo" className="rounded-xl font-black uppercase italic text-[10px] data-[state=active]:bg-primary">Promo</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3 bg-slate-200/50 p-1.5 rounded-2xl h-14">
+                <TabsTrigger value="passes" className="rounded-xl font-black uppercase italic text-[9px] data-[state=active]:bg-white data-[state=active]:shadow-sm">Ride Passes</TabsTrigger>
+                <TabsTrigger value="topup" className="rounded-xl font-black uppercase italic text-[9px] data-[state=active]:bg-white data-[state=active]:shadow-sm">Add Money</TabsTrigger>
+                <TabsTrigger value="promo" className="rounded-xl font-black uppercase italic text-[9px] data-[state=active]:bg-white data-[state=active]:shadow-sm">Redeem Code</TabsTrigger>
               </TabsList>
 
               <TabsContent value="passes" className="space-y-6 pt-6">
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-600 italic px-2">Your Active Passes</h4>
-                  {userPasses?.map((p: any) => (
-                    <Card key={p.id} className="bg-slate-900 border-white/5 rounded-[2rem] p-6 relative overflow-hidden">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic px-2">Your Passes</h4>
+                  {userPasses && userPasses.length > 0 ? userPasses.map((p: any) => (
+                    <Card key={p.id} className="bg-white border border-slate-100 rounded-[2rem] p-6 relative overflow-hidden shadow-sm">
                       <div className="relative z-10 flex justify-between items-center">
-                        <div><h4 className="font-black text-white uppercase italic text-sm">{p.name}</h4><p className="text-[8px] font-black text-slate-500 uppercase mt-1">{p.remainingRides} Rides Left • {p.routeName}</p></div>
-                        <div className="h-10 w-10 bg-primary/20 rounded-xl flex items-center justify-center text-primary"><Ticket className="h-5 w-5" /></div>
+                        <div><h4 className="font-black text-slate-900 uppercase italic text-sm">{p.name}</h4><p className="text-[8px] font-black text-slate-400 uppercase mt-1">{p.remainingRides} / {p.totalRides} Rides left • {p.routeName}</p></div>
+                        <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Ticket className="h-5 w-5" /></div>
                       </div>
-                      <div className="mt-4 h-1.5 bg-slate-950 rounded-full overflow-hidden"><div className="h-full bg-primary" style={{ width: `${(p.remainingRides / p.totalRides) * 100}%` }} /></div>
+                      <div className="mt-4 h-1.5 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-primary" style={{ width: `${(p.remainingRides / p.totalRides) * 100}%` }} /></div>
                     </Card>
-                  ))}
+                  )) : <p className="text-center py-6 bg-white border border-dashed border-slate-200 rounded-[2rem] text-slate-400 text-[10px] font-bold uppercase italic">No active passes</p>}
                 </div>
 
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-600 italic px-2">Regional Hub Offers</h4>
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic px-2">Offers for You</h4>
                   {availablePasses?.map((p: any) => (
-                    <Card key={p.id} className="bg-slate-900 border-white/5 rounded-[2rem] p-6 flex justify-between items-center group border-none">
-                       <div><h4 className="font-black text-white uppercase italic text-sm">{p.name}</h4><p className="text-[8px] font-black text-slate-500 uppercase mt-1">{p.totalRides} Rides • ₹{(p.price / p.totalRides).toFixed(0)}/Ride</p></div>
-                       <Button onClick={() => buyPass(p)} className="bg-primary text-slate-950 font-black uppercase italic h-10 rounded-xl shadow-lg">₹{p.price}</Button>
+                    <Card key={p.id} className="bg-white border border-slate-100 rounded-[2rem] p-6 flex justify-between items-center hover:shadow-md transition-all shadow-sm">
+                       <div><h4 className="font-black text-slate-900 uppercase italic text-sm">{p.name}</h4><p className="text-[8px] font-black text-slate-400 uppercase mt-1">{p.totalRides} Rides • Save ₹{(p.price * 0.2).toFixed(0)}</p></div>
+                       <Button onClick={() => buyPass(p)} className="bg-slate-900 text-white font-black uppercase italic h-10 rounded-xl shadow-lg hover:bg-primary transition-colors">₹{p.price}</Button>
                     </Card>
                   ))}
                 </div>
               </TabsContent>
 
               <TabsContent value="topup" className="space-y-6 pt-6">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-600 italic px-2">Instant Credit Load</h4>
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic px-2">Quick Add</h4>
                 <div className="grid grid-cols-2 gap-4">
                   {[200, 500, 1000, 2000].map(amt => (
-                    <Button key={amt} onClick={() => handleTopUp(amt)} className="h-20 bg-slate-900 hover:bg-primary hover:text-slate-950 rounded-[1.5rem] flex flex-col items-center justify-center gap-1 transition-all">
-                      <Plus className="h-4 w-4" /><span className="text-xl font-black italic">₹{amt}</span>
+                    <Button key={amt} onClick={() => handleTopUp(amt)} className="h-20 bg-white border border-slate-100 hover:border-primary/50 hover:bg-primary/5 text-slate-900 rounded-[1.5rem] flex flex-col items-center justify-center gap-1 transition-all shadow-sm">
+                      <Plus className="h-4 w-4 text-primary" /><span className="text-xl font-black italic">₹{amt}</span>
                     </Button>
                   ))}
                 </div>
               </TabsContent>
 
               <TabsContent value="promo" className="space-y-6 pt-6">
-                <Card className="bg-slate-900 border-white/5 rounded-[2.5rem] p-8 text-center">
-                  <Tag className="h-12 w-12 text-accent mx-auto mb-4 opacity-50" />
-                  <h4 className="text-xl font-black uppercase italic text-white mb-2">Redeem Protocol</h4>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase mb-8 italic">Enter a regional code to claim bonus credits.</p>
-                  <div className="flex gap-3">
-                    <Input value={promoCode} onChange={e => setPromoCode(e.target.value)} placeholder="ENTER CODE" className="h-14 bg-slate-950 border-white/10 text-center font-black tracking-widest text-white rounded-xl" />
-                    <Button onClick={redeemPromo} disabled={isRedeeming || !promoCode} className="h-14 bg-accent text-white px-8 rounded-xl font-black uppercase italic">{isRedeeming ? <Loader2 className="animate-spin" /> : "Claim"}</Button>
+                <Card className="bg-white border border-slate-100 rounded-[2.5rem] p-8 text-center shadow-sm">
+                  <div className="h-16 w-16 bg-accent/10 rounded-2xl flex items-center justify-center text-accent mx-auto mb-4"><Tag className="h-8 w-8" /></div>
+                  <h4 className="text-xl font-black uppercase italic text-slate-900 mb-2">Claim Promo</h4>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-8 italic">Enter code for free credits.</p>
+                  <div className="flex flex-col gap-4">
+                    <Input value={promoCode} onChange={e => setPromoCode(e.target.value)} placeholder="ENTER CODE" className="h-14 bg-slate-50 border-slate-200 text-center font-black tracking-[0.2em] text-slate-900 rounded-xl" />
+                    <Button onClick={redeemPromo} disabled={isRedeeming || !promoCode} className="w-full h-14 bg-accent text-white rounded-xl font-black uppercase italic shadow-lg active:scale-95 transition-all">
+                      {isRedeeming ? <Loader2 className="animate-spin" /> : "Redeem Now"}
+                    </Button>
                   </div>
                 </Card>
               </TabsContent>
@@ -363,53 +363,66 @@ export default function StudentDashboard() {
 
         {activeTab === 'history' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="space-y-1"><h2 className="text-4xl font-black text-white italic uppercase tracking-tighter">Mission Log</h2><p className="text-slate-500 font-bold italic text-xs uppercase tracking-widest">Historical shuttle activity.</p></div>
+             <div className="space-y-1"><h2 className="text-4xl font-black text-slate-900 italic uppercase tracking-tighter">My Rides</h2><p className="text-slate-400 font-bold italic text-[10px] uppercase tracking-widest">History of your past trips</p></div>
              <div className="space-y-4">
-                {pastTrips?.map((trip: any) => (
-                  <Card key={trip.id} className="bg-slate-900 border-white/5 rounded-[2rem] p-6 flex justify-between items-center group border-none">
+                {pastTrips && pastTrips.length > 0 ? pastTrips.map((trip: any) => (
+                  <Card key={trip.id} className="bg-white border border-slate-100 rounded-[2rem] p-6 flex justify-between items-center shadow-sm">
                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 bg-white/5 rounded-2xl flex items-center justify-center"><CheckCircle2 className="h-6 w-6 text-green-500" /></div>
-                        <div><h4 className="font-black text-base text-white uppercase italic leading-none">{trip.routeName}</h4><p className="text-[9px] font-bold text-slate-500 uppercase mt-1.5 tracking-widest italic">{new Date(trip.endTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} • {new Date(trip.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div>
+                        <div className="h-12 w-12 bg-green-50 rounded-2xl flex items-center justify-center text-green-500"><CheckCircle2 className="h-6 w-6" /></div>
+                        <div>
+                          <h4 className="font-black text-slate-900 uppercase italic text-sm leading-none">{trip.routeName}</h4>
+                          <p className="text-[8px] font-bold text-slate-400 uppercase mt-2 tracking-widest italic">
+                            {new Date(trip.endTime).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} • {new Date(trip.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
                      </div>
-                     <div className="text-right"><p className="text-xl font-black text-primary italic">₹{trip.farePerRider?.toFixed(0)}</p><p className="text-[8px] font-black text-slate-600 uppercase tracking-tighter">Settled</p></div>
+                     <div className="text-right"><p className="text-xl font-black text-primary italic">₹{trip.farePerRider?.toFixed(0)}</p><p className="text-[7px] font-black text-slate-300 uppercase tracking-tighter">Paid</p></div>
                   </Card>
-                ))}
+                )) : <p className="text-center py-12 text-slate-400 font-bold italic uppercase text-xs">No ride history yet</p>}
              </div>
           </div>
         )}
 
         {activeTab === 'profile' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="flex flex-col items-center gap-6 py-6 text-center">
-                <div className="h-36 w-36 rounded-[3.5rem] bg-slate-900 border-4 border-primary/20 flex items-center justify-center text-primary shadow-2xl relative overflow-hidden">
-                  <span className="text-6xl font-black italic relative z-10">{profile?.fullName?.[0]}</span>
+             <div className="flex flex-col items-center gap-6 py-8 text-center">
+                <div className="h-32 w-32 rounded-[2.5rem] bg-white border border-slate-200 flex items-center justify-center text-primary shadow-lg relative group">
+                  <div className="absolute inset-2 bg-slate-50 rounded-[1.8rem] group-hover:bg-primary/5 transition-colors" />
+                  <span className="text-5xl font-black italic relative z-10">{profile?.fullName?.[0]}</span>
                 </div>
                 <div>
-                   <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter leading-none">{profile?.fullName}</h2>
-                   <div className="mt-3 flex items-center justify-center gap-2"><Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase tracking-[0.3em] px-3">Verified Scholar</Badge></div>
+                   <h2 className="text-3xl font-black text-slate-900 italic uppercase tracking-tighter leading-none">{profile?.fullName}</h2>
+                   <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase tracking-[0.3em] px-4 py-1 mt-3">Verified Student</Badge>
                 </div>
              </div>
              <div className="space-y-4">
-                <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest px-2 italic">Institutional Identity</h4>
-                {[ { label: 'College', value: profile?.collegeName, icon: Info }, { label: 'Scholar ID', value: profile?.studentId, icon: Fingerprint } ].map((item, i) => (
-                  <div key={i} className="p-6 bg-slate-900/50 rounded-[1.5rem] border border-white/5 flex items-center gap-5">
-                    <div className="h-10 w-10 bg-white/5 rounded-xl flex items-center justify-center text-slate-500"><item.icon className="h-5 w-5" /></div>
-                    <div><p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{item.label}</p><p className="text-base font-black text-white uppercase italic mt-0.5 leading-tight">{item.value || 'N/A'}</p></div>
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 italic">Your Details</h4>
+                {[ { label: 'College', value: profile?.collegeName, icon: Info }, { label: 'Student ID', value: profile?.studentId, icon: Fingerprint } ].map((item, i) => (
+                  <div key={i} className="p-6 bg-white border border-slate-100 rounded-[2rem] flex items-center gap-5 shadow-sm">
+                    <div className="h-10 w-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400"><item.icon className="h-5 w-5" /></div>
+                    <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{item.label}</p><p className="text-sm font-black text-slate-900 uppercase italic mt-1 leading-tight">{item.value || 'N/A'}</p></div>
                   </div>
                 ))}
              </div>
-             <Button variant="ghost" onClick={handleSignOut} className="w-full h-18 bg-red-500/5 hover:bg-red-500/10 text-red-500 rounded-[1.5rem] font-black uppercase italic transition-all"><LogOut className="mr-3 h-5 w-5" /> End Scholar Session</Button>
+             <Button variant="ghost" onClick={handleSignOut} className="w-full h-18 bg-red-50 hover:bg-red-100 text-red-500 rounded-[2rem] font-black uppercase italic transition-all active:scale-95"><LogOut className="mr-3 h-5 w-5" /> Log Out</Button>
           </div>
         )}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 p-8 bg-slate-950/90 backdrop-blur-3xl border-t border-white/5 z-50 rounded-t-[3.5rem] shadow-2xl">
+      <nav className="fixed bottom-0 left-0 right-0 p-8 bg-white/90 backdrop-blur-2xl border-t border-slate-100 z-50 rounded-t-[3.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
         <div className="flex justify-around items-center max-w-lg mx-auto">
-          <Button variant="ghost" onClick={() => setActiveTab('home')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'home' ? 'text-primary scale-110' : 'text-slate-700 hover:text-slate-400'}`}><Bus className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Home</span></Button>
-          <Button variant="ghost" onClick={() => setActiveTab('wallet')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'wallet' ? 'text-primary scale-110' : 'text-slate-700 hover:text-slate-400'}`}><Wallet className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Wallet</span></Button>
-          <div className="relative group -mt-16"><div className="absolute -inset-4 bg-primary/20 blur-3xl rounded-full group-hover:bg-primary/40 transition-all duration-700" /><Button onClick={() => setActiveTab('home')} className="relative h-20 w-20 rounded-[2.5rem] bg-primary text-white border-[8px] border-slate-950 shadow-2xl hover:scale-110 active:scale-95 transition-all"><QrCode className="h-10 w-10" /></Button></div>
-          <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'history' ? 'text-primary scale-110' : 'text-slate-700 hover:text-slate-400'}`}><History className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Logs</span></Button>
-          <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'profile' ? 'text-primary scale-110' : 'text-slate-700 hover:text-slate-400'}`}><UserIcon className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Me</span></Button>
+          <Button variant="ghost" onClick={() => setActiveTab('home')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'home' ? 'text-primary scale-110' : 'text-slate-400'}`}><Bus className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Home</span></Button>
+          <Button variant="ghost" onClick={() => setActiveTab('wallet')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'wallet' ? 'text-primary scale-110' : 'text-slate-400'}`}><Wallet className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Wallet</span></Button>
+          
+          <div className="relative -mt-16 group">
+            <div className="absolute -inset-3 bg-primary/20 blur-2xl rounded-full group-hover:bg-primary/30 transition-all duration-700" />
+            <Button onClick={() => setActiveTab('home')} className="relative h-20 w-20 rounded-[2.5rem] bg-primary text-white border-[8px] border-white shadow-xl hover:scale-110 active:scale-95 transition-all">
+              <QrCode className="h-10 w-10" />
+            </Button>
+          </div>
+          
+          <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'history' ? 'text-primary scale-110' : 'text-slate-400'}`}><History className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Rides</span></Button>
+          <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'profile' ? 'text-primary scale-110' : 'text-slate-400'}`}><UserIcon className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Me</span></Button>
         </div>
       </nav>
     </div>

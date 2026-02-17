@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -50,7 +49,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-const mapContainerStyle = { width: '100%', height: '100%', borderRadius: '1.5rem' };
+const mapContainerStyle = { width: '100%', height: '100%', borderRadius: '2rem' };
 const mapOptions = { mapId: "da87e9c90896eba04be76dde", disableDefaultUI: true };
 
 export default function AdminDashboard() {
@@ -60,15 +59,11 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useUser();
   
-  const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: firebaseConfig.apiKey
-  });
+  const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: firebaseConfig.apiKey });
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'monetization' | 'drivers' | 'finance'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'monetization' | 'finance'>('dashboard');
   const [selectedDriver, setSelectedDriver] = useState<any>(null);
   
-  // Forms
   const [newPass, setNewPass] = useState({ name: '', city: 'Vizag', totalRides: 10, price: 450, routeName: 'All Routes' });
   const [newPromo, setNewPromo] = useState({ code: '', value: 100 });
 
@@ -77,7 +72,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (profile && profile.role !== 'admin' && !authLoading && !profileLoading) {
-      toast({ variant: "destructive", title: "Access Denied", description: "Admin terminal only." });
+      toast({ variant: "destructive", title: "Access Denied", description: "Admin account required." });
       router.push('/');
     }
   }, [profile, authLoading, profileLoading, router, toast]);
@@ -92,26 +87,19 @@ export default function AdminDashboard() {
   const drivers = useMemo(() => allUsers?.filter(u => u.role === 'driver') || [], [allUsers]);
   const activeTrips = useMemo(() => allTrips?.filter(t => t.status === 'active') || [], [allTrips]);
   
-  // Financial aggregation
   const totalTripCommissions = useMemo(() => allTrips?.reduce((acc, t) => acc + (t.commissionAmount || 0), 0) || 0, [allTrips]);
   const totalTopUpRevenue = useMemo(() => allTransactions?.filter(tx => tx.type === 'top-up').reduce((acc, t) => acc + (t.amount || 0), 0) || 0, [allTransactions]);
   const totalPassRevenue = useMemo(() => allTransactions?.filter(tx => tx.type === 'pass-purchase').reduce((acc, t) => acc + (t.amount || 0), 0) || 0, [allTransactions]);
 
-  const handleSignOut = async () => {
-    if (!auth) return;
-    await signOut(auth);
-    router.push('/admin/login');
-  };
+  const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/admin/login'); };
 
   const createPass = async () => {
     if (!db) return;
     try {
       await addDoc(collection(db, 'passes'), { ...newPass, isActive: true });
-      toast({ title: "Pass Created", description: `${newPass.name} is now available for students.` });
+      toast({ title: "Pass Created", description: `${newPass.name} is now available.` });
       setNewPass({ name: '', city: 'Vizag', totalRides: 10, price: 450, routeName: 'All Routes' });
-    } catch {
-      toast({ variant: "destructive", title: "Failed to create pass" });
-    }
+    } catch { toast({ variant: "destructive", title: "Failed to create pass" }); }
   };
 
   const createPromo = async () => {
@@ -120,198 +108,194 @@ export default function AdminDashboard() {
       await addDoc(collection(db, 'promoCodes'), { ...newPromo, isActive: true, usageCount: 0 });
       toast({ title: "Promo Created", description: `Code ${newPromo.code} is now active.` });
       setNewPromo({ code: '', value: 100 });
-    } catch {
-      toast({ variant: "destructive", title: "Failed to create promo" });
-    }
+    } catch { toast({ variant: "destructive", title: "Failed to create promo" }); }
   };
 
-  if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-slate-950"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
+  const processPayout = async (driver: any) => {
+    if (!db || !driver.weeklyEarnings) return;
+    try {
+      const driverRef = doc(db, 'users', driver.uid);
+      await updateDoc(driverRef, {
+        totalEarnings: increment(driver.weeklyEarnings),
+        weeklyEarnings: 0,
+        payoutHistory: arrayUnion({ amount: driver.weeklyEarnings, date: new Date().toISOString(), status: 'processed' })
+      });
+      toast({ title: "Payout Processed", description: `₹${driver.weeklyEarnings} sent to ${driver.fullName}` });
+    } catch { toast({ variant: "destructive", title: "Payout failed" }); }
+  };
+
+  if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-slate-900"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
 
   return (
-    <div className="flex h-screen bg-[#020617] font-body text-slate-200">
-      <aside className="w-64 bg-slate-950 flex flex-col shrink-0 border-r border-white/5 shadow-2xl z-20">
-        <div className="p-6 h-20 flex items-center border-b border-white/5">
+    <div className="flex h-screen bg-slate-950 font-body text-slate-200">
+      <aside className="w-64 bg-slate-900 flex flex-col shrink-0 border-r border-white/5 shadow-2xl z-20">
+        <div className="p-8 h-24 flex items-center border-b border-white/5">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/20 rounded-lg"><Bus className="h-5 w-5 text-primary" /></div>
-            <span className="text-xl font-black font-headline italic tracking-tighter uppercase text-glow">AAGO OPS</span>
+            <div className="p-2.5 bg-primary/20 rounded-xl shadow-lg shadow-primary/10"><Bus className="h-5 w-5 text-primary" /></div>
+            <span className="text-2xl font-black font-headline italic tracking-tighter uppercase text-primary">AAGO OPS</span>
           </div>
         </div>
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-6 space-y-2">
           {[
-            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+            { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
             { id: 'fleet', label: 'Fleet Map', icon: Navigation },
-            { id: 'routes', label: 'Corridors', icon: RouteIcon },
-            { id: 'monetization', label: 'Monetization', icon: Ticket },
-            { id: 'finance', label: 'Revenue Hub', icon: Banknote },
+            { id: 'monetization', label: 'Campaigns', icon: Tag },
+            { id: 'finance', label: 'Payouts', icon: Banknote },
           ].map((item) => (
             <Button 
               key={item.id} variant="ghost" 
               onClick={() => setActiveTab(item.id as any)} 
-              className={`w-full justify-start rounded-xl font-bold h-11 px-4 transition-all ${activeTab === item.id ? 'bg-primary/10 text-primary border border-primary/20 shadow-lg' : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'}`}
+              className={`w-full justify-start rounded-xl font-black uppercase italic h-12 px-5 transition-all ${activeTab === item.id ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
             >
-              <item.icon className={`mr-3 h-4 w-4 ${activeTab === item.id ? 'text-primary' : ''}`} /> {item.label}
+              <item.icon className={`mr-4 h-5 w-5 ${activeTab === item.id ? 'text-white' : ''}`} /> {item.label}
             </Button>
           ))}
-          <div className="pt-4 mt-4 border-t border-white/5">
-            <Button variant="ghost" className="w-full justify-start text-red-500 hover:bg-red-500/10" onClick={handleSignOut}>
-              <LogOut className="mr-3 h-4 w-4" /> Exit terminal
+          <div className="pt-8 mt-8 border-t border-white/5">
+            <Button variant="ghost" className="w-full justify-start text-red-500 hover:bg-red-500/10 font-black uppercase italic" onClick={handleSignOut}>
+              <LogOut className="mr-4 h-5 w-5" /> Sign Out
             </Button>
           </div>
         </nav>
       </aside>
 
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-20 bg-slate-950 border-b border-white/5 px-8 flex items-center justify-between">
+      <main className="flex-1 flex flex-col overflow-hidden bg-slate-950">
+        <header className="h-24 bg-slate-900/50 backdrop-blur-xl border-b border-white/5 px-10 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-black font-headline text-white italic uppercase tracking-tight">{activeTab}</h2>
-            <p className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em] mt-1">REGIONAL HUB: {profile?.city}</p>
+            <h2 className="text-3xl font-black font-headline text-white italic uppercase tracking-tighter leading-none">{activeTab}</h2>
+            <p className="text-[10px] font-black uppercase text-slate-500 tracking-[0.4em] mt-2">Regional Operations Hub</p>
           </div>
-          <Badge className="bg-primary/10 text-primary border border-primary/20 font-black uppercase text-[10px] tracking-widest px-4 py-1.5">Network Secure</Badge>
+          <Badge className="bg-primary/10 text-primary border-none font-black uppercase text-[10px] tracking-widest px-6 py-2 rounded-full shadow-inner">Network Live</Badge>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar">
           {activeTab === 'dashboard' && (
-            <div className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="space-y-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 {[
-                  { label: 'Active Missions', value: activeTrips.length, icon: Activity, color: 'text-green-400', bg: 'bg-green-400/10' },
-                  { label: 'Network Yield', value: `₹${(totalTripCommissions + totalTopUpRevenue + totalPassRevenue).toFixed(0)}`, icon: IndianRupee, color: 'text-primary', bg: 'bg-primary/10' },
-                  { label: 'Fleet Assets', value: drivers.length, icon: Truck, color: 'text-yellow-400', bg: 'bg-yellow-400/10' },
-                  { label: 'Network Scholars', value: allUsers?.filter(u => u.role === 'rider').length || 0, icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/10' },
+                  { label: 'Live Trips', value: activeTrips.length, icon: Activity, color: 'text-blue-400', bg: 'bg-blue-400/10' },
+                  { label: 'Regional Yield', value: `₹${(totalTripCommissions + totalTopUpRevenue + totalPassRevenue).toFixed(0)}`, icon: IndianRupee, color: 'text-primary', bg: 'bg-primary/10' },
+                  { label: 'Fleet Assets', value: drivers.length, icon: Truck, color: 'text-orange-400', bg: 'bg-orange-400/10' },
+                  { label: 'Active Scholars', value: allUsers?.filter(u => u.role === 'rider').length || 0, icon: Users, color: 'text-green-400', bg: 'bg-green-400/10' },
                 ].map((metric, i) => (
-                  <Card key={i} className="bg-slate-900/50 border-white/5 rounded-[1.5rem] group hover:border-primary/20 transition-all duration-500">
-                    <CardContent className="p-6">
-                      <div className={`p-3 ${metric.bg} rounded-xl w-fit mb-4`}><metric.icon className={`h-5 w-5 ${metric.color}`} /></div>
-                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{metric.label}</p>
-                      <h3 className="text-3xl font-black text-white font-headline italic">{metric.value}</h3>
+                  <Card key={i} className="bg-slate-900 border-white/5 rounded-[2.5rem] group hover:border-primary/20 transition-all shadow-xl">
+                    <CardContent className="p-8">
+                      <div className={`p-4 ${metric.bg} rounded-2xl w-fit mb-6 shadow-sm`}><metric.icon className={`h-6 w-6 ${metric.color}`} /></div>
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">{metric.label}</p>
+                      <h3 className="text-4xl font-black text-white font-headline italic leading-none">{metric.value}</h3>
                     </CardContent>
                   </Card>
                 ))}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card className="bg-slate-900/50 border-white/5 rounded-[2rem] p-8">
-                  <CardTitle className="text-lg font-black italic uppercase text-white mb-6 flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" /> Active Corridors
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                <Card className="bg-slate-900 border-white/5 rounded-[3rem] p-10 shadow-xl">
+                  <CardTitle className="text-xl font-black italic uppercase text-white mb-8 flex items-center gap-3">
+                    <TrendingUp className="h-6 w-6 text-primary" /> Active Corridors
                   </CardTitle>
                   <div className="space-y-4">
-                    {allRoutes?.slice(0, 5).map((route: any, i: number) => (
-                      <div key={i} className="p-4 bg-slate-950 rounded-xl flex justify-between items-center border border-white/5">
-                        <span className="text-xs font-black uppercase italic text-white">{route.routeName}</span>
-                        <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase">₹{route.baseFare} Base</Badge>
+                    {allRoutes?.map((route: any, i: number) => (
+                      <div key={i} className="p-6 bg-slate-950 rounded-2xl flex justify-between items-center border border-white/5 group hover:border-primary/20 transition-all">
+                        <span className="font-black uppercase italic text-sm text-slate-300">{route.routeName}</span>
+                        <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase px-3 py-1">₹{route.baseFare} Base</Badge>
                       </div>
                     ))}
                   </div>
                 </Card>
 
-                <Card className="bg-primary text-white border-none rounded-[2rem] p-10 flex flex-col justify-between overflow-hidden relative">
+                <Card className="bg-primary text-white border-none rounded-[3rem] p-12 flex flex-col justify-between overflow-hidden relative shadow-2xl">
                   <div className="relative z-10">
-                    <h3 className="text-3xl font-black uppercase italic tracking-tighter leading-none">Scholar <br/> Monetization</h3>
-                    <p className="text-sm font-bold opacity-70 mt-4 max-w-xs italic">Manage ride passes and regional promo campaigns to drive scholar adoption.</p>
+                    <h3 className="text-5xl font-black uppercase italic tracking-tighter leading-[0.9]">Scholar <br/> Monetization</h3>
+                    <p className="text-sm font-bold opacity-80 mt-6 max-w-xs italic leading-relaxed">Create regional passes and promo codes to drive network adoption.</p>
                   </div>
-                  <Button onClick={() => setActiveTab('monetization')} className="relative z-10 w-fit bg-white text-primary font-black uppercase h-12 rounded-xl mt-8">Configure Passes</Button>
-                  <Ticket className="absolute -right-8 -bottom-8 h-48 w-48 opacity-10" />
+                  <Button onClick={() => setActiveTab('monetization')} className="relative z-10 w-fit bg-white text-primary font-black uppercase h-14 rounded-2xl mt-10 px-8 hover:scale-105 transition-transform shadow-xl">Create Campaigns</Button>
+                  <Ticket className="absolute -right-12 -bottom-12 h-64 w-64 opacity-10" />
                 </Card>
               </div>
             </div>
           )}
 
           {activeTab === 'monetization' && (
-            <div className="space-y-8">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card className="bg-slate-900/50 border-white/5 rounded-[2rem] p-8">
-                  <CardHeader className="px-0 pt-0">
-                    <CardTitle className="text-lg font-black uppercase italic text-primary flex items-center gap-2">
-                      <PlusCircle className="h-5 w-5" /> Architect New Pass
-                    </CardTitle>
-                  </CardHeader>
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
+            <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                <Card className="bg-slate-900 border-white/5 rounded-[3rem] p-10 shadow-xl">
+                  <CardHeader className="px-0 pt-0 pb-8"><CardTitle className="text-xl font-black uppercase italic text-primary flex items-center gap-3"><PlusCircle className="h-6 w-6" /> Ride Pass Architect</CardTitle></CardHeader>
+                  <div className="space-y-8">
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-3">
                         <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Pass Name</Label>
-                        <Input value={newPass.name} onChange={e => setNewPass({...newPass, name: e.target.value})} placeholder="e.g. Monthly VZM Express" className="bg-slate-950 border-white/10 text-white rounded-xl" />
+                        <Input value={newPass.name} onChange={e => setNewPass({...newPass, name: e.target.value})} placeholder="e.g. Weekly Express" className="bg-slate-950 border-white/10 text-white rounded-2xl h-14 font-black italic px-6" />
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Regional Hub</Label>
                         <Select value={newPass.city} onValueChange={v => setNewPass({...newPass, city: v})}>
-                          <SelectTrigger className="bg-slate-950 border-white/10 text-white rounded-xl"><SelectValue /></SelectTrigger>
-                          <SelectContent className="bg-slate-900 border-white/10 text-white"><SelectItem value="Vizag">Vizag</SelectItem><SelectItem value="Vizianagaram">Vizianagaram</SelectItem></SelectContent>
+                          <SelectTrigger className="bg-slate-950 border-white/10 text-white rounded-2xl h-14 font-black px-6"><SelectValue /></SelectTrigger>
+                          <SelectContent className="bg-slate-900 border-white/10 text-white"><SelectItem value="Vizag">Vizag Hub</SelectItem><SelectItem value="Vizianagaram">VZM Hub</SelectItem></SelectContent>
                         </Select>
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Rides</Label>
-                        <Input type="number" value={newPass.totalRides} onChange={e => setNewPass({...newPass, totalRides: parseInt(e.target.value)})} className="bg-slate-950 border-white/10 text-white rounded-xl" />
+                    <div className="grid grid-cols-3 gap-6">
+                      <div className="space-y-3">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Rides</Label>
+                        <Input type="number" value={newPass.totalRides} onChange={e => setNewPass({...newPass, totalRides: parseInt(e.target.value)})} className="bg-slate-950 border-white/10 text-white rounded-2xl h-14 font-black text-center" />
                       </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Pass Price (₹)</Label>
-                        <Input type="number" value={newPass.price} onChange={e => setNewPass({...newPass, price: parseInt(e.target.value)})} className="bg-slate-950 border-white/10 text-white rounded-xl" />
+                      <div className="space-y-3">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Price (₹)</Label>
+                        <Input type="number" value={newPass.price} onChange={e => setNewPass({...newPass, price: parseInt(e.target.value)})} className="bg-slate-950 border-white/10 text-white rounded-2xl h-14 font-black text-center" />
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Route Link</Label>
                         <Select value={newPass.routeName} onValueChange={v => setNewPass({...newPass, routeName: v})}>
-                          <SelectTrigger className="bg-slate-950 border-white/10 text-white rounded-xl"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="bg-slate-950 border-white/10 text-white rounded-2xl h-14 font-black px-6"><SelectValue /></SelectTrigger>
                           <SelectContent className="bg-slate-900 border-white/10 text-white">
-                            <SelectItem value="All Routes">All Regional Routes</SelectItem>
+                            <SelectItem value="All Routes">All Network</SelectItem>
                             {allRoutes?.map((r: any) => <SelectItem key={r.id} value={r.routeName}>{r.routeName}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
-                    <Button onClick={createPass} className="w-full bg-primary text-slate-950 font-black uppercase h-14 rounded-2xl">Deploy Ride Pass</Button>
+                    <Button onClick={createPass} className="w-full bg-primary text-white font-black uppercase h-16 rounded-2xl text-lg italic shadow-xl shadow-primary/20">Deploy Pass</Button>
                   </div>
                 </Card>
 
-                <Card className="bg-slate-900/50 border-white/5 rounded-[2rem] p-8">
-                  <CardHeader className="px-0 pt-0">
-                    <CardTitle className="text-lg font-black uppercase italic text-accent flex items-center gap-2">
-                      <Tag className="h-5 w-5" /> Promo Protocol
-                    </CardTitle>
-                  </CardHeader>
-                  <div className="space-y-6">
-                    <div className="space-y-2">
+                <Card className="bg-slate-900 border-white/5 rounded-[3rem] p-10 shadow-xl">
+                  <CardHeader className="px-0 pt-0 pb-8"><CardTitle className="text-xl font-black uppercase italic text-accent flex items-center gap-3"><Tag className="h-6 w-6" /> Promo Protocol</CardTitle></CardHeader>
+                  <div className="space-y-8">
+                    <div className="space-y-3">
                       <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Promo Code String</Label>
-                      <Input value={newPromo.code} onChange={e => setNewPromo({...newPromo, code: e.target.value.toUpperCase()})} placeholder="e.g. WELCOME100" className="bg-slate-950 border-white/10 text-white rounded-xl h-14 font-black text-center text-xl tracking-widest" />
+                      <Input value={newPromo.code} onChange={e => setNewPromo({...newPromo, code: e.target.value.toUpperCase()})} placeholder="e.g. SCHOLAR100" className="bg-slate-950 border-white/10 text-white rounded-2xl h-16 font-black text-center text-3xl tracking-[0.4em] italic shadow-inner" />
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Credit Value (₹)</Label>
-                      <Input type="number" value={newPromo.value} onChange={e => setNewPromo({...newPromo, value: parseInt(e.target.value)})} className="bg-slate-950 border-white/10 text-white rounded-xl h-14" />
+                      <Input type="number" value={newPromo.value} onChange={e => setNewPromo({...newPromo, value: parseInt(e.target.value)})} className="bg-slate-950 border-white/10 text-white rounded-2xl h-16 font-black text-center text-2xl italic" />
                     </div>
-                    <Button onClick={createPromo} className="w-full bg-accent text-white font-black uppercase h-14 rounded-2xl">Initialize Code</Button>
+                    <Button onClick={createPromo} className="w-full bg-accent text-white font-black uppercase h-16 rounded-2xl text-lg italic shadow-xl shadow-accent/20">Initialize Code</Button>
                   </div>
                 </Card>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card className="bg-slate-900/50 border-white/5 rounded-[2rem]">
-                  <CardHeader className="p-8 border-b border-white/5"><CardTitle className="text-lg font-black italic uppercase">Deployed Passes</CardTitle></CardHeader>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                <Card className="bg-slate-900 border-white/5 rounded-[3rem] shadow-xl overflow-hidden">
+                  <CardHeader className="p-10 border-b border-white/5 bg-slate-900/50"><CardTitle className="text-xl font-black italic uppercase text-white">Deployed Passes</CardTitle></CardHeader>
                   <CardContent className="p-0">
                     <div className="divide-y divide-white/5">
                       {allPasses?.map((p: any) => (
-                        <div key={p.id} className="p-6 flex justify-between items-center hover:bg-white/5 transition-colors">
-                          <div>
-                            <h4 className="font-black text-white uppercase italic text-sm">{p.name}</h4>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase mt-1">{p.totalRides} Rides • {p.routeName}</p>
-                          </div>
-                          <p className="text-lg font-black text-primary italic">₹{p.price}</p>
+                        <div key={p.id} className="p-8 flex justify-between items-center hover:bg-white/5 transition-all">
+                          <div><h4 className="font-black text-white uppercase italic text-base leading-none">{p.name}</h4><p className="text-[9px] font-bold text-slate-500 uppercase mt-2 tracking-widest">{p.totalRides} Rides • {p.routeName}</p></div>
+                          <p className="text-2xl font-black text-primary italic">₹{p.price}</p>
                         </div>
                       ))}
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="bg-slate-900/50 border-white/5 rounded-[2rem]">
-                  <CardHeader className="p-8 border-b border-white/5"><CardTitle className="text-lg font-black italic uppercase">Active Promo Codes</CardTitle></CardHeader>
+                <Card className="bg-slate-900 border-white/5 rounded-[3rem] shadow-xl overflow-hidden">
+                  <CardHeader className="p-10 border-b border-white/5 bg-slate-900/50"><CardTitle className="text-xl font-black italic uppercase text-white">Active Promo Codes</CardTitle></CardHeader>
                   <CardContent className="p-0">
                     <div className="divide-y divide-white/5">
                       {allPromos?.map((p: any) => (
-                        <div key={p.id} className="p-6 flex justify-between items-center hover:bg-white/5 transition-colors">
-                          <div>
-                            <h4 className="font-black text-white uppercase italic text-sm">{p.code}</h4>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase mt-1">Value: ₹{p.value} • Used: {p.usageCount} Times</p>
-                          </div>
-                          <Badge className="bg-accent/10 text-accent border-none text-[8px] font-black uppercase">Active</Badge>
+                        <div key={p.id} className="p-8 flex justify-between items-center hover:bg-white/5 transition-all">
+                          <div><h4 className="font-black text-white uppercase italic text-base leading-none">{p.code}</h4><p className="text-[9px] font-bold text-slate-500 uppercase mt-2 tracking-widest">₹{p.value} Credit • Used: {p.usageCount} times</p></div>
+                          <Badge className="bg-accent/10 text-accent border-none text-[8px] font-black uppercase px-3 py-1">Active</Badge>
                         </div>
                       ))}
                     </div>
@@ -322,63 +306,62 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === 'finance' && (
-            <div className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <Card className="bg-primary text-white border-none rounded-[2.5rem] p-10 relative overflow-hidden">
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Top-Up Revenue</p>
-                  <h3 className="text-5xl font-black italic mt-4 tracking-tighter">₹{totalTopUpRevenue.toFixed(0)}</h3>
-                  <Wallet className="absolute -right-8 -bottom-8 h-40 w-40 opacity-10" />
+            <div className="space-y-10 animate-in fade-in">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                <Card className="bg-slate-900 border-white/5 rounded-[3rem] shadow-xl overflow-hidden">
+                  <CardHeader className="p-10 border-b border-white/5 bg-slate-900/50 flex flex-row items-center justify-between">
+                    <CardTitle className="text-xl font-black italic uppercase text-white">Pending Settlements</CardTitle>
+                    <Badge className="bg-orange-500/10 text-orange-400 border-none font-black uppercase text-[8px] tracking-widest px-3">Review Required</Badge>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="divide-y divide-white/5">
+                      {drivers.filter(d => (d.weeklyEarnings || 0) > 0).map((driver: any) => (
+                        <div key={driver.uid} className="p-8 flex justify-between items-center hover:bg-white/5 transition-all">
+                          <div className="flex items-center gap-6">
+                            <div className="h-14 w-14 rounded-2xl bg-slate-800 flex items-center justify-center border border-white/5 font-black text-primary italic text-xl overflow-hidden">
+                              {driver.photoUrl ? <img src={driver.photoUrl} className="h-full w-full object-cover" /> : driver.fullName[0]}
+                            </div>
+                            <div><h4 className="font-black text-white uppercase italic text-base leading-none">{driver.fullName}</h4><p className="text-[9px] font-bold text-slate-500 uppercase mt-2 tracking-widest">{driver.vehicleNumber} • {driver.city}</p></div>
+                          </div>
+                          <div className="text-right flex items-center gap-6">
+                            <div className="mr-4"><p className="text-[8px] font-black uppercase text-slate-500 tracking-widest mb-1">Unpaid Share</p><p className="text-2xl font-black text-primary italic">₹{driver.weeklyEarnings.toFixed(0)}</p></div>
+                            <Button onClick={() => processPayout(driver)} className="bg-primary text-white font-black uppercase h-12 rounded-xl px-6 shadow-lg shadow-primary/20 hover:scale-105">Push Payout</Button>
+                          </div>
+                        </div>
+                      ))}
+                      {drivers.filter(d => (d.weeklyEarnings || 0) > 0).length === 0 && (
+                        <div className="p-20 text-center"><p className="text-slate-500 font-bold uppercase italic text-xs">All regional settlements processed</p></div>
+                      )}
+                    </div>
+                  </CardContent>
                 </Card>
-                <Card className="bg-slate-900 border-white/5 text-white rounded-[2.5rem] p-10 relative overflow-hidden">
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Trip Commissions (10%)</p>
-                  <h3 className="text-5xl font-black italic mt-4 tracking-tighter">₹{totalTripCommissions.toFixed(0)}</h3>
-                  <Activity className="absolute -right-8 -bottom-8 h-40 w-40 opacity-10" />
-                </Card>
-                <Card className="bg-white text-slate-950 border-none rounded-[2.5rem] p-10 relative overflow-hidden">
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Total Network Yield</p>
-                  <h3 className="text-5xl font-black italic mt-4 tracking-tighter">₹{(totalTopUpRevenue + totalTripCommissions + totalPassRevenue).toFixed(0)}</h3>
-                  <GanttChart className="absolute -right-8 -bottom-8 h-40 w-40 opacity-10" />
+
+                <Card className="bg-slate-900 border-white/5 rounded-[3rem] shadow-xl overflow-hidden">
+                  <CardHeader className="p-10 border-b border-white/5 bg-slate-900/50"><CardTitle className="text-xl font-black italic uppercase text-white">Global Revenue Ledger</CardTitle></CardHeader>
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead><tr className="bg-slate-950/50 border-b border-white/5 text-[9px] font-black uppercase text-slate-500 tracking-widest"><th className="py-6 px-10">Scholar</th><th className="py-6">Asset Type</th><th className="py-6">Timestamp</th><th className="py-6 px-10 text-right">Amount</th></tr></thead>
+                        <tbody className="divide-y divide-white/5">
+                          {allTransactions?.slice(0, 10).map((tx: any) => (
+                            <tr key={tx.id} className="hover:bg-white/5 transition-all">
+                              <td className="py-8 px-10"><span className="font-black text-white uppercase italic text-xs">{tx.userName}</span></td>
+                              <td className="py-8"><Badge className={`${tx.type === 'pass-purchase' ? 'bg-primary/10 text-primary' : 'bg-green-500/10 text-green-400'} text-[8px] font-black uppercase border-none px-3 py-1`}>{tx.type}</Badge></td>
+                              <td className="py-8 text-[10px] text-slate-500 italic font-bold uppercase">{new Date(tx.timestamp).toLocaleString()}</td>
+                              <td className="py-8 px-10 text-right font-black text-white italic text-base">₹{tx.amount}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
                 </Card>
               </div>
-
-              <Card className="bg-slate-900/50 border-white/5 rounded-[2rem]">
-                <CardHeader className="p-8 border-b border-white/5"><CardTitle className="text-lg font-black italic uppercase">Recent Transactions</CardTitle></CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                      <thead>
-                        <tr className="bg-slate-950/50 border-b border-white/5 text-[9px] font-black uppercase text-slate-500 tracking-widest">
-                          <th className="py-5 pl-10">Scholar</th>
-                          <th className="py-5">Type</th>
-                          <th className="py-5">Time</th>
-                          <th className="py-5 pr-10 text-right">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {allTransactions?.map((tx: any) => (
-                          <tr key={tx.id} className="hover:bg-white/5 transition-colors">
-                            <td className="py-6 pl-10">
-                              <span className="font-black text-white uppercase italic text-xs">{tx.userName}</span>
-                            </td>
-                            <td className="py-6">
-                              <Badge className={`${tx.type === 'pass-purchase' ? 'bg-primary/10 text-primary' : 'bg-green-500/10 text-green-400'} text-[8px] font-black uppercase border-none`}>
-                                {tx.type}
-                              </Badge>
-                            </td>
-                            <td className="py-6 text-xs text-slate-500 italic font-bold">{new Date(tx.timestamp).toLocaleString()}</td>
-                            <td className="py-6 pr-10 text-right font-black text-white italic">₹{tx.amount}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           )}
 
           {activeTab === 'fleet' && (
-            <div className="h-[calc(100vh-14rem)] relative border border-white/5 rounded-[2rem] overflow-hidden shadow-2xl">
+            <div className="h-[calc(100vh-16rem)] relative border border-white/5 rounded-[3rem] overflow-hidden shadow-2xl">
               {isLoaded ? (
                 <GoogleMap mapContainerStyle={mapContainerStyle} center={{ lat: 17.6868, lng: 83.2185 }} zoom={12} options={mapOptions}>
                   {drivers.filter(d => typeof d.currentLat === 'number').map((driver: any) => (
@@ -387,20 +370,22 @@ export default function AdminDashboard() {
                       onClick={() => setSelectedDriver(driver)}
                       icon={{
                         url: driver.status === 'on-trip' ? 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png' : 'https://cdn-icons-png.flaticon.com/512/3448/3448564.png',
-                        scaledSize: new window.google.maps.Size(32, 32)
+                        scaledSize: new window.google.maps.Size(36, 36)
                       }}
                     />
                   ))}
                   {selectedDriver && (
                     <InfoWindow position={{ lat: selectedDriver.currentLat, lng: selectedDriver.currentLng }} onCloseClick={() => setSelectedDriver(null)}>
-                      <div className="p-4 bg-slate-900 text-white min-w-[200px]">
-                        <h4 className="font-black uppercase italic text-sm">{selectedDriver.fullName}</h4>
-                        <p className="text-[10px] font-black text-slate-500 uppercase mt-1">{selectedDriver.status}</p>
+                      <div className="p-5 bg-white text-slate-950 min-w-[220px] rounded-2xl shadow-xl">
+                        <h4 className="font-black uppercase italic text-base text-primary leading-none">{selectedDriver.fullName}</h4>
+                        <p className="text-[9px] font-black text-slate-400 uppercase mt-2 tracking-widest">{selectedDriver.status} • {selectedDriver.vehicleNumber}</p>
+                        <hr className="my-4 border-slate-100" />
+                        <div className="flex justify-between items-center"><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Share Ready</span><span className="font-black italic text-slate-900">₹{selectedDriver.weeklyEarnings?.toFixed(0)}</span></div>
                       </div>
                     </InfoWindow>
                   )}
                 </GoogleMap>
-              ) : <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>}
+              ) : <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-primary h-12 w-12" /></div>}
             </div>
           )}
         </div>
