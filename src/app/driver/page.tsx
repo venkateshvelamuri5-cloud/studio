@@ -21,7 +21,8 @@ import {
   MapPinned,
   AlertCircle,
   TrendingUp,
-  LayoutDashboard
+  LayoutDashboard,
+  Activity
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
 import { doc, updateDoc, collection, addDoc, onSnapshot, query, where, arrayUnion, getDocs, limit, orderBy } from 'firebase/firestore';
@@ -69,7 +70,7 @@ export default function DriverConsole() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (!snapshot.empty) {
         const tripData = { ...snapshot.docs[0].data(), id: snapshot.docs[0].id };
-        const currentCount = tripData.passengers?.length || 0;
+        const currentCount = (tripData as any).passengers?.length || 0;
         if (currentCount > prevPassengerCount.current) {
           toast({ title: "New Scholar Boarded", description: "A student has secured a seat on this mission corridor." });
         }
@@ -148,9 +149,14 @@ export default function DriverConsole() {
     }
   };
 
-  const handleToggleStatus = () => {
+  const handleToggleStatus = async () => {
     if (!userRef || !profile) return;
-    updateDoc(userRef, { status: profile.status === 'offline' ? 'available' : 'offline' });
+    try {
+      await updateDoc(userRef, { status: profile.status === 'offline' ? 'available' : 'offline' });
+      toast({ title: profile.status === 'offline' ? "Mission Ready" : "Shift Terminated", description: "Hub status synchronized." });
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/driver/login'); };
@@ -225,6 +231,7 @@ export default function DriverConsole() {
                 <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50">
                    <MapPinned className="h-10 w-10 text-slate-200 mb-4" />
                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tactical Map Offline</p>
+                   {loadError && <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-2 italic">Awaiting Satellite Link Activation</p>}
                 </div>
               )}
             </div>
@@ -255,7 +262,10 @@ export default function DriverConsole() {
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Manifest Radar</h3>
                 <div className="space-y-3">
                   {!passengerDetails || passengerDetails.length === 0 ? (
-                    <p className="text-[10px] text-center font-bold text-slate-300 italic py-8">Awaiting regional bookings...</p>
+                    <div className="p-12 text-center bg-slate-50 rounded-[2rem] border border-dashed border-slate-100">
+                      <Activity className="h-8 w-8 text-slate-200 mx-auto mb-3" />
+                      <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest italic">Awaiting Hub Bookings</p>
+                    </div>
                   ) : (
                     passengerDetails.map((p: any) => (
                       <div key={p.uid} className="p-5 bg-slate-50 rounded-[1.5rem] flex justify-between items-center border border-slate-100">
@@ -284,13 +294,13 @@ export default function DriverConsole() {
           <div className="space-y-8 animate-in fade-in">
             <h3 className="text-4xl font-black italic uppercase text-slate-900 leading-none">Mission Ledger</h3>
             <div className="space-y-4">
-              {pastTrips?.length === 0 ? (
-                <Card className="p-12 text-center bg-white rounded-[2.5rem]">
-                   <History className="h-10 w-10 text-slate-200 mx-auto mb-4" />
-                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No Mission Data</p>
+              {!pastTrips || pastTrips.length === 0 ? (
+                <Card className="p-16 text-center bg-white rounded-[2.5rem] border-dashed border-2">
+                   <History className="h-12 w-12 text-slate-200 mx-auto mb-4" />
+                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No Recorded History</p>
                 </Card>
               ) : (
-                pastTrips?.map((trip: any) => (
+                pastTrips.map((trip: any) => (
                   <Card key={trip.id} className="bg-white border-slate-100 rounded-[2rem] p-6 flex justify-between items-center shadow-sm">
                     <div>
                       <h4 className="font-black text-sm text-slate-900 uppercase italic leading-none mb-2">{trip.routeName}</h4>
@@ -336,9 +346,9 @@ export default function DriverConsole() {
         )}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 p-8 bg-white/90 backdrop-blur-3xl border-t border-slate-200 flex justify-around items-center rounded-t-[3.5rem] z-50 shadow-2xl">
+      <nav className="fixed bottom-0 left-0 right-0 p-8 bg-white/90 backdrop-blur-3xl border-t border-slate-200 flex justify-around items-center rounded-t-[4rem] z-50 shadow-2xl">
         <Button variant="ghost" onClick={() => setActiveTab('trips')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'trips' ? 'text-primary scale-110' : 'text-slate-400'}`}><LayoutDashboard className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Missions</span></Button>
-        <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'history' ? 'text-primary scale-110' : 'text-slate-400'}`}><History className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">History</span></Button>
+        <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'history' ? 'text-primary scale-110' : 'text-slate-400'}`}><History className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Ledger</span></Button>
         <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'profile' ? 'text-primary scale-110' : 'text-slate-400'}`}><UserIcon className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Profile</span></Button>
       </nav>
     </div>

@@ -50,20 +50,20 @@ export default function AdminDashboard() {
   // AI Architect State
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiInput, setAiInput] = useState<AdminGenerateShuttleRoutesInput>({
-    studentDemandPatterns: "High demand from North Campus to Library during 8-10 AM.",
-    historicalTrafficData: "Congestion on main highway during evening hours.",
-    preferredServiceHours: "6 AM to 10 PM",
+    studentDemandPatterns: "High demand from South Campus to Beach Road during 4-6 PM.",
+    historicalTrafficData: "Heavy congestion on NH-16 during peak morning hours.",
+    preferredServiceHours: "6 AM to 11 PM",
   });
   const [aiResult, setAiResult] = useState<any>(null);
 
   const userRef = useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
-  const { data: profile } = useDoc(userRef);
+  const { data: profile, loading: profileLoading } = useDoc(userRef);
   const { data: globalConfig } = useDoc(useMemo(() => db ? doc(db, 'config', 'global') : null, [db]));
 
   useEffect(() => {
     if (globalConfig) {
-      setVizagUpi(globalConfig.vizagUpiId || '');
-      setVzmUpi(globalConfig.vzmUpiId || '');
+      setVizagUpi((globalConfig as any).vizagUpiId || '');
+      setVzmUpi((globalConfig as any).vzmUpiId || '');
     }
   }, [globalConfig]);
 
@@ -73,11 +73,14 @@ export default function AdminDashboard() {
     }
   }, [profile, authLoading, router]);
 
-  const { data: allTrips } = useCollection(useMemo(() => db ? query(collection(db, 'trips'), orderBy('startTime', 'desc'), limit(50)) : null, [db]));
-  const { data: allUsers } = useCollection(useMemo(() => db ? query(collection(db, 'users')) : null, [db]));
-  const { data: allRoutes } = useCollection(useMemo(() => db ? query(collection(db, 'routes')) : null, [db]));
-
-  const driversWithPending = useMemo(() => allUsers?.filter(u => u.role === 'driver' && (u.weeklyEarnings || 0) > 0) || [], [allUsers]);
+  const tripsQuery = useMemo(() => db ? query(collection(db, 'trips'), orderBy('startTime', 'desc'), limit(50)) : null, [db]);
+  const { data: allTrips } = useCollection(tripsQuery);
+  
+  const usersQuery = useMemo(() => db ? query(collection(db, 'users')) : null, [db]);
+  const { data: allUsers } = useCollection(usersQuery);
+  
+  const routesQuery = useMemo(() => db ? query(collection(db, 'routes')) : null, [db]);
+  const { data: allRoutes } = useCollection(routesQuery);
 
   const saveConfig = async () => {
     if (!db) return;
@@ -111,7 +114,7 @@ export default function AdminDashboard() {
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/admin/login'); };
 
-  if (authLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
+  if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
 
   return (
     <div className="flex h-screen bg-slate-50 font-body text-slate-900">
@@ -127,7 +130,6 @@ export default function AdminDashboard() {
             { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
             { id: 'payments', label: 'Payment Hub', icon: QrCode },
             { id: 'routes', label: 'Fleet Grid', icon: RouteIcon },
-            { id: 'payouts', label: 'Finance Hub', icon: IndianRupee },
             { id: 'ai-architect', label: 'AI Architect', icon: Sparkles },
           ].map((item) => (
             <Button 
@@ -187,14 +189,18 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                      {allTrips?.map((trip: any) => (
-                        <tr key={trip.id} className="hover:bg-slate-50 transition-all">
-                          <td className="py-8 px-10"><span className="font-black text-slate-900 uppercase italic text-xs">{trip.routeName}</span></td>
-                          <td className="py-8 text-xs font-bold text-slate-500 italic uppercase">{trip.driverName}</td>
-                          <td className="py-8"><Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase">{trip.riderCount} / {trip.maxCapacity}</Badge></td>
-                          <td className="py-8 px-10 text-right font-black text-slate-900 italic text-base">₹{(trip.riderCount * trip.farePerRider || 0).toFixed(0)}</td>
-                        </tr>
-                      ))}
+                      {!allTrips || allTrips.length === 0 ? (
+                        <tr><td colSpan={4} className="py-20 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">No active mission data available</td></tr>
+                      ) : (
+                        allTrips.map((trip: any) => (
+                          <tr key={trip.id} className="hover:bg-slate-50 transition-all">
+                            <td className="py-8 px-10"><span className="font-black text-slate-900 uppercase italic text-xs">{trip.routeName}</span></td>
+                            <td className="py-8 text-xs font-bold text-slate-500 italic uppercase">{trip.driverName}</td>
+                            <td className="py-8"><Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase">{trip.riderCount} / {trip.maxCapacity}</Badge></td>
+                            <td className="py-8 px-10 text-right font-black text-slate-900 italic text-base">₹{(trip.riderCount * trip.farePerRider || 0).toFixed(0)}</td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </CardContent>
