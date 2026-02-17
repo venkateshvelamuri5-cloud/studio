@@ -3,11 +3,12 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   Bus, 
   LayoutDashboard, 
@@ -20,12 +21,16 @@ import {
   IndianRupee,
   ShieldCheck,
   MapPinned,
-  Route as RouteIcon
+  Route as RouteIcon,
+  Sparkles,
+  ArrowRight,
+  ClipboardList
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
 import { collection, query, doc, setDoc, orderBy, limit } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
+import { generateShuttleRoutes, AdminGenerateShuttleRoutesInput } from '@/ai/flows/admin-generate-shuttle-routes';
 
 export default function AdminDashboard() {
   const db = useFirestore();
@@ -34,12 +39,22 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useUser();
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'payments' | 'routes'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'payments' | 'routes' | 'ai-architect'>('dashboard');
   const [vizagUpi, setVizagUpi] = useState('');
   const [vzmUpi, setVzmUpi] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  const { data: profile } = useDoc(useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]));
+  // AI Architect State
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [aiInput, setAiInput] = useState<AdminGenerateShuttleRoutesInput>({
+    studentDemandPatterns: "High demand from North Campus to Library during 8-10 AM.",
+    historicalTrafficData: "Congestion on main highway during evening hours.",
+    preferredServiceHours: "6 AM to 10 PM",
+  });
+  const [aiResult, setAiResult] = useState<any>(null);
+
+  const userRef = useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
+  const { data: profile } = useDoc(userRef);
   const { data: globalConfig } = useDoc(useMemo(() => db ? doc(db, 'config', 'global') : null, [db]));
 
   useEffect(() => {
@@ -76,6 +91,19 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleAiGeneration = async () => {
+    setIsAiLoading(true);
+    try {
+      const result = await generateShuttleRoutes(aiInput);
+      setAiResult(result);
+      toast({ title: "AI Architect Complete", description: "New optimized corridor schematics generated." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "AI Generation Failed", description: e.message });
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/admin/login'); };
 
   if (authLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
@@ -89,11 +117,12 @@ export default function AdminDashboard() {
             <span className="text-2xl font-black font-headline italic tracking-tighter uppercase text-primary leading-none">AAGO OPS</span>
           </div>
         </div>
-        <nav className="flex-1 p-6 space-y-2">
+        <nav className="flex-1 p-6 space-y-2 overflow-y-auto">
           {[
             { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
             { id: 'payments', label: 'Payment Hub', icon: QrCode },
             { id: 'routes', label: 'Fleet Grid', icon: RouteIcon },
+            { id: 'ai-architect', label: 'AI Architect', icon: Sparkles },
           ].map((item) => (
             <Button 
               key={item.id} variant="ghost" 
@@ -114,7 +143,7 @@ export default function AdminDashboard() {
       <main className="flex-1 flex flex-col overflow-hidden">
         <header className="h-24 bg-white border-b border-slate-100 px-10 flex items-center justify-between shadow-sm">
           <div>
-            <h2 className="text-3xl font-black font-headline text-slate-900 italic uppercase tracking-tighter leading-none">{activeTab}</h2>
+            <h2 className="text-3xl font-black font-headline text-slate-900 italic uppercase tracking-tighter leading-none">{activeTab.replace('-', ' ')}</h2>
             <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.4em] mt-2">Regional Operations Terminal</p>
           </div>
           <Badge className="bg-green-500/10 text-green-600 border-none font-black uppercase text-[10px] tracking-widest px-6 py-2 rounded-full">Network Live</Badge>
@@ -234,6 +263,72 @@ export default function AdminDashboard() {
                   </Card>
                 ))}
               </div>
+            </div>
+          )}
+
+          {activeTab === 'ai-architect' && (
+            <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 max-w-4xl">
+              <Card className="border-none bg-white rounded-[3rem] p-12 shadow-sm space-y-10">
+                <div className="flex items-center gap-4">
+                   <div className="p-4 bg-primary/10 rounded-2xl"><Sparkles className="h-8 w-8 text-primary" /></div>
+                   <div>
+                     <h3 className="text-3xl font-black italic uppercase text-slate-900 leading-none">AI Route Architect</h3>
+                     <p className="text-sm font-bold text-slate-400 italic mt-2">Generate optimized shuttle corridors using neural network planning.</p>
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-8">
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Student Demand Patterns</Label>
+                    <Textarea 
+                      value={aiInput.studentDemandPatterns} 
+                      onChange={e => setAiInput({...aiInput, studentDemandPatterns: e.target.value})}
+                      placeholder="e.g. High volume from South Campus to Library between 4-6 PM..."
+                      className="min-h-[120px] rounded-2xl bg-slate-50 border-none font-bold italic p-6"
+                    />
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Historical Traffic Summaries</Label>
+                    <Textarea 
+                      value={aiInput.historicalTrafficData} 
+                      onChange={e => setAiInput({...aiInput, historicalTrafficData: e.target.value})}
+                      placeholder="e.g. Heavy congestion on Beach Road during weekends..."
+                      className="min-h-[120px] rounded-2xl bg-slate-50 border-none font-bold italic p-6"
+                    />
+                  </div>
+
+                  <Button onClick={handleAiGeneration} disabled={isAiLoading} className="h-18 bg-primary text-white font-black uppercase italic text-lg rounded-2xl shadow-xl hover:scale-[1.02] transition-all">
+                    {isAiLoading ? <Loader2 className="animate-spin h-6 w-6" /> : "Initiate AI Synthesis"}
+                  </Button>
+                </div>
+              </Card>
+
+              {aiResult && (
+                <Card className="border-none bg-white rounded-[3rem] p-12 shadow-xl space-y-8 animate-in zoom-in-95">
+                  <h4 className="text-2xl font-black italic uppercase text-primary border-b border-slate-50 pb-6 flex items-center gap-3"><ClipboardList className="h-6 w-6" /> Optimized Corridor Schematics</h4>
+                  <div className="space-y-8">
+                    {aiResult.optimizedRoutes.map((route: any, i: number) => (
+                      <div key={i} className="p-8 bg-slate-50 rounded-[2.5rem] space-y-4">
+                        <div className="flex justify-between items-start">
+                          <h5 className="text-xl font-black uppercase italic text-slate-900">{route.routeName}</h5>
+                          <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase">{route.estimatedDurationMinutes} MINS</Badge>
+                        </div>
+                        <p className="text-xs font-bold text-slate-500 italic leading-relaxed">{route.description}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {route.stops.map((stop: string, j: number) => (
+                            <Badge key={j} variant="outline" className="text-[8px] font-black uppercase border-slate-200">{stop}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="p-8 bg-blue-50/50 rounded-[2.5rem] border border-blue-100">
+                      <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest mb-3">Optimization Summary</p>
+                      <p className="text-sm font-bold text-blue-900 italic leading-relaxed">{aiResult.optimizationSummary}</p>
+                    </div>
+                  </div>
+                </Card>
+              )}
             </div>
           )}
         </div>
