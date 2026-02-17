@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -24,15 +24,38 @@ import {
   Users,
   AlertTriangle,
   TrendingUp,
-  Settings2
+  Settings2,
+  CheckCircle2,
+  XCircle,
+  Phone,
+  Clock,
+  MapPin
 } from 'lucide-react';
-import { useJsApiLoader } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api';
 import { generateShuttleRoutes } from '@/ai/flows/admin-generate-shuttle-routes';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
-import { collection, query, doc, updateDoc, addDoc } from 'firebase/firestore';
+import { collection, query, doc, updateDoc, addDoc, deleteDoc, where } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { firebaseConfig } from '@/firebase/config';
+
+const mapContainerStyle = {
+  width: '100%',
+  height: '100%',
+  borderRadius: '2rem'
+};
+
+const mapOptions = {
+  styles: [
+    { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+    { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+    { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+    { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+    { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
+  ],
+  disableDefaultUI: true,
+};
 
 export default function AdminDashboard() {
   const db = useFirestore();
@@ -47,6 +70,7 @@ export default function AdminDashboard() {
   });
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'fleet' | 'routes' | 'drivers' | 'scholars' | 'suggestions' | 'finance' | 'safety'>('dashboard');
+  const [selectedDriver, setSelectedDriver] = useState<any>(null);
   
   const userRef = useMemo(() => {
     if (!db || !user?.uid) return null;
@@ -62,7 +86,7 @@ export default function AdminDashboard() {
   const drivers = useMemo(() => allUsers?.filter(u => u.role === 'driver') || [], [allUsers]);
   const riders = useMemo(() => allUsers?.filter(u => u.role === 'rider') || [], [allUsers]);
   const activeTrips = useMemo(() => allTrips?.filter(t => t.status === 'active') || [], [allTrips]);
-  const activeAlerts = useMemo(() => allAlerts?.filter(a => a.status === 'active') || [], [allAlerts]);
+  const activeAlerts = useMemo(() => allAlerts?.filter(a => a.status === 'active' || a.status === 'pending') || [], [allAlerts]);
   
   const savedRoutes = useMemo(() => allRoutes?.filter(r => r.status === 'active') || [], [allRoutes]);
   const suggestions = useMemo(() => allRoutes?.filter(r => r.status === 'suggested') || [], [allRoutes]);
@@ -86,6 +110,36 @@ export default function AdminDashboard() {
       toast({ title: "Pricing Engine Updated", description: "Regional fares have been synchronized." });
     } catch {
       toast({ variant: "destructive", title: "Update Failed" });
+    }
+  };
+
+  const handleApproveSuggestion = async (suggestionId: string) => {
+    if (!db) return;
+    try {
+      await updateDoc(doc(db, 'routes', suggestionId), { status: 'active', isActive: true });
+      toast({ title: "Proposal Approved", description: "Route deployed to regional mission log." });
+    } catch {
+      toast({ variant: "destructive", title: "Approval Protocol Failed" });
+    }
+  };
+
+  const handleRejectSuggestion = async (suggestionId: string) => {
+    if (!db) return;
+    try {
+      await deleteDoc(doc(db, 'routes', suggestionId));
+      toast({ title: "Proposal Rejected", description: "Route removed from suggest log." });
+    } catch {
+      toast({ variant: "destructive", title: "Rejection Protocol Failed" });
+    }
+  };
+
+  const handleResolveAlert = async (alertId: string) => {
+    if (!db) return;
+    try {
+      await updateDoc(doc(db, 'alerts', alertId), { status: 'resolved', resolvedAt: new Date().toISOString() });
+      toast({ title: "Incident Resolved", description: "Safety status restored." });
+    } catch {
+      toast({ variant: "destructive", title: "Resolution Failed" });
     }
   };
 
@@ -189,6 +243,206 @@ export default function AdminDashboard() {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          )}
+
+          {activeTab === 'fleet' && (
+            <div className="h-[calc(100vh-12rem)] relative">
+              {isLoaded ? (
+                <GoogleMap
+                  mapContainerStyle={mapContainerStyle}
+                  center={{ lat: profile?.currentLat || 17.6868, lng: profile?.currentLng || 83.2185 }}
+                  zoom={12}
+                  options={mapOptions}
+                >
+                  {drivers.filter(d => d.currentLat).map((driver: any) => (
+                    <Marker
+                      key={driver.uid}
+                      position={{ lat: driver.currentLat, lng: driver.currentLng }}
+                      onClick={() => setSelectedDriver(driver)}
+                      icon={{
+                        url: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
+                        scaledSize: new window.google.maps.Size(40, 40)
+                      }}
+                    />
+                  ))}
+
+                  {selectedDriver && (
+                    <InfoWindow
+                      position={{ lat: selectedDriver.currentLat, lng: selectedDriver.currentLng }}
+                      onCloseClick={() => setSelectedDriver(null)}
+                    >
+                      <div className="p-4 bg-white rounded-xl shadow-2xl min-w-[200px]">
+                        <h4 className="font-black text-primary uppercase italic text-sm">{selectedDriver.fullName}</h4>
+                        <Badge variant="outline" className="text-[8px] uppercase mt-1">{selectedDriver.vehicleType}</Badge>
+                        <hr className="my-2" />
+                        <div className="space-y-1">
+                          <p className="text-[9px] font-bold text-slate-500 uppercase">Status: <span className="text-primary">{selectedDriver.status}</span></p>
+                          <p className="text-[9px] font-bold text-slate-500 uppercase">Contact: {selectedDriver.phoneNumber}</p>
+                        </div>
+                      </div>
+                    </InfoWindow>
+                  )}
+                </GoogleMap>
+              ) : (
+                <div className="h-full flex items-center justify-center bg-slate-900 rounded-[2rem]">
+                  <Loader2 className="animate-spin text-white h-12 w-12" />
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'suggestions' && (
+            <div className="space-y-6">
+              <h3 className="text-xl font-black italic uppercase text-primary">Workforce Proposals</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {suggestions.length === 0 ? (
+                  <p className="text-slate-500 font-bold italic">No pending route proposals from workforce.</p>
+                ) : (
+                  suggestions.map((route: any) => (
+                    <Card key={route.id} className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden">
+                      <CardHeader className="bg-accent/5">
+                        <h4 className="font-black text-primary uppercase italic text-lg leading-none">{route.routeName}</h4>
+                        <p className="text-xs font-bold text-slate-400 mt-1 italic">{route.city} Hub Proposal</p>
+                      </CardHeader>
+                      <CardContent className="p-6 space-y-4">
+                        <div className="space-y-1">
+                           <Label className="text-[9px] font-black uppercase text-muted-foreground">Proposed Path</Label>
+                           <div className="flex flex-wrap gap-1">
+                              {route.stops?.map((stop: string, i: number) => (
+                                <Badge key={i} variant="secondary" className="text-[8px] font-bold">{stop}</Badge>
+                              ))}
+                           </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <Button onClick={() => handleApproveSuggestion(route.id)} className="bg-green-500 hover:bg-green-600 rounded-xl font-black uppercase italic text-xs h-10">
+                            Approve
+                          </Button>
+                          <Button onClick={() => handleRejectSuggestion(route.id)} variant="destructive" className="rounded-xl font-black uppercase italic text-xs h-10">
+                            Reject
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'safety' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-black italic uppercase text-primary">Incident Command Center</h3>
+                <Badge className="bg-red-500 text-white font-black animate-pulse px-4 py-2">{activeAlerts.length} Active Alerts</Badge>
+              </div>
+              <div className="grid grid-cols-1 gap-4">
+                {activeAlerts.length === 0 ? (
+                  <Card className="p-12 text-center bg-green-500/5 border-dashed border-green-500/20 rounded-[2.5rem]">
+                    <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                    <p className="text-green-600 font-black uppercase italic">All hub nodes secured. No active incidents.</p>
+                  </Card>
+                ) : (
+                  activeAlerts.map((alert: any) => (
+                    <Card key={alert.id} className="border-none shadow-xl bg-white rounded-[2rem] p-6 flex flex-col md:row items-center justify-between gap-6 border-l-8 border-red-500">
+                      <div className="flex items-center gap-6">
+                        <div className="bg-red-500/10 p-4 rounded-2xl">
+                          <AlertTriangle className="h-8 w-8 text-red-500" />
+                        </div>
+                        <div>
+                          <h4 className="font-black text-red-500 uppercase italic text-lg leading-none">SOS: {alert.userName || 'Scholar'}</h4>
+                          <div className="flex items-center gap-3 mt-2">
+                             <Badge variant="outline" className="text-[9px] font-black uppercase">{alert.city || 'Vizag'}</Badge>
+                             <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                               <Clock className="h-3 w-3" /> {new Date(alert.createdAt).toLocaleTimeString()}
+                             </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <Button variant="outline" className="rounded-xl font-black uppercase italic h-12 px-6">
+                          <Phone className="h-4 w-4 mr-2" /> Call User
+                        </Button>
+                        <Button onClick={() => handleResolveAlert(alert.id)} className="bg-primary hover:bg-primary/90 rounded-xl font-black uppercase italic h-12 px-6">
+                          Resolve Incident
+                        </Button>
+                      </div>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'drivers' && (
+            <div className="space-y-6">
+               <h3 className="text-xl font-black italic uppercase text-primary">Fleet Workforce</h3>
+               <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
+                <CardContent className="p-0">
+                   <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="bg-secondary/20 border-b text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+                          <th className="py-6 pl-8">Operator Name</th>
+                          <th className="py-6">Asset ID</th>
+                          <th className="py-6">Class</th>
+                          <th className="py-6">Status</th>
+                          <th className="py-6 pr-8 text-right">Net Missions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {drivers.map((driver: any) => (
+                          <tr key={driver.uid} className="hover:bg-secondary/5 transition-colors">
+                            <td className="py-6 pl-8 font-black text-primary uppercase italic text-sm">{driver.fullName}</td>
+                            <td className="py-6 font-bold text-xs uppercase">{driver.vehicleNumber || 'N/A'}</td>
+                            <td className="py-6 font-bold text-xs uppercase">{driver.vehicleType}</td>
+                            <td className="py-6">
+                               <Badge className={`${driver.status === 'on-trip' ? 'bg-green-500' : driver.status === 'available' ? 'bg-blue-500' : 'bg-slate-400'} text-[8px] font-black uppercase`}>
+                                 {driver.status}
+                               </Badge>
+                            </td>
+                            <td className="py-6 pr-8 text-right font-black text-slate-900 text-sm">{driver.totalTrips || 0}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                   </div>
+                </CardContent>
+               </Card>
+            </div>
+          )}
+
+          {activeTab === 'scholars' && (
+            <div className="space-y-6">
+               <h3 className="text-xl font-black italic uppercase text-primary">Scholar Database</h3>
+               <Card className="border-none shadow-xl rounded-[2.5rem] bg-white overflow-hidden">
+                <CardContent className="p-0">
+                   <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="bg-secondary/20 border-b text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+                          <th className="py-6 pl-8">Student Name</th>
+                          <th className="py-6">University Node</th>
+                          <th className="py-6">Scholar ID</th>
+                          <th className="py-6">Hub City</th>
+                          <th className="py-6 pr-8 text-right">Wallet Balance</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {riders.map((rider: any) => (
+                          <tr key={rider.uid} className="hover:bg-secondary/5 transition-colors">
+                            <td className="py-6 pl-8 font-black text-primary uppercase italic text-sm">{rider.fullName}</td>
+                            <td className="py-6 font-bold text-xs uppercase text-slate-400">{rider.collegeName || 'N/A'}</td>
+                            <td className="py-6 font-bold text-xs uppercase text-slate-400">{rider.studentId || 'N/A'}</td>
+                            <td className="py-6 font-bold text-xs uppercase text-slate-400">{rider.city}</td>
+                            <td className="py-6 pr-8 text-right font-black text-accent text-sm">₹{(rider.credits || 0).toFixed(0)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                   </div>
+                </CardContent>
+               </Card>
             </div>
           )}
 
