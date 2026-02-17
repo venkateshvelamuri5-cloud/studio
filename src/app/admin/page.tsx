@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -19,18 +19,14 @@ import {
   TrendingUp,
   QrCode,
   IndianRupee,
-  ShieldCheck,
-  MapPinned,
   Route as RouteIcon,
   Sparkles,
-  ArrowRight,
   ClipboardList,
-  History,
   AlertCircle,
   Activity
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
-import { collection, query, doc, setDoc, orderBy, limit, updateDoc } from 'firebase/firestore';
+import { collection, query, doc, setDoc, orderBy, limit } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { generateShuttleRoutes, AdminGenerateShuttleRoutesInput } from '@/ai/flows/admin-generate-shuttle-routes';
@@ -42,7 +38,7 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useUser();
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'payments' | 'routes' | 'ai-architect' | 'payouts'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'payments' | 'routes' | 'ai-architect'>('dashboard');
   const [vizagUpi, setVizagUpi] = useState('');
   const [vzmUpi, setVzmUpi] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -78,9 +74,6 @@ export default function AdminDashboard() {
   
   const usersQuery = useMemo(() => db ? query(collection(db, 'users')) : null, [db]);
   const { data: allUsers } = useCollection(usersQuery);
-  
-  const routesQuery = useMemo(() => db ? query(collection(db, 'routes')) : null, [db]);
-  const { data: allRoutes } = useCollection(routesQuery);
 
   const saveConfig = async () => {
     if (!db) return;

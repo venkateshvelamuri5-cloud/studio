@@ -5,7 +5,6 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
   Bus, 
@@ -13,14 +12,12 @@ import {
   Loader2, 
   LogOut, 
   CheckCircle2,
-  Navigation,
   Phone,
   History,
   User as UserIcon,
   ShieldCheck,
   MapPinned,
   AlertCircle,
-  TrendingUp,
   LayoutDashboard,
   Activity
 } from 'lucide-react';
@@ -30,7 +27,7 @@ import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { GoogleMap, useJsApiLoader, Polyline, Marker } from '@react-google-maps/api';
-import { firebaseConfig } from '@/firebase/config';
+import { googleMapsApiKey } from '@/firebase/config';
 
 const mapContainerStyle = { width: '100%', height: '240px', borderRadius: '2rem' };
 const mapOptions = { mapId: "da87e9c90896eba04be76dde", disableDefaultUI: true };
@@ -51,7 +48,7 @@ export default function DriverConsole() {
   
   const { isLoaded, loadError } = useJsApiLoader({ 
     id: 'google-map-script', 
-    googleMapsApiKey: firebaseConfig.apiKey 
+    googleMapsApiKey: googleMapsApiKey 
   });
   const prevPassengerCount = useRef(0);
 
@@ -230,7 +227,7 @@ export default function DriverConsole() {
               ) : (
                 <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50">
                    <MapPinned className="h-10 w-10 text-slate-200 mb-4" />
-                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tactical Map Offline</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tactical Radar Offline</p>
                    {loadError && <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-2 italic">Awaiting Satellite Link Activation</p>}
                 </div>
               )}
@@ -331,7 +328,7 @@ export default function DriverConsole() {
               {[ 
                 { label: 'Vehicle ID', value: profile?.vehicleNumber, icon: Bus }, 
                 { label: 'Hub City', value: profile?.city, icon: MapPinned },
-                { label: 'License Identification', value: profile?.licenseNumber, icon: ShieldCheck }
+                { label: 'License Identification', value: (profile as any)?.licenseNumber, icon: ShieldCheck }
               ].map((item, i) => (
                 <div key={i} className="bg-white border border-slate-100 rounded-2xl p-6 flex items-center gap-5 text-left shadow-sm">
                   <div className="h-10 w-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400">

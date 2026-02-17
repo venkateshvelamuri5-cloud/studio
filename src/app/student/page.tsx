@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -17,7 +16,6 @@ import {
   Bus, 
   MapPin, 
   QrCode,
-  IndianRupee,
   Navigation,
   LogOut,
   ChevronRight,
@@ -29,7 +27,6 @@ import {
   MapPinned,
   LocateFixed,
   AlertCircle,
-  Search,
   Activity
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
@@ -38,7 +35,7 @@ import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
-import { firebaseConfig } from '@/firebase/config';
+import { googleMapsApiKey } from '@/firebase/config';
 
 const mapContainerStyle = { width: '100%', height: '100%', borderRadius: '2.5rem' };
 const mapOptions = { 
@@ -64,7 +61,7 @@ export default function StudentDashboard() {
 
   const { isLoaded, loadError } = useJsApiLoader({ 
     id: 'google-map-script', 
-    googleMapsApiKey: firebaseConfig.apiKey 
+    googleMapsApiKey: googleMapsApiKey 
   });
 
   const userRef = useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
@@ -268,7 +265,7 @@ export default function StudentDashboard() {
                           </div>
                           <div className="bg-slate-900 p-8 rounded-[2rem] space-y-3">
                             <p className="text-[8px] font-black text-primary uppercase tracking-widest">AAGO PAYMENT HUB ID</p>
-                            <h4 className="text-xl font-black text-white italic truncate">{profile?.city === 'Vizag' ? globalConfig?.vizagUpiId : globalConfig?.vzmUpiId || 'payments.aago@upi'}</h4>
+                            <h4 className="text-xl font-black text-white italic truncate">{profile?.city === 'Vizag' ? (globalConfig as any)?.vizagUpiId : (globalConfig as any)?.vzmUpiId || 'payments.aago@upi'}</h4>
                           </div>
                           <div className="p-8 bg-primary/5 rounded-[2.5rem] border border-primary/10">
                             <p className="text-[10px] font-black uppercase text-primary tracking-widest mb-1">FIXED HUB FARE</p>
@@ -298,7 +295,7 @@ export default function StudentDashboard() {
                         </Button>
                       )}
                       {bookingStep === 3 && (
-                        <Button onClick={() => setBookingStep(0)} className="w-full h-18 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase italic text-xl">Close Terminal</Button>
+                        <Button onClick={() => setBookingStep(1)} className="w-full h-18 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase italic text-xl">Close Terminal</Button>
                       )}
                     </div>
                   </DialogContent>

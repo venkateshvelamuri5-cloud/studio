@@ -8,3 +8,5 @@ export const firebaseConfig = {
   messagingSenderId: "989098027005",
   appId: "1:989098027005:web:af7116e6fdd2e61dbb9b94"
 };
+
+export const googleMapsApiKey = "AIzaSyAtYm9Qs3dcp6dhDDUj_GOaPpoObnJXves";
