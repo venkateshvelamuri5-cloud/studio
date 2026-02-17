@@ -20,7 +20,9 @@ import {
   User as UserIcon,
   ChevronRight,
   ShieldCheck,
-  ArrowRight
+  ArrowRight,
+  MapPinned,
+  AlertCircle
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
 import { doc, updateDoc, collection, addDoc, onSnapshot, query, where, increment, arrayUnion, getDocs, limit, orderBy } from 'firebase/firestore';
@@ -46,7 +48,7 @@ export default function DriverConsole() {
   const [verificationOtp, setVerificationOtp] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   
-  const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: firebaseConfig.apiKey });
+  const { isLoaded, loadError } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: firebaseConfig.apiKey });
   const prevPassengerCount = useRef(0);
 
   const userRef = useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
@@ -66,7 +68,7 @@ export default function DriverConsole() {
         const tripData = { ...snapshot.docs[0].data(), id: snapshot.docs[0].id };
         const currentCount = tripData.passengers?.length || 0;
         if (currentCount > prevPassengerCount.current) {
-          toast({ title: "New Scholar Alert!", description: "A student just paid for a seat on your shuttle." });
+          toast({ title: "New Scholar Alert!", description: "A student just secured a seat on your mission." });
         }
         prevPassengerCount.current = currentCount;
         setActiveTrip(tripData);
@@ -98,7 +100,7 @@ export default function DriverConsole() {
         passengers: [], verifiedPassengers: [], startTime: new Date().toISOString()
       });
       updateDoc(userRef!, { status: 'on-trip', activeTripId: tripRef.id });
-      toast({ title: "Mission Active", description: `Route: ${route.routeName}` });
+      toast({ title: "Mission Initiated", description: `Active on Route: ${route.routeName}` });
     } catch {
       toast({ variant: "destructive", title: "Could not start mission" });
     } finally {
@@ -112,16 +114,16 @@ export default function DriverConsole() {
     try {
       const snap = await getDocs(query(collection(db, 'users'), where('activeOtp', '==', verificationOtp.trim()), limit(1)));
       if (snap.empty) {
-        toast({ variant: "destructive", title: "Invalid Code", description: "Identity sequence verification failed." });
+        toast({ variant: "destructive", title: "Identity Error", description: "Verification code sequence invalid." });
       } else {
         const rider = snap.docs[0].data();
         await updateDoc(doc(db, 'trips', activeTrip.id), { verifiedPassengers: arrayUnion(rider.uid) });
         await updateDoc(doc(db, 'users', rider.uid), { activeOtp: null });
-        toast({ title: "Scholar Boarded", description: `${rider.fullName} is now in-cabin.` });
+        toast({ title: "Scholar Verified", description: `${rider.fullName} is now on-board.` });
         setVerificationOtp("");
       }
     } catch {
-      toast({ variant: "destructive", title: "Action failed" });
+      toast({ variant: "destructive", title: "Verification sequence failed" });
     } finally {
       setIsVerifying(false);
     }
@@ -133,9 +135,9 @@ export default function DriverConsole() {
     try {
       await updateDoc(doc(db, 'trips', activeTrip.id), { status: 'completed', endTime: new Date().toISOString() });
       await updateDoc(userRef, { status: 'available', activeTripId: null });
-      toast({ title: "Mission Complete", description: "Route data pushed to regional ledger." });
+      toast({ title: "Mission Completed", description: "All telemetry data pushed to regional hub." });
     } catch {
-      toast({ variant: "destructive", title: "Could not end mission" });
+      toast({ variant: "destructive", title: "Could not end mission corridor" });
     } finally {
       setIsUpdating(false);
     }
@@ -152,12 +154,12 @@ export default function DriverConsole() {
           </div>
           <div>
             <h1 className="font-black text-sm uppercase italic text-slate-900 leading-none">{profile?.fullName}</h1>
-            <Badge className={`${profile?.status === 'offline' ? 'bg-slate-100 text-slate-500' : 'bg-green-500/10 text-green-600'} border-none text-[8px] font-black uppercase mt-1`}>
-              {profile?.status === 'offline' ? 'Off Duty' : 'Operational'}
+            <Badge className={`${profile?.status === 'offline' ? 'bg-slate-100 text-slate-400' : 'bg-green-500/10 text-green-600'} border-none text-[8px] font-black uppercase mt-1 tracking-widest`}>
+              {profile?.status === 'offline' ? 'Off Duty' : 'Online'}
             </Badge>
           </div>
         </div>
-        <Button onClick={() => updateDoc(userRef!, { status: profile?.status === 'offline' ? 'available' : 'offline' })} className={`rounded-2xl h-11 w-11 p-0 transition-all ${profile?.status === 'offline' ? 'bg-slate-100 text-slate-400' : 'bg-primary text-white shadow-lg'}`}>
+        <Button onClick={() => updateDoc(userRef!, { status: profile?.status === 'offline' ? 'available' : 'offline' })} className={`rounded-2xl h-11 w-11 p-0 transition-all ${profile?.status === 'offline' ? 'bg-slate-200 text-slate-400' : 'bg-primary text-white shadow-xl'}`}>
           <Power className="h-5 w-5" />
         </Button>
       </header>
@@ -165,90 +167,119 @@ export default function DriverConsole() {
       <main className="flex-1 p-6 space-y-6 max-w-lg mx-auto w-full">
         {activeTab === 'trips' && (!activeTrip ? (
           <div className="space-y-6 animate-in fade-in">
-            <h2 className="text-2xl font-black italic uppercase text-slate-900">Start Mission</h2>
+            <h2 className="text-2xl font-black italic uppercase text-slate-900">Mission Initiation</h2>
             <div className="space-y-4">
-              {availableRoutes.map((route: any) => (
-                <Card key={route.id} className="bg-white border-slate-100 rounded-[2rem] shadow-sm hover:shadow-md transition-all overflow-hidden">
-                  <CardContent className="p-8 flex justify-between items-center">
-                    <div>
-                      <h3 className="font-black text-xl text-slate-900 uppercase italic leading-none mb-2">{route.routeName}</h3>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase italic">₹{route.baseFare} Per Scholar</p>
-                    </div>
-                    <Button onClick={() => startTrip(route)} disabled={isUpdating} className="rounded-xl h-12 px-8 bg-primary text-white font-black uppercase italic shadow-lg">Start</Button>
-                  </CardContent>
+              {availableRoutes.length === 0 ? (
+                <Card className="p-12 text-center bg-white border-dashed border-2 border-slate-200 rounded-[2.5rem]">
+                   <AlertCircle className="h-10 w-10 text-slate-300 mx-auto mb-4" />
+                   <p className="text-xs font-black uppercase tracking-widest text-slate-400">No Regional Routes Available</p>
                 </Card>
-              ))}
+              ) : (
+                availableRoutes.map((route: any) => (
+                  <Card key={route.id} className="bg-white border-slate-100 rounded-[2rem] shadow-sm hover:shadow-md transition-all overflow-hidden">
+                    <CardContent className="p-8 flex justify-between items-center">
+                      <div>
+                        <h3 className="font-black text-xl text-slate-900 uppercase italic leading-none mb-2">{route.routeName}</h3>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase italic">₹{route.baseFare} Per Scholar</p>
+                      </div>
+                      <Button onClick={() => startTrip(route)} disabled={isUpdating} className="rounded-xl h-12 px-8 bg-primary text-white font-black uppercase italic shadow-lg">Initiate</Button>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           </div>
         ) : (
           <div className="space-y-6 animate-in slide-in-from-bottom-4">
-            {isLoaded && validStops.length > 0 && (
-              <div className="relative rounded-[2.5rem] overflow-hidden border border-slate-200 shadow-xl h-64">
+            <div className="relative rounded-[2.5rem] overflow-hidden border border-slate-200 shadow-xl h-64 bg-slate-100">
+              {isLoaded && !loadError && validStops.length > 0 ? (
                 <GoogleMap mapContainerStyle={mapContainerStyle} center={{ lat: 17.6868, lng: 83.2185 }} zoom={13} options={mapOptions}>
-                  <Polyline path={validStops.map((s: any) => ({ lat: Number(s.lat), lng: Number(s.lng) }))} options={{ strokeColor: "#3b82f6", strokeOpacity: 0.8, strokeWeight: 6 }} />
+                  <Polyline 
+                    path={validStops.map((s: any) => ({ lat: Number(s.lat), lng: Number(s.lng) }))} 
+                    options={{ strokeColor: "#3b82f6", strokeOpacity: 0.8, strokeWeight: 6 }} 
+                  />
                 </GoogleMap>
-              </div>
-            )}
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50">
+                   <MapPinned className="h-10 w-10 text-slate-200 mb-4" />
+                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Tactical Map Offline</p>
+                </div>
+              )}
+            </div>
+            
             <Card className="bg-white border-none rounded-[3rem] p-8 space-y-8 shadow-xl">
               <div className="flex justify-between items-start">
                 <div className="space-y-1">
                   <p className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Mission Active</p>
                   <h2 className="text-3xl font-black italic uppercase leading-none">{activeTrip.routeName}</h2>
                 </div>
-                <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase px-3 py-1">{activeTrip.riderCount} Paid</Badge>
+                <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase px-3 py-1">{activeTrip.riderCount} Boarded</Badge>
               </div>
 
               <div className="bg-primary/5 p-6 rounded-[2rem] border border-primary/10 space-y-4">
                 <div className="flex items-center gap-2 mb-1 text-primary">
                   <ShieldCheck className="h-4 w-4" />
-                  <Label className="text-[10px] font-black uppercase tracking-[0.4em]">Scholar Code Sequence</Label>
+                  <Label className="text-[10px] font-black uppercase tracking-[0.4em]">Scholar Auth ID</Label>
                 </div>
                 <div className="flex gap-3">
-                  <Input value={verificationOtp} onChange={(e) => setVerificationOtp(e.target.value)} placeholder="000000" className="h-16 text-center font-black tracking-[0.4em] text-2xl rounded-2xl bg-white" maxLength={6} />
-                  <Button onClick={verifyPassenger} disabled={isVerifying || !verificationOtp} className="h-16 w-16 rounded-2xl bg-primary text-white shadow-lg active:scale-95">
+                  <Input value={verificationOtp} onChange={(e) => setVerificationOtp(e.target.value)} placeholder="000000" className="h-16 text-center font-black tracking-[0.4em] text-2xl rounded-2xl bg-white border-none shadow-inner" maxLength={6} />
+                  <Button onClick={verifyPassenger} disabled={isVerifying || !verificationOtp} className="h-16 w-16 rounded-2xl bg-primary text-white shadow-lg active:scale-95 transition-all">
                     {isVerifying ? <Loader2 className="animate-spin h-6 w-6" /> : <CheckCircle2 className="h-8 w-8" />}
                   </Button>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Manifest</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Manifest Radar</h3>
                 <div className="space-y-3">
-                  {passengerDetails?.map((p: any) => (
-                    <div key={p.uid} className="p-5 bg-slate-50 rounded-[1.5rem] flex justify-between items-center border border-slate-100">
-                      <div className="flex items-center gap-4">
-                        <div className={`h-12 w-12 rounded-xl flex items-center justify-center font-black text-xs ${activeTrip.verifiedPassengers?.includes(p.uid) ? 'bg-green-100 text-green-600' : 'bg-primary/10 text-primary'}`}>
-                          {activeTrip.verifiedPassengers?.includes(p.uid) ? <CheckCircle2 className="h-6 w-6" /> : p.fullName[0]}
+                  {passengerDetails?.length === 0 ? (
+                    <p className="text-[10px] text-center font-bold text-slate-300 italic py-8">Waiting for regional bookings...</p>
+                  ) : (
+                    passengerDetails?.map((p: any) => (
+                      <div key={p.uid} className="p-5 bg-slate-50 rounded-[1.5rem] flex justify-between items-center border border-slate-100">
+                        <div className="flex items-center gap-4">
+                          <div className={`h-12 w-12 rounded-xl flex items-center justify-center font-black text-xs ${activeTrip.verifiedPassengers?.includes(p.uid) ? 'bg-green-100 text-green-600' : 'bg-primary/10 text-primary'}`}>
+                            {activeTrip.verifiedPassengers?.includes(p.uid) ? <CheckCircle2 className="h-6 w-6" /> : p.fullName[0]}
+                          </div>
+                          <div>
+                            <p className="text-sm font-black uppercase italic text-slate-900 leading-none">{p.fullName}</p>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest">{p.destinationStopName || 'Regional Hub'}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-black uppercase italic text-slate-900 leading-none">{p.fullName}</p>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest">{p.destinationStopName}</p>
-                        </div>
+                        <Button onClick={() => window.open(`tel:${p.phoneNumber}`, '_self')} variant="ghost" className="h-12 w-12 p-0 rounded-xl text-primary hover:bg-primary/10 transition-all"><Phone className="h-5 w-5" /></Button>
                       </div>
-                      <Button onClick={() => window.open(`tel:${p.phoneNumber}`, '_self')} variant="ghost" className="h-12 w-12 p-0 rounded-xl text-primary"><Phone className="h-5 w-5" /></Button>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
 
-              <Button onClick={endTrip} disabled={isUpdating} className="w-full h-18 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase italic text-lg shadow-xl">End Mission Corridor</Button>
+              <Button onClick={endTrip} disabled={isUpdating} className="w-full h-18 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase italic text-lg shadow-xl hover:bg-slate-800 transition-all">End Mission Corridor</Button>
             </Card>
           </div>
         ))}
 
         {activeTab === 'history' && (
           <div className="space-y-8 animate-in fade-in">
-            <h3 className="text-2xl font-black italic uppercase text-slate-900">Mission History</h3>
+            <h3 className="text-4xl font-black italic uppercase text-slate-900 leading-none">Mission Ledger</h3>
             <div className="space-y-4">
-              {pastTrips?.map((trip: any) => (
-                <Card key={trip.id} className="bg-white border-slate-100 rounded-[2rem] p-6 flex justify-between items-center shadow-sm">
-                  <div>
-                    <h4 className="font-black text-sm text-slate-900 uppercase italic leading-none mb-2">{trip.routeName}</h4>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest italic">{new Date(trip.endTime).toLocaleDateString()} • {trip.riderCount} Scholars</p>
-                  </div>
-                  <IndianRupee className="h-5 w-5 text-primary" />
+              {pastTrips?.length === 0 ? (
+                <Card className="p-12 text-center bg-white rounded-[2.5rem]">
+                   <History className="h-10 w-10 text-slate-200 mx-auto mb-4" />
+                   <p className="text-xs font-black uppercase tracking-widest text-slate-400">No Mission History</p>
                 </Card>
-              ))}
+              ) : (
+                pastTrips?.map((trip: any) => (
+                  <Card key={trip.id} className="bg-white border-slate-100 rounded-[2rem] p-6 flex justify-between items-center shadow-sm">
+                    <div>
+                      <h4 className="font-black text-sm text-slate-900 uppercase italic leading-none mb-2">{trip.routeName}</h4>
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest italic">{new Date(trip.endTime).toLocaleDateString()} • {trip.riderCount} Boarded</p>
+                    </div>
+                    <div className="text-right">
+                       <p className="text-xs font-black italic text-primary">₹{(trip.riderCount * trip.farePerRider || 0).toFixed(0)}</p>
+                    </div>
+                  </Card>
+                ))
+              )}
             </div>
           </div>
         )}
@@ -265,9 +296,15 @@ export default function DriverConsole() {
               </div>
             </div>
             <div className="space-y-3">
-              {[ { label: 'Asset ID', value: profile?.vehicleNumber, icon: Bus }, { label: 'Grid Region', value: profile?.city, icon: MapPinned } ].map((item, i) => (
+              {[ 
+                { label: 'Vehicle Asset ID', value: profile?.vehicleNumber, icon: Bus }, 
+                { label: 'Operational Hub', value: profile?.city, icon: MapPinned },
+                { label: 'License Identification', value: profile?.licenseNumber, icon: ShieldCheck }
+              ].map((item, i) => (
                 <div key={i} className="bg-white border border-slate-100 rounded-2xl p-6 flex items-center gap-5 text-left shadow-sm">
-                  <item.icon className="h-6 w-6 text-slate-400" />
+                  <div className="h-10 w-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400">
+                    <item.icon className="h-5 w-5" />
+                  </div>
                   <div><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{item.label}</p><p className="text-base font-black text-slate-900 uppercase italic leading-none">{item.value}</p></div>
                 </div>
               ))}
@@ -278,7 +315,7 @@ export default function DriverConsole() {
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 p-8 bg-white/90 backdrop-blur-3xl border-t border-slate-200 flex justify-around items-center rounded-t-[3.5rem] z-50 shadow-2xl">
-        <Button variant="ghost" onClick={() => setActiveTab('trips')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'trips' ? 'text-primary scale-110' : 'text-slate-400'}`}><Navigation className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Missions</span></Button>
+        <Button variant="ghost" onClick={() => setActiveTab('trips')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'trips' ? 'text-primary scale-110' : 'text-slate-400'}`}><Navigation className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Radar</span></Button>
         <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'history' ? 'text-primary scale-110' : 'text-slate-400'}`}><History className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Ledger</span></Button>
         <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-2 gap-1 rounded-2xl transition-all ${activeTab === 'profile' ? 'text-primary scale-110' : 'text-slate-400'}`}><UserIcon className="h-7 w-7" /><span className="text-[8px] font-black uppercase tracking-widest">Identity</span></Button>
       </nav>

@@ -20,12 +20,14 @@ import {
   QrCode,
   IndianRupee,
   ShieldCheck,
-  MapPinned
+  MapPinned,
+  AlertCircle
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
 import { collection, query, doc, updateDoc, setDoc, orderBy, limit } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function AdminDashboard() {
   const db = useFirestore();
@@ -37,6 +39,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'payments'>('dashboard');
   const [vizagUpi, setVizagUpi] = useState('');
   const [vzmUpi, setVzmUpi] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const { data: profile } = useDoc(useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]));
   const { data: globalConfig } = useDoc(useMemo(() => db ? doc(db, 'config', 'global') : null, [db]));
@@ -59,15 +62,18 @@ export default function AdminDashboard() {
 
   const saveConfig = async () => {
     if (!db) return;
+    setIsSaving(true);
     try {
       await setDoc(doc(db, 'config', 'global'), {
         vizagUpiId: vizagUpi,
         vzmUpiId: vzmUpi,
         updatedAt: new Date().toISOString()
       }, { merge: true });
-      toast({ title: "Network Config Saved", description: "Payment IDs updated across the grid." });
+      toast({ title: "Network Config Saved", description: "Payment IDs updated across the regional grid." });
     } catch {
       toast({ variant: "destructive", title: "Failed to update config" });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -166,7 +172,7 @@ export default function AdminDashboard() {
               <Card className="border-none bg-white rounded-[3rem] p-12 shadow-sm space-y-10">
                 <div className="space-y-3">
                   <h3 className="text-3xl font-black italic uppercase text-primary leading-none">Network Payment Config</h3>
-                  <p className="text-sm font-bold text-slate-400 italic">Set the UPI IDs for direct scholar payments.</p>
+                  <p className="text-sm font-bold text-slate-400 italic">Set the official UPI IDs for direct regional payments.</p>
                 </div>
                 
                 <div className="space-y-8">
@@ -186,7 +192,9 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  <Button onClick={saveConfig} className="w-full h-18 bg-primary text-white font-black uppercase italic text-lg rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">Update Grid Config</Button>
+                  <Button onClick={saveConfig} disabled={isSaving} className="w-full h-18 bg-primary text-white font-black uppercase italic text-lg rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">
+                    {isSaving ? <Loader2 className="animate-spin h-6 w-6" /> : "Update Regional Config"}
+                  </Button>
                 </div>
               </Card>
 
@@ -194,7 +202,7 @@ export default function AdminDashboard() {
                 <QrCode className="h-10 w-10 text-primary shrink-0" />
                 <div className="space-y-2">
                   <h4 className="font-black uppercase italic text-primary">Direct-to-Bank Logic</h4>
-                  <p className="text-xs font-bold text-slate-500 italic leading-relaxed">Payments are handled directly via student handset UPI. The system verifies successful transaction IDs before allotting shuttle seats to prevent revenue leakage.</p>
+                  <p className="text-xs font-bold text-slate-500 italic leading-relaxed">Payment gateways are hub-specific. The student's app will automatically display the correct regional ID based on their registered hub city.</p>
                 </div>
               </div>
             </div>
