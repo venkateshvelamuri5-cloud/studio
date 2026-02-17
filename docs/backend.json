@@ -12,33 +12,17 @@
         "email": { "type": "string" },
         "collegeName": { "type": "string" },
         "studentId": { "type": "string" },
-        "licenseNumber": { "type": "string" },
-        "vehicleNumber": { "type": "string" },
-        "vehicleType": { "type": "string", "enum": ["Bus", "Mini-Bus", "Van"] },
         "city": { "type": "string", "enum": ["Vizag", "Vizianagaram"] },
         "role": { "type": "string", "enum": ["rider", "admin", "driver"] },
         "status": { "type": "string", "enum": ["available", "on-trip", "offline"] },
         "photoUrl": { "type": "string" },
+        "vehicleNumber": { "type": "string" },
+        "vehicleType": { "type": "string", "enum": ["Bus", "Mini-Bus", "Van"] },
         "currentLat": { "type": "number" },
         "currentLng": { "type": "number" },
-        "totalTrips": { "type": "number", "default": 0 },
-        "credits": { "type": "number", "default": 0 },
-        "totalEarnings": { "type": "number", "default": 0 },
-        "weeklyEarnings": { "type": "number", "default": 0 },
-        "createdAt": { "type": "string", "format": "date-time" },
         "activeOtp": { "type": "string" },
         "destinationStopName": { "type": "string" },
-        "payoutHistory": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "amount": { "type": "number" },
-              "date": { "type": "string", "format": "date-time" },
-              "status": { "type": "string", "default": "processed" }
-            }
-          }
-        }
+        "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "fullName", "role"]
     },
@@ -50,86 +34,26 @@
         "id": { "type": "string" },
         "driverId": { "type": "string" },
         "driverName": { "type": "string" },
-        "driverPhone": { "type": "string" },
         "routeName": { "type": "string" },
         "status": { "type": "string", "enum": ["active", "completed", "cancelled"] },
-        "riderCount": { "type": "number" },
+        "riderCount": { "type": "number", "default": 0 },
+        "maxCapacity": { "type": "number", "default": 40 },
         "farePerRider": { "type": "number" },
-        "totalFareCollected": { "type": "number" },
-        "commissionAmount": { "type": "number" },
-        "payoutAmount": { "type": "number" },
         "passengers": { "type": "array", "items": { "type": "string" } },
         "verifiedPassengers": { "type": "array", "items": { "type": "string" } },
-        "currentStopIndex": { "type": "number" },
         "startTime": { "type": "string", "format": "date-time" },
         "endTime": { "type": "string", "format": "date-time" }
       },
       "required": ["driverId", "routeName", "status"]
     },
-    "Route": {
-      "title": "Route",
-      "description": "A shuttle route configuration.",
+    "AppConfig": {
+      "title": "App Config",
+      "description": "Global settings for the mobility network.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "routeName": { "type": "string" },
-        "stops": { "type": "array", "items": { "type": "object" } },
-        "city": { "type": "string", "enum": ["Vizag", "Vizianagaram"] },
-        "baseFare": { "type": "number" },
-        "surgeFare": { "type": "number" },
-        "isActive": { "type": "boolean" },
-        "status": { "type": "string", "enum": ["active", "suggested"] }
-      },
-      "required": ["routeName", "stops", "city"]
-    },
-    "PassTemplate": {
-      "title": "Pass Template",
-      "description": "A ride pass configuration created by admin.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "city": { "type": "string" },
-        "totalRides": { "type": "number" },
-        "price": { "type": "number" },
-        "routeName": { "type": "string", "description": "Optional specific route restriction." },
-        "isActive": { "type": "boolean" }
-      }
-    },
-    "UserPass": {
-      "title": "User Pass",
-      "description": "An active pass owned by a student.",
-      "type": "object",
-      "properties": {
-        "passId": { "type": "string" },
-        "name": { "type": "string" },
-        "remainingRides": { "type": "number" },
-        "totalRides": { "type": "number" },
-        "routeName": { "type": "string" },
-        "purchasedAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "PromoCode": {
-      "title": "Promo Code",
-      "description": "A promotional code for wallet credits.",
-      "type": "object",
-      "properties": {
-        "code": { "type": "string" },
-        "value": { "type": "number" },
-        "usageCount": { "type": "number", "default": 0 },
-        "isActive": { "type": "boolean" }
-      }
-    },
-    "FinancialTransaction": {
-      "title": "Financial Transaction",
-      "description": "A record of wallet top-ups or pass purchases.",
-      "type": "object",
-      "properties": {
-        "userId": { "type": "string" },
-        "userName": { "type": "string" },
-        "amount": { "type": "number" },
-        "type": { "type": "string", "enum": ["top-up", "pass-purchase"] },
-        "timestamp": { "type": "string", "format": "date-time" }
+        "vizagUpiId": { "type": "string" },
+        "vzmUpiId": { "type": "string" },
+        "networkStatus": { "type": "string" }
       }
     }
   },
@@ -139,10 +63,6 @@
   "firestore": {
     "/users/{userId}": { "schema": "User", "description": "User profiles." },
     "/trips/{tripId}": { "schema": "Trip", "description": "Trip records." },
-    "/routes/{routeId}": { "schema": "Route", "description": "Route definitions." },
-    "/passes/{passId}": { "schema": "PassTemplate", "description": "Available ride passes." },
-    "/users/{userId}/passes/{userPassId}": { "schema": "UserPass", "description": "Student owned passes." },
-    "/promoCodes/{codeId}": { "schema": "PromoCode", "description": "Promotional codes." },
-    "/transactions/{txId}": { "schema": "FinancialTransaction", "description": "Revenue logs." }
+    "/config/global": { "schema": "AppConfig", "description": "Global network settings." }
   }
 }
