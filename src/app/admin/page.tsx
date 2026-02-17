@@ -23,10 +23,12 @@ import {
   Sparkles,
   ClipboardList,
   AlertCircle,
-  Activity
+  Activity,
+  ArrowUpRight,
+  ShieldCheck
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
-import { collection, query, doc, setDoc, orderBy, limit } from 'firebase/firestore';
+import { collection, query, doc, setDoc, orderBy, limit, where } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { generateShuttleRoutes, AdminGenerateShuttleRoutesInput } from '@/ai/flows/admin-generate-shuttle-routes';
@@ -69,11 +71,19 @@ export default function AdminDashboard() {
     }
   }, [profile, authLoading, router]);
 
-  const tripsQuery = useMemo(() => db ? query(collection(db, 'trips'), orderBy('startTime', 'desc'), limit(50)) : null, [db]);
+  const tripsQuery = useMemo(() => db ? query(collection(db, 'trips'), orderBy('startTime', 'desc'), limit(100)) : null, [db]);
   const { data: allTrips } = useCollection(tripsQuery);
   
   const usersQuery = useMemo(() => db ? query(collection(db, 'users')) : null, [db]);
   const { data: allUsers } = useCollection(usersQuery);
+
+  const stats = useMemo(() => {
+    if (!allTrips) return { revenue: 0, payouts: 0, commissions: 0 };
+    const completed = allTrips.filter(t => t.status === 'completed');
+    const revenue = completed.reduce((acc, t) => acc + (t.totalYield || (t.riderCount * t.farePerRider || 0)), 0);
+    const payouts = completed.reduce((acc, t) => acc + (t.driverShare || ((t.totalYield || t.riderCount * t.farePerRider) * 0.9)), 0);
+    return { revenue, payouts, commissions: revenue - payouts };
+  }, [allTrips]);
 
   const saveConfig = async () => {
     if (!db) return;
@@ -153,51 +163,83 @@ export default function AdminDashboard() {
         <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar">
           {activeTab === 'dashboard' && (
             <div className="space-y-10 animate-in fade-in">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                 {[
-                  { label: 'Active Missions', value: allTrips?.filter(t => t.status === 'active').length || 0, icon: Navigation, color: 'text-blue-500', bg: 'bg-blue-50' },
-                  { label: 'Fleet Assets', value: allUsers?.filter(u => u.role === 'driver').length || 0, icon: Bus, color: 'text-orange-500', bg: 'bg-orange-50' },
-                  { label: 'Total Scholars', value: allUsers?.filter(u => u.role === 'rider').length || 0, icon: Users, color: 'text-green-500', bg: 'bg-green-50' },
+                  { label: 'Network Revenue', value: `₹${stats.revenue.toFixed(0)}`, icon: IndianRupee, color: 'text-green-500', bg: 'bg-green-50' },
+                  { label: 'Driver Payouts (90%)', value: `₹${stats.payouts.toFixed(0)}`, icon: IndianRupee, color: 'text-blue-500', bg: 'bg-blue-50' },
+                  { label: 'Hub Commission (10%)', value: `₹${stats.commissions.toFixed(0)}`, icon: TrendingUp, color: 'text-orange-500', bg: 'bg-orange-50' },
+                  { label: 'Active Missions', value: allTrips?.filter(t => t.status === 'active').length || 0, icon: Navigation, color: 'text-primary', bg: 'bg-primary/10' },
                 ].map((metric, i) => (
                   <Card key={i} className="border-none bg-white rounded-[2.5rem] shadow-sm hover:shadow-md transition-all">
                     <CardContent className="p-8">
                       <div className={`p-4 ${metric.bg} rounded-2xl w-fit mb-6`}><metric.icon className={`h-6 w-6 ${metric.color}`} /></div>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{metric.label}</p>
-                      <h3 className="text-4xl font-black text-slate-900 font-headline italic leading-none">{metric.value}</h3>
+                      <h3 className="text-3xl font-black text-slate-900 font-headline italic leading-none">{metric.value}</h3>
                     </CardContent>
                   </Card>
                 ))}
               </div>
 
-              <Card className="border-none bg-white rounded-[3rem] shadow-sm overflow-hidden">
-                <CardHeader className="p-10 border-b border-slate-50"><CardTitle className="text-xl font-black italic uppercase text-slate-900 flex items-center gap-3"><TrendingUp className="h-6 w-6 text-primary" /> Live Network Manifest</CardTitle></CardHeader>
-                <CardContent className="p-0">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">
-                        <th className="py-6 px-10">Corridor</th>
-                        <th className="py-6">Operator</th>
-                        <th className="py-6">Payload</th>
-                        <th className="py-6 px-10 text-right">Yield</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {!allTrips || allTrips.length === 0 ? (
-                        <tr><td colSpan={4} className="py-20 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">No active mission data available</td></tr>
-                      ) : (
-                        allTrips.map((trip: any) => (
-                          <tr key={trip.id} className="hover:bg-slate-50 transition-all">
-                            <td className="py-8 px-10"><span className="font-black text-slate-900 uppercase italic text-xs">{trip.routeName}</span></td>
-                            <td className="py-8 text-xs font-bold text-slate-500 italic uppercase">{trip.driverName}</td>
-                            <td className="py-8"><Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase">{trip.riderCount} / {trip.maxCapacity}</Badge></td>
-                            <td className="py-8 px-10 text-right font-black text-slate-900 italic text-base">₹{(trip.riderCount * trip.farePerRider || 0).toFixed(0)}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </CardContent>
-              </Card>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                <Card className="border-none bg-white rounded-[3rem] shadow-sm overflow-hidden">
+                  <CardHeader className="p-10 border-b border-slate-50"><CardTitle className="text-xl font-black italic uppercase text-slate-900 flex items-center gap-3"><Activity className="h-6 w-6 text-primary" /> Recent Missions</CardTitle></CardHeader>
+                  <CardContent className="p-0">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">
+                          <th className="py-6 px-10">Corridor</th>
+                          <th className="py-6">Operator</th>
+                          <th className="py-6">Status</th>
+                          <th className="py-6 px-10 text-right">Yield</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {!allTrips || allTrips.length === 0 ? (
+                          <tr><td colSpan={4} className="py-20 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">No active mission data available</td></tr>
+                        ) : (
+                          allTrips.map((trip: any) => (
+                            <tr key={trip.id} className="hover:bg-slate-50 transition-all">
+                              <td className="py-8 px-10"><span className="font-black text-slate-900 uppercase italic text-xs">{trip.routeName}</span></td>
+                              <td className="py-8 text-xs font-bold text-slate-500 italic uppercase">{trip.driverName}</td>
+                              <td className="py-8">
+                                <Badge className={`${trip.status === 'completed' ? 'bg-green-100 text-green-600' : 'bg-primary/10 text-primary'} border-none text-[8px] font-black uppercase`}>
+                                  {trip.status}
+                                </Badge>
+                              </td>
+                              <td className="py-8 px-10 text-right font-black text-slate-900 italic text-base">₹{(trip.totalYield || trip.riderCount * trip.farePerRider || 0).toFixed(0)}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-none bg-white rounded-[3rem] shadow-sm overflow-hidden">
+                  <CardHeader className="p-10 border-b border-slate-50"><CardTitle className="text-xl font-black italic uppercase text-slate-900 flex items-center gap-3"><Users className="h-6 w-6 text-primary" /> Active Fleet Assets</CardTitle></CardHeader>
+                  <CardContent className="p-0">
+                    <div className="divide-y divide-slate-50">
+                      {allUsers?.filter(u => u.role === 'driver').map((driver: any) => (
+                        <div key={driver.uid} className="p-8 flex items-center justify-between hover:bg-slate-50 transition-all">
+                          <div className="flex items-center gap-6">
+                             <div className="h-14 w-14 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-slate-400 overflow-hidden">
+                               {driver.photoUrl ? <img src={driver.photoUrl} className="h-full w-full object-cover" /> : driver.fullName[0]}
+                             </div>
+                             <div>
+                               <p className="font-black text-slate-900 uppercase italic text-sm">{driver.fullName}</p>
+                               <p className="text-[10px] font-bold text-slate-400 uppercase italic">{driver.vehicleNumber} • {driver.city}</p>
+                             </div>
+                          </div>
+                          <div className="text-right">
+                             <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Total Share</p>
+                             <p className="text-lg font-black text-primary italic">₹{(driver.totalEarnings || 0).toFixed(0)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           )}
 
@@ -236,7 +278,7 @@ export default function AdminDashboard() {
                 <QrCode className="h-10 w-10 text-primary shrink-0" />
                 <div className="space-y-2">
                   <h4 className="font-black uppercase italic text-primary">Mission Settlement Protocol</h4>
-                  <p className="text-xs font-bold text-slate-500 italic leading-relaxed">Students will scan the city-specific ID assigned above during the boarding sequence. Ensure these accounts are verified for high-volume transactions.</p>
+                  <p className="text-xs font-bold text-slate-500 italic leading-relaxed">Network commission is 10%. Drivers are automatically paid 90% share upon mission completion. Ensure these UPI endpoints are correctly routed to the Hub accounts.</p>
                 </div>
               </div>
             </div>

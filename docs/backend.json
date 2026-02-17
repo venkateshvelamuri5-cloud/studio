@@ -22,6 +22,7 @@
         "currentLng": { "type": "number" },
         "activeOtp": { "type": "string" },
         "destinationStopName": { "type": "string" },
+        "totalEarnings": { "type": "number", "default": 0 },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "fullName", "role"]
@@ -41,6 +42,8 @@
         "farePerRider": { "type": "number" },
         "passengers": { "type": "array", "items": { "type": "string" } },
         "verifiedPassengers": { "type": "array", "items": { "type": "string" } },
+        "totalYield": { "type": "number" },
+        "driverShare": { "type": "number" },
         "startTime": { "type": "string", "format": "date-time" },
         "endTime": { "type": "string", "format": "date-time" }
       },

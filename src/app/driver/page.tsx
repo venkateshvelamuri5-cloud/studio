@@ -21,7 +21,8 @@ import {
   LayoutDashboard,
   Activity,
   IndianRupee,
-  Wallet
+  Wallet,
+  TrendingUp
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
 import { doc, updateDoc, collection, addDoc, onSnapshot, query, where, arrayUnion, getDocs, limit, orderBy } from 'firebase/firestore';
@@ -64,10 +65,6 @@ export default function DriverConsole() {
 
   const historyQuery = useMemo(() => (db && user?.uid) ? query(collection(db, 'trips'), where('driverId', '==', user.uid), where('status', '==', 'completed'), orderBy('endTime', 'desc'), limit(20)) : null, [db, user?.uid]);
   const { data: pastTrips } = useCollection(historyQuery);
-
-  const totalEarnings = useMemo(() => {
-    return pastTrips?.reduce((acc, trip) => acc + (trip.riderCount * trip.farePerRider || 0), 0) || 0;
-  }, [pastTrips]);
 
   useEffect(() => {
     if (!db || !user?.uid) return;
@@ -135,8 +132,6 @@ export default function DriverConsole() {
         toast({ variant: "destructive", title: "Invalid Code", description: "The code you entered does not match any student." });
       } else {
         const rider = snap.docs[0].data();
-        
-        // Double check if this student is booked on THIS specific trip
         if (!activeTrip.passengers?.includes(rider.uid)) {
           toast({ variant: "destructive", title: "Not Found on Manifest", description: "This student has not booked a seat on your bus." });
           setIsVerifying(false);
@@ -164,17 +159,30 @@ export default function DriverConsole() {
   };
 
   const endTrip = async () => {
-    if (!db || !activeTrip || !userRef) return;
+    if (!db || !activeTrip || !userRef || !profile) return;
     setIsUpdating(true);
     try {
-      const tripRef = doc(db, 'trips', activeTrip.id);
-      updateDoc(tripRef, { status: 'completed', endTime: new Date().toISOString() })
-        .catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: tripRef.path, operation: 'update' })));
+      const totalYield = activeTrip.riderCount * activeTrip.farePerRider;
+      const driverShare = totalYield * 0.9;
       
-      updateDoc(userRef, { status: 'available', activeTripId: null })
-        .catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'update' })));
+      const tripRef = doc(db, 'trips', activeTrip.id);
+      updateDoc(tripRef, { 
+        status: 'completed', 
+        endTime: new Date().toISOString(),
+        totalYield: totalYield,
+        driverShare: driverShare
+      }).catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: tripRef.path, operation: 'update' })));
+      
+      updateDoc(userRef, { 
+        status: 'available', 
+        activeTripId: null,
+        totalEarnings: (profile.totalEarnings || 0) + driverShare
+      }).catch(e => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: userRef.path, operation: 'update' })));
 
-      toast({ title: "Trip Finished", description: "All students have reached their drop-off points." });
+      toast({ 
+        title: "Mission Completed", 
+        description: `₹${driverShare.toFixed(2)} (90%) added to your earnings.` 
+      });
     } catch (e) {
       toast({ variant: "destructive", title: "Error Finishing Trip" });
     } finally {
@@ -224,7 +232,7 @@ export default function DriverConsole() {
               <h2 className="text-2xl font-black italic uppercase text-slate-900 leading-none">Open Routes</h2>
               <div className="bg-primary/10 px-4 py-2 rounded-xl flex items-center gap-2">
                 <Wallet className="h-4 w-4 text-primary" />
-                <span className="text-sm font-black text-primary italic">₹{totalEarnings.toFixed(0)}</span>
+                <span className="text-sm font-black text-primary italic">₹{(profile?.totalEarnings || 0).toFixed(0)}</span>
               </div>
             </div>
             <div className="space-y-4">
@@ -338,8 +346,8 @@ export default function DriverConsole() {
                 <p className="text-slate-400 font-bold italic text-[10px] uppercase tracking-widest mt-2">Work History & Your Earnings</p>
               </div>
               <div className="text-right">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Hub Yield</p>
-                <p className="text-2xl font-black italic text-primary">₹{totalEarnings.toFixed(0)}</p>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Hub Yield (90%)</p>
+                <p className="text-2xl font-black italic text-primary">₹{(profile?.totalEarnings || 0).toFixed(0)}</p>
               </div>
             </div>
             <div className="space-y-4">
@@ -356,7 +364,7 @@ export default function DriverConsole() {
                       <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest italic">{new Date(trip.endTime).toLocaleDateString()} • {trip.riderCount} Scholars</p>
                     </div>
                     <div className="text-right">
-                       <p className="text-xs font-black italic text-primary">₹{(trip.riderCount * trip.farePerRider || 0).toFixed(0)}</p>
+                       <p className="text-xs font-black italic text-primary">₹{(trip.driverShare || (trip.riderCount * trip.farePerRider * 0.9)).toFixed(0)}</p>
                     </div>
                   </Card>
                 ))
@@ -381,7 +389,7 @@ export default function DriverConsole() {
               {[ 
                 { label: 'Asset Number', value: profile?.vehicleNumber, icon: Bus }, 
                 { label: 'Operational Hub', value: profile?.city, icon: MapPinned },
-                { label: 'License Identification', value: (profile as any)?.licenseNumber, icon: ShieldCheck }
+                { label: 'Total Mission Earnings (90%)', value: `₹${(profile?.totalEarnings || 0).toFixed(0)}`, icon: IndianRupee }
               ].map((item, i) => (
                 <div key={i} className="bg-white border border-slate-100 rounded-2xl p-6 flex items-center gap-5 text-left shadow-sm">
                   <div className="h-10 w-10 bg-slate-50 rounded-xl flex items-center justify-center text-primary">
