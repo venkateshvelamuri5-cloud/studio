@@ -61,14 +61,7 @@ const mapContainerStyle = {
 };
 
 const mapOptions = {
-  styles: [
-    { elementType: "geometry", stylers: [{ color: "#0f172a" }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: "#0f172a" }] },
-    { elementType: "labels.text.fill", stylers: [{ color: "#475569" }] },
-    { featureType: "road", elementType: "geometry", stylers: [{ color: "#1e293b" }] },
-    { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#334155" }] },
-    { featureType: "water", elementType: "geometry", stylers: [{ color: "#020617" }] },
-  ],
+  mapId: "da87e9c90896eba04be76dde",
   disableDefaultUI: true,
 };
 
