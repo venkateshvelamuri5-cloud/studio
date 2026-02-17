@@ -23,6 +23,7 @@
         "activeOtp": { "type": "string" },
         "destinationStopName": { "type": "string" },
         "totalEarnings": { "type": "number", "default": 0 },
+        "loyaltyPoints": { "type": "number", "default": 0 },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "fullName", "role"]
@@ -71,6 +72,17 @@
         "status": { "type": "string", "enum": ["active", "inactive"] }
       }
     },
+    "Voucher": {
+      "title": "Voucher",
+      "description": "Discount codes for student rides.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "discountAmount": { "type": "number" },
+        "isActive": { "type": "boolean", "default": true },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
     "AppConfig": {
       "title": "App Config",
       "description": "Global settings for the mobility network.",
@@ -89,6 +101,7 @@
     "/users/{userId}": { "schema": "User", "description": "User profiles." },
     "/trips/{tripId}": { "schema": "Trip", "description": "Trip records." },
     "/routes/{routeId}": { "schema": "Route", "description": "Route definitions." },
+    "/vouchers/{voucherId}": { "schema": "Voucher", "description": "Discount vouchers." },
     "/config/global": { "schema": "AppConfig", "description": "Global network settings." }
   }
 }

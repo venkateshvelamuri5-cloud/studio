@@ -5,6 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { 
   Dialog,
   DialogContent,
@@ -36,10 +37,11 @@ import {
   TrendingUp,
   Tag,
   ArrowRight,
-  IndianRupee
+  IndianRupee,
+  Ticket
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, increment, collection, query, where, arrayUnion, limit, addDoc } from 'firebase/firestore';
+import { doc, updateDoc, increment, collection, query, where, arrayUnion, limit, addDoc, getDocs } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -67,6 +69,10 @@ export default function StudentDashboard() {
   const [pickupStop, setPickupStop] = useState("");
   const [destinationStop, setDestinationStop] = useState("");
   const [currentPosition, setCurrentPosition] = useState<{lat: number, lng: number} | null>(null);
+
+  // Voucher Logic
+  const [voucherCode, setVoucherCode] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState(0);
 
   const { isLoaded, loadError } = useJsApiLoader({ 
     id: 'google-map-script', 
@@ -137,29 +143,55 @@ export default function StudentDashboard() {
         timestamp: new Date().toISOString(),
         location: currentPosition || 'Unknown'
       });
-      toast({ variant: "destructive", title: "Emergency SOS Sent", description: "The Aago Ops team has been notified of your location." });
+      toast({ variant: "destructive", title: "Emergency SOS Sent", description: "The Aago Ops team has been notified." });
     } catch {
-      toast({ variant: "destructive", title: "SOS Failed", description: "Please call local emergency services immediately." });
+      toast({ variant: "destructive", title: "SOS Failed" });
+    }
+  };
+
+  const handleApplyVoucher = async () => {
+    if (!db || !voucherCode) return;
+    try {
+      const vQuery = query(collection(db, 'vouchers'), where('code', '==', voucherCode.toUpperCase()), where('isActive', '==', true));
+      const snap = await getDocs(vQuery);
+      if (snap.empty) {
+        toast({ variant: "destructive", title: "Invalid Voucher" });
+        setAppliedDiscount(0);
+      } else {
+        const vData = snap.docs[0].data();
+        setAppliedDiscount(vData.discountAmount);
+        toast({ title: "Discount Applied!", description: `₹${vData.discountAmount} saved.` });
+      }
+    } catch {
+      toast({ variant: "destructive", title: "Check Failed" });
     }
   };
 
   const handleConfirmPayment = async () => {
     if (!db || !userRef || !selectedTrip || !destinationStop) return;
     if ((selectedTrip.passengers?.length || 0) >= selectedTrip.maxCapacity) {
-      toast({ variant: "destructive", title: "Bus is Full", description: "Please pick another shuttle." });
+      toast({ variant: "destructive", title: "Bus is Full" });
       return;
     }
     setIsBooking(true);
     try {
+      const finalFare = Math.max(0, selectedTrip.farePerRider - appliedDiscount);
+      // Loyalty Logic: 10 points for every 100 spent (1 point per 10)
+      const pointsEarned = Math.floor(finalFare / 10);
+      
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      await updateDoc(userRef, { activeOtp: otp, destinationStopName: destinationStop });
+      await updateDoc(userRef, { 
+        activeOtp: otp, 
+        destinationStopName: destinationStop,
+        loyaltyPoints: increment(pointsEarned)
+      });
       await updateDoc(doc(db, 'trips', selectedTrip.id), { 
         passengers: arrayUnion(user!.uid)
       });
       setBookingStep(3);
-      toast({ title: "Seat Secured!", description: "Your boarding ID is now active." });
+      toast({ title: "Seat Secured!", description: `You earned ${pointsEarned} Scholar Points.` });
     } catch (e) {
-      toast({ variant: "destructive", title: "Booking Error", description: "Please try again." });
+      toast({ variant: "destructive", title: "Booking Error" });
     } finally {
       setIsBooking(false);
     }
@@ -167,7 +199,6 @@ export default function StudentDashboard() {
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/'); };
 
-  const scholarPoints = (pastTrips?.length || 0) * 10 + 50; 
   const carbonSaved = (pastTrips?.length || 0) * 1.2; 
 
   if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>;
@@ -211,7 +242,7 @@ export default function StudentDashboard() {
                   <p className="text-[8px] font-black uppercase text-slate-400">Total Points</p>
                   <div className="flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-primary" />
-                    <span className="text-xl font-black text-slate-900 italic">{scholarPoints}</span>
+                    <span className="text-xl font-black text-slate-900 italic">{profile?.loyaltyPoints || 0}</span>
                   </div>
                </Card>
                <Card className="p-6 bg-slate-900 border-none shadow-xl rounded-[2.5rem] space-y-2 group overflow-hidden">
@@ -257,7 +288,7 @@ export default function StudentDashboard() {
                     if (navigator.geolocation) {
                       navigator.geolocation.getCurrentPosition((pos) => {
                         setCurrentPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                        toast({ title: "Radar Calibrated", description: "Identity located on the regional grid." });
+                        toast({ title: "Radar Calibrated" });
                       });
                     }
                   }} className="absolute bottom-8 right-8 h-14 w-14 rounded-2xl bg-white text-primary shadow-2xl p-0 hover:scale-110 transition-all border border-slate-100">
@@ -265,7 +296,7 @@ export default function StudentDashboard() {
                   </Button>
                 </div>
 
-                <Dialog onOpenChange={(open) => { if (!open) { setBookingStep(1); setSelectedTrip(null); } }}>
+                <Dialog onOpenChange={(open) => { if (!open) { setBookingStep(1); setSelectedTrip(null); setAppliedDiscount(0); setVoucherCode(""); } }}>
                   <DialogTrigger asChild>
                     <div className="p-14 bg-white border border-slate-100 rounded-[4rem] shadow-xl flex items-center justify-between cursor-pointer hover:shadow-2xl transition-all border-b-8 border-b-primary group">
                       <div className="space-y-3">
@@ -306,7 +337,7 @@ export default function StudentDashboard() {
                             {filteredTrips.length === 0 ? (
                               <div className="p-16 text-center bg-slate-50 rounded-[3rem] border border-dashed border-slate-200">
                                 <Activity className="h-10 w-10 text-slate-200 mx-auto mb-4" />
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic leading-relaxed">Scanning for active regional shuttle corridors...</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic leading-relaxed">Scanning for active corridors...</p>
                               </div>
                             ) : (
                               filteredTrips.map((trip: any) => (
@@ -329,25 +360,35 @@ export default function StudentDashboard() {
                       )}
 
                       {bookingStep === 2 && selectedTrip && (
-                        <div className="space-y-12 py-8 text-center animate-in zoom-in-95 duration-500">
+                        <div className="space-y-8 py-4 animate-in zoom-in-95 duration-500">
                           <div className="space-y-4">
-                            <div className="h-56 w-56 bg-white border-4 border-primary/10 rounded-[4rem] mx-auto flex items-center justify-center p-10 shadow-2xl relative">
+                            <div className="h-44 w-44 bg-white border-4 border-primary/10 rounded-[4rem] mx-auto flex items-center justify-center p-10 shadow-2xl relative">
                               <QrCode className="h-full w-full text-slate-900" />
                               <div className="absolute -bottom-4 -right-4 bg-primary p-4 rounded-3xl text-white shadow-xl rotate-12"><Zap className="h-6 w-6" /></div>
                             </div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">Regional UPI Hub Terminal</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 text-center">Scan to Pay</p>
                           </div>
-                          <div className="bg-slate-900 p-10 rounded-[3.5rem] space-y-4 shadow-2xl">
+
+                          <div className="bg-slate-50 p-6 rounded-[2.5rem] space-y-4">
+                            <Label className="text-[10px] font-black uppercase text-slate-400">Discount Code</Label>
+                            <div className="flex gap-2">
+                               <Input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="e.g. AAGO5" className="h-14 bg-white rounded-xl font-black italic" />
+                               <Button onClick={handleApplyVoucher} className="h-14 bg-slate-900 text-white rounded-xl font-black uppercase italic text-[10px]">Apply</Button>
+                            </div>
+                          </div>
+
+                          <div className="bg-slate-900 p-8 rounded-[3rem] space-y-4 shadow-2xl">
                             <div className="flex items-center justify-center gap-2 text-primary">
                                <IndianRupee className="h-4 w-4" />
-                               <p className="text-[9px] font-black uppercase tracking-widest">AAGO Official Endpoint</p>
+                               <p className="text-[9px] font-black uppercase tracking-widest">AAGO Official Hub</p>
                             </div>
-                            <h4 className="text-2xl font-black text-white italic truncate tracking-tighter">{profile?.city === 'Vizag' ? (globalConfig as any)?.vizagUpiId : (globalConfig as any)?.vzmUpiId || 'hub.aago@upi'}</h4>
+                            <h4 className="text-xl font-black text-white italic truncate tracking-tighter text-center">{profile?.city === 'Vizag' ? (globalConfig as any)?.vizagUpiId : (globalConfig as any)?.vzmUpiId || 'hub.aago@upi'}</h4>
                           </div>
-                          <div className="p-10 bg-primary/5 rounded-[3.5rem] border-2 border-primary/10 relative overflow-hidden">
-                            <div className="absolute top-0 left-0 p-6 opacity-5"><Zap className="h-12 w-12 text-primary" /></div>
-                            <p className="text-[11px] font-black uppercase text-primary tracking-widest mb-2 italic">Standard Boarding Fare</p>
-                            <h3 className="text-7xl font-black italic text-slate-900 leading-none tracking-tighter">₹{selectedTrip?.farePerRider || 20}</h3>
+
+                          <div className="p-8 bg-primary/5 rounded-[3rem] border-2 border-primary/10 text-center relative overflow-hidden">
+                            <p className="text-[11px] font-black uppercase text-primary tracking-widest mb-2 italic">Final Fare</p>
+                            <h3 className="text-6xl font-black italic text-slate-900 leading-none tracking-tighter">₹{Math.max(0, selectedTrip?.farePerRider - appliedDiscount)}</h3>
+                            {appliedDiscount > 0 && <p className="text-[9px] font-bold text-green-600 uppercase mt-2">Saved ₹{appliedDiscount} with voucher</p>}
                           </div>
                         </div>
                       )}
@@ -358,8 +399,8 @@ export default function StudentDashboard() {
                              <CheckCircle2 className="h-16 w-16" />
                            </div>
                            <div className="space-y-3">
-                             <h3 className="text-4xl font-black italic uppercase text-slate-900 leading-none tracking-tighter">Identity Cleared!</h3>
-                             <p className="text-sm font-bold text-slate-400 italic px-6 leading-relaxed">Your regional seat has been secured. Your Boarding ID is now active on the home screen.</p>
+                             <h3 className="text-4xl font-black italic uppercase text-slate-900 leading-none tracking-tighter">Cleared!</h3>
+                             <p className="text-sm font-bold text-slate-400 italic px-6 leading-relaxed">Your regional seat is secured. Your Boarding ID is active.</p>
                            </div>
                         </div>
                       )}
@@ -367,15 +408,15 @@ export default function StudentDashboard() {
 
                     <div className="pt-10 shrink-0">
                       {bookingStep === 1 && (
-                        <Button onClick={() => setBookingStep(2)} disabled={!selectedTrip} className="w-full h-20 bg-primary text-white rounded-[2rem] font-black uppercase italic text-2xl shadow-[0_20px_40px_rgba(59,130,246,0.3)] hover:scale-[1.02] transition-all">Clear Route <ArrowRight className="ml-3 h-6 w-6" /></Button>
+                        <Button onClick={() => setBookingStep(2)} disabled={!selectedTrip} className="w-full h-20 bg-primary text-white rounded-[2rem] font-black uppercase italic text-2xl shadow-xl hover:scale-[1.02] transition-all">Continue <ArrowRight className="ml-3 h-6 w-6" /></Button>
                       )}
                       {bookingStep === 2 && (
-                        <Button onClick={handleConfirmPayment} disabled={isBooking} className="w-full h-20 bg-green-600 text-white rounded-[2rem] font-black uppercase italic text-2xl shadow-[0_20px_40px_rgba(34,197,94,0.3)] hover:scale-[1.02] transition-all">
-                          {isBooking ? <Loader2 className="animate-spin h-8 w-8" /> : "Initiate Boarding"}
+                        <Button onClick={handleConfirmPayment} disabled={isBooking} className="w-full h-20 bg-green-600 text-white rounded-[2rem] font-black uppercase italic text-2xl shadow-xl hover:scale-[1.02] transition-all">
+                          {isBooking ? <Loader2 className="animate-spin h-8 w-8" /> : "Verify Payment"}
                         </Button>
                       )}
                       {bookingStep === 3 && (
-                        <Button onClick={() => setBookingStep(1)} className="w-full h-20 bg-slate-900 text-white rounded-[2rem] font-black uppercase italic text-2xl shadow-xl">Return to Terminal</Button>
+                        <Button onClick={() => setBookingStep(1)} className="w-full h-20 bg-slate-900 text-white rounded-[2rem] font-black uppercase italic text-2xl shadow-xl">Return Home</Button>
                       )}
                     </div>
                   </DialogContent>
@@ -389,13 +430,13 @@ export default function StudentDashboard() {
           <div className="space-y-8 animate-in fade-in">
              <div className="space-y-1">
                <h2 className="text-4xl font-black text-slate-900 italic uppercase tracking-tighter leading-none">My Rides</h2>
-               <p className="text-slate-400 font-bold italic text-[10px] uppercase tracking-widest">A secure log of your regional missions</p>
+               <p className="text-slate-400 font-bold italic text-[10px] uppercase tracking-widest">Your regional travel log</p>
              </div>
              <div className="space-y-4">
                 {!pastTrips || pastTrips.length === 0 ? (
                   <Card className="p-20 text-center bg-white rounded-[3.5rem] border-dashed border-4 border-slate-100">
                     <History className="h-16 w-16 text-slate-100 mx-auto mb-6" />
-                    <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 italic">No mission records found on the regional grid.</p>
+                    <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 italic">No rides recorded yet.</p>
                   </Card>
                 ) : (
                   pastTrips.map((trip: any) => (
@@ -426,26 +467,26 @@ export default function StudentDashboard() {
                   <Badge className="bg-primary text-slate-950 border-none px-6 py-2 text-[10px] font-black uppercase tracking-[0.4em] italic rounded-full">Scholar Rewards</Badge>
                   <h2 className="text-6xl font-black italic uppercase leading-[0.85] tracking-tighter">The<br/>Points<br/>Hub.</h2>
                 </div>
-                <p className="text-base font-bold text-white/50 italic px-8">Commute across the regional hub to unlock premium scholar status and perks.</p>
+                <p className="text-base font-bold text-white/50 italic px-8">Earn 10 points for every ₹100 spent on regional commutes.</p>
                 <div className="flex justify-center gap-5 relative">
                    <div className="bg-white/5 backdrop-blur-md px-8 py-5 rounded-3xl border border-white/10 shadow-inner">
-                      <p className="text-[8px] font-black uppercase text-primary tracking-widest mb-2">Available Balance</p>
-                      <p className="text-3xl font-black text-white italic tracking-tighter">{scholarPoints} PTS</p>
+                      <p className="text-[8px] font-black uppercase text-primary tracking-widest mb-2">Scholar Points</p>
+                      <p className="text-3xl font-black text-white italic tracking-tighter">{profile?.loyaltyPoints || 0} PTS</p>
                    </div>
                    <div className="bg-white/5 backdrop-blur-md px-8 py-5 rounded-3xl border border-white/10 shadow-inner">
-                      <p className="text-[8px] font-black uppercase text-accent tracking-widest mb-2">Network Status</p>
+                      <p className="text-[8px] font-black uppercase text-accent tracking-widest mb-2">Network Rank</p>
                       <p className="text-3xl font-black text-white italic tracking-tighter">GOLD</p>
                    </div>
                 </div>
              </div>
              
              <div className="space-y-5 text-left pb-10">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-6 italic">Redeemable Scholar Perks</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-6 italic">Redeemable Rewards</p>
                 {[
-                  { title: "7-Day Hub Corridor Pass", pts: "1200 PTS", icon: Zap, color: "bg-blue-50 text-blue-500" },
-                  { title: "Campus Meal Voucher", pts: "450 PTS", icon: Tag, color: "bg-orange-50 text-orange-500" },
-                  { title: "Premium Scholar ID Badge", pts: "250 PTS", icon: ShieldCheck, color: "bg-green-50 text-green-600" },
-                  { title: "Hub Discount (20%)", pts: "150 PTS", icon: TrendingUp, color: "bg-purple-50 text-purple-500" },
+                  { title: "7-Day Corridor Pass", pts: "1200 PTS", icon: Zap, color: "bg-blue-50 text-blue-500" },
+                  { title: "Regional Meal Voucher", pts: "450 PTS", icon: Ticket, color: "bg-orange-50 text-orange-500" },
+                  { title: "Scholar ID Badge", pts: "250 PTS", icon: ShieldCheck, color: "bg-green-50 text-green-600" },
+                  { title: "Hub Discount Code", pts: "150 PTS", icon: TrendingUp, color: "bg-purple-50 text-purple-500" },
                 ].map((perk, i) => (
                   <Card key={i} className="bg-white border border-slate-100 rounded-[2.5rem] p-8 flex justify-between items-center shadow-sm hover:shadow-xl transition-all group">
                     <div className="flex items-center gap-6">
@@ -454,7 +495,7 @@ export default function StudentDashboard() {
                        </div>
                        <div>
                           <h4 className="font-black text-slate-900 uppercase italic text-base leading-none tracking-tight">{perk.title}</h4>
-                          <p className="text-[9px] font-black text-slate-300 uppercase mt-1.5 tracking-widest">Network Exclusive</p>
+                          <p className="text-[9px] font-black text-slate-300 uppercase mt-1.5 tracking-widest">Regional Exclusive</p>
                        </div>
                     </div>
                     <Badge className="bg-primary/10 text-primary border-none font-black italic px-4 py-2 rounded-xl">{perk.pts}</Badge>
@@ -467,24 +508,24 @@ export default function StudentDashboard() {
         {activeTab === 'profile' && (
           <div className="space-y-10 animate-in fade-in text-center">
              <div className="flex flex-col items-center gap-10 py-12">
-                <div className="h-44 w-44 rounded-[4rem] bg-white border-4 border-primary/10 flex items-center justify-center text-primary shadow-[0_30px_60px_-15px_rgba(59,130,246,0.3)] relative group overflow-hidden">
-                  {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover transition-transform group-hover:scale-110 duration-700" /> : <span className="text-8xl font-black italic tracking-tighter">{profile?.fullName?.[0]}</span>}
+                <div className="h-44 w-44 rounded-[4rem] bg-white border-4 border-primary/10 flex items-center justify-center text-primary shadow-2xl relative group overflow-hidden">
+                  {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : <span className="text-8xl font-black italic tracking-tighter">{profile?.fullName?.[0]}</span>}
                   <div className="absolute -bottom-2 -right-2 bg-green-500 p-4 rounded-3xl text-white shadow-2xl border-4 border-white"><ShieldCheck className="h-7 w-7" /></div>
                 </div>
                 <div>
                    <h2 className="text-5xl font-black text-slate-900 italic uppercase tracking-tighter leading-none mb-4">{profile?.fullName}</h2>
                    <div className="flex items-center justify-center gap-3">
-                      <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase tracking-[0.5em] px-8 py-2.5 rounded-full">Verified Scholar</Badge>
+                      <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase tracking-[0.5em] px-8 py-2.5 rounded-full">Scholar</Badge>
                       <Badge className="bg-slate-900 text-white border-none text-[9px] font-black uppercase tracking-[0.4em] px-8 py-2.5 rounded-full">Hub Member</Badge>
                    </div>
                 </div>
              </div>
              <div className="grid grid-cols-1 gap-4 max-w-sm mx-auto">
                 {[
-                  { label: "Scholar Identity ID", val: profile?.studentId, icon: Activity },
-                  { label: "Regional Campus", val: profile?.collegeName, icon: Bus },
-                  { label: "Primary Terminal", val: profile?.city, icon: MapPin },
-                  { label: "Account Status", val: "ACTIVE", icon: ShieldCheck },
+                  { label: "Scholar ID", val: profile?.studentId, icon: Activity },
+                  { label: "Regional Hub", val: profile?.city, icon: MapPin },
+                  { label: "Total Points", val: profile?.loyaltyPoints || 0, icon: Gift },
+                  { label: "Session ID", val: user?.uid?.substring(0, 8), icon: ShieldCheck },
                 ].map((item, i) => (
                   <div key={i} className="bg-white p-8 rounded-[2rem] flex items-center gap-6 border border-slate-100 shadow-sm text-left hover:shadow-md transition-all">
                     <div className="h-12 w-12 bg-slate-50 rounded-2xl flex items-center justify-center text-primary shadow-inner"><item.icon className="h-6 w-6" /></div>

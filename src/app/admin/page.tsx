@@ -36,10 +36,14 @@ import {
   Plus,
   Trash2,
   MapPin,
-  Search
+  Search,
+  Tag,
+  Ticket,
+  Percent,
+  Settings
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
-import { collection, query, doc, setDoc, orderBy, limit, addDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, doc, setDoc, orderBy, limit, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { generateShuttleRoutes, AdminGenerateShuttleRoutesInput } from '@/ai/flows/admin-generate-shuttle-routes';
@@ -51,12 +55,12 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useUser();
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'payments' | 'routes' | 'users' | 'alerts' | 'ai-architect'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'payments' | 'routes' | 'users' | 'alerts' | 'ai-architect' | 'vouchers'>('dashboard');
   const [vizagUpi, setVizagUpi] = useState('');
   const [vzmUpi, setVzmUpi] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Route Creator State
+  // Route Management State
   const [isRouteModalOpen, setIsRouteModalOpen] = useState(false);
   const [newRoute, setNewRoute] = useState({
     routeName: '',
@@ -65,6 +69,12 @@ export default function AdminDashboard() {
     status: 'active',
     stops: [{ name: '', lat: 0, lng: 0 }]
   });
+  const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
+  const [newFareValue, setNewFareValue] = useState(20);
+
+  // Voucher Management State
+  const [newVoucherCode, setNewVoucherCode] = useState('');
+  const [newVoucherDiscount, setNewVoucherDiscount] = useState(5);
 
   // AI Architect State
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -103,6 +113,9 @@ export default function AdminDashboard() {
 
   const alertsQuery = useMemo(() => db ? query(collection(db, 'alerts'), orderBy('timestamp', 'desc'), limit(50)) : null, [db]);
   const { data: allAlerts } = useCollection(alertsQuery);
+
+  const vouchersQuery = useMemo(() => db ? query(collection(db, 'vouchers'), orderBy('createdAt', 'desc')) : null, [db]);
+  const { data: allVouchers } = useCollection(vouchersQuery);
 
   const stats = useMemo(() => {
     if (!allTrips) return { revenue: 0, payouts: 0, commissions: 0 };
@@ -144,6 +157,43 @@ export default function AdminDashboard() {
       toast({ variant: "destructive", title: "Creation Failed" });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleUpdateFare = async (id: string, fare: number) => {
+    if (!db) return;
+    try {
+      await updateDoc(doc(db, 'routes', id), { baseFare: fare });
+      toast({ title: "Price Updated", description: "New fare is now active." });
+      setEditingRouteId(null);
+    } catch {
+      toast({ variant: "destructive", title: "Update Failed" });
+    }
+  };
+
+  const handleCreateVoucher = async () => {
+    if (!db || !newVoucherCode) return;
+    try {
+      await addDoc(collection(db, 'vouchers'), {
+        code: newVoucherCode.toUpperCase(),
+        discountAmount: newVoucherDiscount,
+        isActive: true,
+        createdAt: new Date().toISOString()
+      });
+      toast({ title: "Voucher Generated", description: `${newVoucherCode.toUpperCase()} is ready for scholars.` });
+      setNewVoucherCode('');
+    } catch {
+      toast({ variant: "destructive", title: "Creation Failed" });
+    }
+  };
+
+  const handleDeleteVoucher = async (id: string) => {
+    if (!db) return;
+    try {
+      await deleteDoc(doc(db, 'vouchers', id));
+      toast({ title: "Voucher Revoked" });
+    } catch {
+      toast({ variant: "destructive", title: "Action Failed" });
     }
   };
 
@@ -197,6 +247,7 @@ export default function AdminDashboard() {
           {[
             { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
             { id: 'routes', label: 'Fleet Grid', icon: RouteIcon },
+            { id: 'vouchers', label: 'Voucher Hub', icon: Ticket },
             { id: 'users', label: 'Identity Vault', icon: Users },
             { id: 'payments', label: 'Payment Hub', icon: QrCode },
             { id: 'alerts', label: 'SOS Radar', icon: AlertTriangle },
@@ -386,7 +437,17 @@ export default function AdminDashboard() {
                           </div>
                           <div className="flex items-center gap-3 text-primary font-black italic">
                              <IndianRupee className="h-4 w-4" />
-                             <span>Base Fare: ₹{route.baseFare}</span>
+                             {editingRouteId === route.id ? (
+                               <div className="flex gap-2 items-center">
+                                 <Input type="number" value={newFareValue} onChange={e => setNewFareValue(parseInt(e.target.value))} className="h-8 w-20 text-xs font-black" />
+                                 <Button size="sm" onClick={() => handleUpdateFare(route.id, newFareValue)} className="h-8 px-2">Save</Button>
+                               </div>
+                             ) : (
+                               <div className="flex items-center gap-2">
+                                 <span>Base Fare: ₹{route.baseFare}</span>
+                                 <Button variant="ghost" size="sm" onClick={() => { setEditingRouteId(route.id); setNewFareValue(route.baseFare); }} className="h-6 w-6 p-0 text-slate-300 hover:text-primary"><Settings className="h-3 w-3" /></Button>
+                               </div>
+                             )}
                           </div>
                        </div>
                        <div className="flex gap-4">
@@ -395,6 +456,48 @@ export default function AdminDashboard() {
                     </Card>
                  ))}
               </div>
+            </div>
+          )}
+
+          {activeTab === 'vouchers' && (
+            <div className="space-y-10 animate-in fade-in">
+               <div className="max-w-2xl bg-white rounded-[3rem] p-12 shadow-sm space-y-10">
+                  <div className="flex items-center gap-4">
+                     <div className="p-4 bg-orange-50 rounded-2xl text-orange-500"><Tag className="h-8 w-8" /></div>
+                     <div>
+                        <h3 className="text-3xl font-black italic uppercase text-slate-900 leading-none">Voucher Management</h3>
+                        <p className="text-sm font-bold text-slate-400 italic mt-2">Create regional discount codes for scholars.</p>
+                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6">
+                     <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Voucher Code</Label>
+                        <Input value={newVoucherCode} onChange={e => setNewVoucherCode(e.target.value)} placeholder="e.g. AAGO5" className="h-16 rounded-2xl bg-slate-50 border-none font-black italic text-lg" />
+                     </div>
+                     <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Discount (₹)</Label>
+                        <Input type="number" value={newVoucherDiscount} onChange={e => setNewVoucherDiscount(parseInt(e.target.value))} className="h-16 rounded-2xl bg-slate-50 border-none font-black italic text-lg" />
+                     </div>
+                  </div>
+
+                  <Button onClick={handleCreateVoucher} className="w-full h-18 bg-primary text-white font-black uppercase italic text-lg rounded-2xl shadow-xl shadow-primary/20">
+                     Generate Voucher
+                  </Button>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {allVouchers?.map((v: any) => (
+                    <Card key={v.id} className="bg-white border-none rounded-[2.5rem] p-8 shadow-sm flex items-center justify-between relative overflow-hidden group">
+                       <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><Percent className="h-16 w-16" /></div>
+                       <div className="space-y-1">
+                          <h4 className="text-2xl font-black italic text-slate-900 uppercase">{v.code}</h4>
+                          <p className="text-sm font-bold text-orange-500 italic">₹{v.discountAmount} Discount</p>
+                       </div>
+                       <Button variant="ghost" size="icon" onClick={() => handleDeleteVoucher(v.id)} className="text-red-400 hover:text-red-500"><Trash2 className="h-5 w-5" /></Button>
+                    </Card>
+                  ))}
+               </div>
             </div>
           )}
 
