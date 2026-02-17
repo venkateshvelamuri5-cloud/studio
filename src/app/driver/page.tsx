@@ -79,8 +79,6 @@ export default function DriverConsole() {
         setActiveTrip(null);
         prevPassengerCount.current = 0;
       }
-    }, (error) => {
-      console.error("Firestore Error in Driver Console Listener", error);
     });
     return unsubscribe;
   }, [db, user?.uid, toast]);
@@ -90,8 +88,10 @@ export default function DriverConsole() {
     return query(collection(db, 'users'), where('uid', 'in', activeTrip.passengers));
   }, [db, user, activeTrip?.passengers]));
 
-  const currentRoute = useMemo(() => (activeTrip && allRoutes) ? allRoutes.find((r: any) => r.routeName === activeTrip.routeName) : null, [activeTrip, allRoutes]);
-  const validStops = useMemo(() => currentRoute?.stops?.filter((s: any) => typeof s.lat === 'number' && isFinite(s.lat)) || [], [currentRoute?.stops]);
+  const validStops = useMemo(() => {
+    const route = allRoutes?.find((r: any) => r.routeName === activeTrip?.routeName);
+    return route?.stops?.filter((s: any) => typeof s.lat === 'number' && isFinite(s.lat)) || [];
+  }, [activeTrip, allRoutes]);
 
   const startTrip = async (route: any) => {
     if (!db || !user || !profile || !userRef) return;

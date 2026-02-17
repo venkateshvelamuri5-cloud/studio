@@ -26,7 +26,8 @@ import {
   ArrowRight,
   ClipboardList,
   History,
-  AlertCircle
+  AlertCircle,
+  Activity
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
 import { collection, query, doc, setDoc, orderBy, limit, updateDoc } from 'firebase/firestore';
@@ -105,25 +106,6 @@ export default function AdminDashboard() {
       toast({ variant: "destructive", title: "AI Generation Failed", description: e.message });
     } finally {
       setIsAiLoading(false);
-    }
-  };
-
-  const processPayout = async (driver: any) => {
-    if (!db) return;
-    try {
-      const driverRef = doc(db, 'users', driver.uid);
-      await updateDoc(driverRef, {
-        totalEarnings: (driver.totalEarnings || 0) + driver.weeklyEarnings,
-        weeklyEarnings: 0,
-        payoutHistory: [...(driver.payoutHistory || []), {
-          amount: driver.weeklyEarnings,
-          date: new Date().toISOString(),
-          status: 'processed'
-        }]
-      });
-      toast({ title: "Payout Dispatched", description: `₹${driver.weeklyEarnings} transferred to ${driver.fullName}.` });
-    } catch {
-      toast({ variant: "destructive", title: "Payout Sequence Failed" });
     }
   };
 
@@ -257,68 +239,6 @@ export default function AdminDashboard() {
                   <h4 className="font-black uppercase italic text-primary">Mission Settlement Protocol</h4>
                   <p className="text-xs font-bold text-slate-500 italic leading-relaxed">Students will scan the city-specific ID assigned above during the boarding sequence. Ensure these accounts are verified for high-volume transactions.</p>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'payouts' && (
-            <div className="space-y-10 animate-in fade-in">
-               <h3 className="text-3xl font-black italic uppercase text-slate-900 leading-none">Workforce Settlements</h3>
-               <div className="grid grid-cols-1 gap-6">
-                 {driversWithPending.length === 0 ? (
-                   <Card className="p-20 text-center bg-white rounded-[3rem] border-dashed border-2 border-slate-200">
-                      <History className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No Pending Settlements Found</p>
-                   </Card>
-                 ) : (
-                   driversWithPending.map((driver: any) => (
-                     <Card key={driver.uid} className="bg-white border-none rounded-[2.5rem] shadow-sm overflow-hidden p-8 flex justify-between items-center hover:shadow-xl transition-all">
-                        <div className="flex items-center gap-6">
-                           <div className="h-16 w-16 bg-slate-50 rounded-2xl flex items-center justify-center font-black text-primary text-xl">{driver.fullName[0]}</div>
-                           <div>
-                             <h4 className="text-xl font-black uppercase italic text-slate-900 leading-none">{driver.fullName}</h4>
-                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">{driver.city} Hub • {driver.vehicleNumber}</p>
-                           </div>
-                        </div>
-                        <div className="flex items-center gap-10">
-                           <div className="text-right">
-                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Available Yield</p>
-                             <p className="text-2xl font-black text-primary italic leading-none">₹{driver.weeklyEarnings}</p>
-                           </div>
-                           <Button onClick={() => processPayout(driver)} className="h-14 px-8 bg-slate-900 text-white rounded-xl font-black uppercase italic">Push Payout</Button>
-                        </div>
-                     </Card>
-                   ))
-                 )}
-               </div>
-            </div>
-          )}
-
-          {activeTab === 'routes' && (
-            <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4">
-              <div className="flex justify-between items-center">
-                 <h3 className="text-3xl font-black italic uppercase text-slate-900 leading-none">Fleet Grid Corridors</h3>
-                 <Button className="bg-primary text-white font-black uppercase italic rounded-xl px-6 h-12 shadow-lg shadow-primary/20">+ Architect New Corridor</Button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {allRoutes?.map((route: any) => (
-                  <Card key={route.id} className="border-none bg-white rounded-[2.5rem] shadow-sm overflow-hidden hover:shadow-xl transition-all">
-                    <div className="p-8 space-y-6">
-                      <div className="flex justify-between items-start">
-                        <div className="p-3 bg-slate-50 rounded-xl"><RouteIcon className="h-5 w-5 text-slate-400" /></div>
-                        <Badge className={`${route.status === 'active' ? 'bg-green-500/10 text-green-600' : 'bg-slate-100 text-slate-400'} border-none font-black uppercase text-[8px]`}>{route.status}</Badge>
-                      </div>
-                      <div>
-                        <h4 className="text-xl font-black uppercase italic text-slate-900 leading-none mb-2">{route.routeName}</h4>
-                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{route.city} • {route.stops?.length} Stations</p>
-                      </div>
-                      <div className="pt-4 border-t border-slate-50 flex justify-between items-center">
-                         <p className="text-xs font-black italic text-primary">₹{route.baseFare} / Ride</p>
-                         <Button variant="ghost" className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-primary">Edit Schematic</Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
               </div>
             </div>
           )}

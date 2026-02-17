@@ -124,12 +124,6 @@ export default function StudentDashboard() {
     }
   };
 
-  const handleInitiatePayment = () => {
-    if (selectedTrip) {
-      setBookingStep(2);
-    }
-  };
-
   const handleConfirmPayment = async () => {
     if (!db || !userRef || !selectedTrip || !destinationStop) return;
     
@@ -204,7 +198,6 @@ export default function StudentDashboard() {
                     <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50">
                       <AlertCircle className="h-10 w-10 text-slate-300 mb-4" />
                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Network Radar Offline</p>
-                      <p className="text-[8px] font-bold text-slate-400 mt-2 uppercase italic">Map API Not Activated</p>
                     </div>
                   )}
                   <Button onClick={handleUseCurrentLocation} className="absolute bottom-6 right-6 h-12 w-12 rounded-2xl bg-white text-primary shadow-xl p-0 hover:scale-110 transition-all">
@@ -225,11 +218,8 @@ export default function StudentDashboard() {
                   <DialogContent className="bg-white border-none rounded-[3.5rem] p-10 max-w-[95vw] sm:max-w-[450px] shadow-2xl h-[85vh] flex flex-col overflow-hidden">
                     <DialogHeader className="mb-6 shrink-0">
                       <DialogTitle className="text-4xl font-black italic uppercase text-primary leading-none">
-                        {bookingStep === 1 ? "Route Finder" : bookingStep === 2 ? "Payment ID" : "Success"}
+                        {bookingStep === 1 ? "Route Finder" : bookingStep === 2 ? "Payment Hub" : "Success"}
                       </DialogTitle>
-                      <DialogDescription className="text-[10px] font-bold uppercase tracking-widest mt-3">
-                        {bookingStep === 1 ? "Select terminal stations" : bookingStep === 2 ? "Scan and pay directly" : "Mission clearance granted"}
-                      </DialogDescription>
                     </DialogHeader>
                     
                     <div className="flex-1 overflow-y-auto space-y-8 pr-2 custom-scrollbar">
@@ -250,35 +240,20 @@ export default function StudentDashboard() {
                                 {allStops.map(s => <option key={s} value={s}>{s}</option>)}
                               </select>
                             </div>
-                            <div className="relative">
-                              <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300" />
-                              <input 
-                                value={searchQuery} 
-                                onChange={e => setSearchQuery(e.target.value)} 
-                                placeholder="Search by Route Name..." 
-                                className="w-full h-18 bg-slate-50 border-none rounded-2xl pl-14 pr-8 font-black italic text-base focus:ring-2 focus:ring-primary"
-                              />
-                            </div>
                           </div>
                           <div className="space-y-4">
                             <p className="text-[10px] font-black uppercase text-slate-400 italic">Available Regional Shuttles</p>
-                            {filteredTrips.length === 0 ? (
-                               <div className="p-12 text-center bg-slate-50 rounded-[2.5rem] border-dashed border-2 border-slate-200">
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-300 italic">No shuttles found for this pair</p>
-                               </div>
-                            ) : (
-                              filteredTrips.map((trip: any) => (
-                                <div key={trip.id} onClick={() => setSelectedTrip(trip)} className={`p-8 rounded-[2.5rem] border-2 flex justify-between items-center transition-all cursor-pointer ${selectedTrip?.id === trip.id ? 'bg-primary border-primary text-white shadow-xl scale-[1.02]' : 'bg-slate-50 border-transparent hover:bg-slate-100'}`}>
-                                  <div>
-                                    <h4 className="font-black uppercase italic text-xl leading-none">{trip.routeName}</h4>
-                                    <p className={`text-[9px] font-bold uppercase mt-2 ${selectedTrip?.id === trip.id ? 'opacity-80' : 'text-slate-400'}`}>₹{trip.farePerRider} • {trip.riderCount}/{trip.maxCapacity} Seats</p>
-                                  </div>
-                                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${selectedTrip?.id === trip.id ? 'bg-white text-primary' : 'bg-white text-slate-300'}`}>
-                                    {selectedTrip?.id === trip.id ? <CheckCircle2 className="h-7 w-7" /> : <ChevronRight className="h-6 w-6" />}
-                                  </div>
+                            {filteredTrips.map((trip: any) => (
+                              <div key={trip.id} onClick={() => setSelectedTrip(trip)} className={`p-8 rounded-[2.5rem] border-2 flex justify-between items-center transition-all cursor-pointer ${selectedTrip?.id === trip.id ? 'bg-primary border-primary text-white shadow-xl scale-[1.02]' : 'bg-slate-50 border-transparent hover:bg-slate-100'}`}>
+                                <div>
+                                  <h4 className="font-black uppercase italic text-xl leading-none">{trip.routeName}</h4>
+                                  <p className={`text-[9px] font-bold uppercase mt-2 ${selectedTrip?.id === trip.id ? 'opacity-80' : 'text-slate-400'}`}>₹{trip.farePerRider} • {trip.riderCount}/{trip.maxCapacity} Seats</p>
                                 </div>
-                              ))
-                            )}
+                                <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${selectedTrip?.id === trip.id ? 'bg-white text-primary' : 'bg-white text-slate-300'}`}>
+                                  {selectedTrip?.id === trip.id ? <CheckCircle2 className="h-7 w-7" /> : <ChevronRight className="h-6 w-6" />}
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </>
                       )}
@@ -304,47 +279,27 @@ export default function StudentDashboard() {
 
                       {bookingStep === 3 && (
                         <div className="flex flex-col items-center justify-center text-center space-y-6 py-12">
-                           <div className="h-24 w-24 bg-green-500 rounded-full flex items-center justify-center text-white shadow-2xl shadow-green-500/20">
+                           <div className="h-24 w-24 bg-green-500 rounded-full flex items-center justify-center text-white shadow-2xl">
                              <CheckCircle2 className="h-12 w-12" />
                            </div>
                            <h3 className="text-3xl font-black italic uppercase text-slate-900">Seat Secured</h3>
-                           <p className="text-sm font-bold text-slate-400 italic">Your boarding ID is now active on the dashboard. Present it to your driver.</p>
+                           <p className="text-sm font-bold text-slate-400 italic">Your boarding ID is now active on the dashboard.</p>
                         </div>
                       )}
                     </div>
 
                     <div className="pt-8 shrink-0">
                       {bookingStep === 1 && (
-                        <Button onClick={handleInitiatePayment} disabled={!selectedTrip} className="w-full h-18 bg-primary text-white rounded-[1.5rem] font-black uppercase italic text-xl shadow-xl active:scale-95 transition-all">Initiate Regional Payment</Button>
+                        <Button onClick={() => setBookingStep(2)} disabled={!selectedTrip} className="w-full h-18 bg-primary text-white rounded-[1.5rem] font-black uppercase italic text-xl shadow-xl">Initiate Regional Payment</Button>
                       )}
                       {bookingStep === 2 && (
-                        <Button onClick={handleConfirmPayment} disabled={isBooking} className="w-full h-18 bg-green-600 text-white rounded-[1.5rem] font-black uppercase italic text-xl shadow-xl active:scale-95 transition-all">
+                        <Button onClick={handleConfirmPayment} disabled={isBooking} className="w-full h-18 bg-green-600 text-white rounded-[1.5rem] font-black uppercase italic text-xl shadow-xl">
                           {isBooking ? <Loader2 className="animate-spin h-6 w-6" /> : "Confirm Successful Transfer"}
                         </Button>
-                      )}
-                      {bookingStep === 3 && (
-                        <Button onClick={() => window.location.reload()} className="w-full h-18 bg-slate-900 text-white rounded-[1.5rem] font-black uppercase italic text-xl shadow-xl">Back to Terminal</Button>
                       )}
                     </div>
                   </DialogContent>
                 </Dialog>
-
-                <div className="grid grid-cols-2 gap-6">
-                  <Card className="bg-white border-slate-100 rounded-[2.5rem] p-8 shadow-sm flex flex-col justify-between group">
-                    <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-6"><Bus className="h-6 w-6" /></div>
-                    <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Local Grid</p>
-                      <h3 className="text-3xl font-black text-slate-900 italic tracking-tighter">{activeRoutes?.length || 0} Corridors</h3>
-                    </div>
-                  </Card>
-                  <Card onClick={() => setActiveTab('history')} className="bg-white border-slate-100 rounded-[2.5rem] p-8 shadow-sm flex flex-col justify-between cursor-pointer hover:shadow-xl transition-all group">
-                    <div className="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent mb-6 group-hover:bg-accent group-hover:text-white transition-all"><History className="h-6 w-6" /></div>
-                    <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Trips</p>
-                      <h3 className="text-3xl font-black text-slate-900 italic tracking-tighter">{pastTrips?.length || 0} Missions</h3>
-                    </div>
-                  </Card>
-                </div>
               </div>
             )}
           </div>
@@ -357,25 +312,18 @@ export default function StudentDashboard() {
                <p className="text-slate-400 font-bold italic text-[10px] uppercase tracking-widest">History of regional grid movement</p>
              </div>
              <div className="space-y-4">
-                {pastTrips?.length === 0 ? (
-                  <Card className="bg-white border border-slate-100 rounded-[2.5rem] p-12 text-center">
-                    <History className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">No Mission Data Yet</p>
-                  </Card>
-                ) : (
-                  pastTrips?.map((trip: any) => (
-                    <Card key={trip.id} className="bg-white border border-slate-100 rounded-[2.5rem] p-8 flex justify-between items-center shadow-sm hover:translate-x-2 transition-all">
+                {pastTrips?.map((trip: any) => (
+                  <Card key={trip.id} className="bg-white border border-slate-100 rounded-[2.5rem] p-8 flex justify-between items-center shadow-sm">
                        <div className="flex items-center gap-6">
-                          <div className="h-14 w-14 bg-green-50 rounded-[1.25rem] flex items-center justify-center text-green-500 shadow-inner"><CheckCircle2 className="h-7 w-7" /></div>
+                          <div className="h-14 w-14 bg-green-50 rounded-[1.25rem] flex items-center justify-center text-green-500"><CheckCircle2 className="h-7 w-7" /></div>
                           <div>
                             <h4 className="font-black text-slate-900 uppercase italic text-lg leading-none mb-1.5">{trip.routeName}</h4>
                             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">{new Date(trip.endTime).toLocaleDateString()} • ₹{trip.farePerRider}</p>
                           </div>
                        </div>
-                       <Badge className="bg-slate-100 text-slate-500 border-none text-[8px] font-black uppercase px-3">Settled</Badge>
                     </Card>
                   ))
-                )}
+                }
              </div>
           </div>
         )}
@@ -383,7 +331,7 @@ export default function StudentDashboard() {
         {activeTab === 'profile' && (
           <div className="space-y-8 animate-in fade-in text-center">
              <div className="flex flex-col items-center gap-8 py-10">
-                <div className="h-40 w-40 rounded-[3.5rem] bg-white border-4 border-primary/10 flex items-center justify-center text-primary shadow-2xl overflow-hidden group">
+                <div className="h-40 w-40 rounded-[3.5rem] bg-white border-4 border-primary/10 flex items-center justify-center text-primary shadow-2xl">
                   <span className="text-7xl font-black italic">{profile?.fullName?.[0]}</span>
                 </div>
                 <div>
@@ -391,33 +339,14 @@ export default function StudentDashboard() {
                    <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase tracking-[0.5em] px-6 py-2 rounded-full">Scholar Identity Verified</Badge>
                 </div>
              </div>
-             <div className="space-y-4">
-                {[ 
-                  { label: 'College Hub', value: profile?.collegeName, icon: AlertCircle }, 
-                  { label: 'Scholar ID', value: profile?.studentId, icon: ShieldCheck },
-                  { label: 'Registered City', value: profile?.city, icon: MapPin } 
-                ].map((item, i) => (
-                  <div key={i} className="p-8 bg-white border border-slate-100 rounded-[2.5rem] flex items-center gap-6 shadow-sm">
-                    <div className="h-12 w-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 shadow-inner"><item.icon className="h-6 w-6" /></div>
-                    <div className="text-left">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">{item.label}</p>
-                      <p className="text-lg font-black text-slate-900 uppercase italic mt-1 leading-tight">{item.value}</p>
-                    </div>
-                  </div>
-                ))}
-             </div>
              <Button variant="ghost" onClick={handleSignOut} className="w-full h-20 bg-red-50 hover:bg-red-100 text-red-500 rounded-[2.5rem] font-black uppercase italic transition-all mt-8"><LogOut className="mr-3 h-6 w-6" /> Terminate Session</Button>
           </div>
         )}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 p-8 bg-white/90 backdrop-blur-3xl border-t border-slate-200 z-50 rounded-t-[4rem] shadow-[0_-20px_50px_rgba(0,0,0,0.08)]">
+      <nav className="fixed bottom-0 left-0 right-0 p-8 bg-white/90 backdrop-blur-3xl border-t border-slate-200 z-50 rounded-t-[4rem] shadow-2xl">
         <div className="flex justify-around items-center max-w-lg mx-auto">
           <Button variant="ghost" onClick={() => setActiveTab('home')} className={`flex-col h-auto py-3 gap-2 rounded-2xl ${activeTab === 'home' ? 'text-primary' : 'text-slate-400'}`}><Bus className="h-8 w-8" /><span className="text-[9px] font-black uppercase tracking-widest">Radar</span></Button>
-          <div className="relative -mt-20 group">
-            <div className="absolute -inset-4 bg-primary/20 blur-[30px] rounded-full" />
-            <Button onClick={() => setActiveTab('home')} className="relative h-24 w-24 rounded-[2.5rem] bg-primary text-white border-[10px] border-white shadow-2xl hover:scale-110 transition-all"><QrCode className="h-12 w-12" /></Button>
-          </div>
           <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-3 gap-2 rounded-2xl ${activeTab === 'history' ? 'text-primary' : 'text-slate-400'}`}><History className="h-8 w-8" /><span className="text-[9px] font-black uppercase tracking-widest">Ledger</span></Button>
           <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-3 gap-2 rounded-2xl ${activeTab === 'profile' ? 'text-primary' : 'text-slate-400'}`}><UserIcon className="h-8 w-8" /><span className="text-[9px] font-black uppercase tracking-widest">Me</span></Button>
         </div>
