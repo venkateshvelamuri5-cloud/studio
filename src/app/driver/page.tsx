@@ -77,7 +77,7 @@ export default function DriverConsole() {
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
   // Routes for the city
-  const { data: allRoutes } = useCollection(useMemo(() => db ? query(collection(db, 'routes')) : null, [db]));
+  const { data: allRoutes } = useCollection(useMemo(() => (db && user) ? query(collection(db, 'routes')) : null, [db, user]));
   const availableRoutes = useMemo(() => allRoutes?.filter(r => r.city === profile?.city && r.status === 'active') || [], [allRoutes, profile?.city]);
 
   // Trip History
@@ -118,9 +118,9 @@ export default function DriverConsole() {
 
   // Fetch full passenger details (Names & Phone)
   const { data: passengerDetails } = useCollection(useMemo(() => {
-    if (!db || !activeTrip?.passengers?.length) return null;
+    if (!db || !user || !activeTrip?.passengers?.length) return null;
     return query(collection(db, 'users'), where('uid', 'in', activeTrip.passengers));
-  }, [db, activeTrip?.passengers]));
+  }, [db, user, activeTrip?.passengers]));
 
   const currentRoute = useMemo(() => {
     if (!activeTrip || !allRoutes) return null;

@@ -53,8 +53,8 @@ export default function RiderDashboard() {
   const [selectedTrip, setSelectedTrip] = useState<any>(null);
   const [destinationStop, setDestinationStop] = useState<string>("");
 
-  const { data: activeTrips } = useCollection(useMemo(() => db ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db]));
-  const { data: activeRoutes } = useCollection(useMemo(() => db ? query(collection(db, 'routes'), where('status', '==', 'active')) : null, [db]));
+  const { data: activeTrips } = useCollection(useMemo(() => (db && user) ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db, user]));
+  const { data: activeRoutes } = useCollection(useMemo(() => (db && user) ? query(collection(db, 'routes'), where('status', '==', 'active')) : null, [db, user]));
 
   useEffect(() => {
     if (profile?.activeOtp) setActiveOtp(profile.activeOtp);

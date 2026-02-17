@@ -104,10 +104,10 @@ export default function AdminDashboard() {
   }, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
-  const { data: allUsers } = useCollection(useMemo(() => db ? query(collection(db, 'users')) : null, [db]));
-  const { data: allRoutes } = useCollection(useMemo(() => db ? query(collection(db, 'routes')) : null, [db]));
-  const { data: allTrips } = useCollection(useMemo(() => db ? query(collection(db, 'trips')) : null, [db]));
-  const { data: allAlerts } = useCollection(useMemo(() => db ? query(collection(db, 'alerts')) : null, [db]));
+  const { data: allUsers } = useCollection(useMemo(() => (db && user) ? query(collection(db, 'users')) : null, [db, user]));
+  const { data: allRoutes } = useCollection(useMemo(() => (db && user) ? query(collection(db, 'routes')) : null, [db, user]));
+  const { data: allTrips } = useCollection(useMemo(() => (db && user) ? query(collection(db, 'trips')) : null, [db, user]));
+  const { data: allAlerts } = useCollection(useMemo(() => (db && user) ? query(collection(db, 'alerts')) : null, [db, user]));
 
   const drivers = useMemo(() => allUsers?.filter(u => u.role === 'driver') || [], [allUsers]);
   const students = useMemo(() => allUsers?.filter(u => u.role === 'rider') || [], [allUsers]);
