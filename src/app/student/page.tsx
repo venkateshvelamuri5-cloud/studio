@@ -29,7 +29,7 @@ import {
   Fingerprint
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, increment, collection, query, where } from 'firebase/firestore';
+import { doc, updateDoc, increment, collection, query, where, arrayUnion } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -67,28 +67,37 @@ export default function RiderDashboard() {
   const handleTopUp = async () => {
     if (!userRef) return;
     await updateDoc(userRef, { credits: increment(500) });
-    toast({ title: "Scholar Wallet Credited", description: "₹500 authorized for regional transit." });
+    toast({ title: "Money Added", description: "₹500 added to your student wallet." });
   };
 
   const handleBoardRequest = async (trip: any) => {
-    if (!db || !userRef) return;
+    if (!db || !userRef || !user?.uid) return;
     
     if ((profile?.credits || 0) < trip.farePerRider) {
-      toast({ variant: "destructive", title: "Insufficient Credits", description: `Mission requires ₹${trip.farePerRider.toFixed(0)} balance.` });
+      toast({ variant: "destructive", title: "Low Balance", description: `You need at least ₹${trip.farePerRider.toFixed(0)} to book this trip.` });
       return;
     }
 
     setIsBooking(true);
     try {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Update user with OTP
       await updateDoc(userRef, { 
         credits: increment(-trip.farePerRider),
         activeOtp: otp 
       });
+
+      // Notify the trip that a new passenger is waiting
+      const tripRef = doc(db, 'trips', trip.id);
+      await updateDoc(tripRef, {
+        passengers: arrayUnion(user.uid)
+      });
+
       setActiveOtp(otp);
-      toast({ title: "Auth Code Generated", description: "Fare processed. Present OTP to driver for boarding." });
+      toast({ title: "Booking Confirmed", description: "Show your code to the driver to board." });
     } catch {
-      toast({ variant: "destructive", title: "Encryption Error" });
+      toast({ variant: "destructive", title: "Error", description: "Could not book ride. Please try again." });
     } finally {
       setIsBooking(false);
     }
@@ -105,7 +114,7 @@ export default function RiderDashboard() {
           </div>
           <div>
             <h1 className="text-2xl font-black text-primary italic uppercase leading-none tracking-tight">AAGO</h1>
-            <Badge className="bg-white/5 text-slate-500 uppercase text-[8px] mt-1 tracking-widest font-bold">Scholar Terminal</Badge>
+            <Badge className="bg-white/5 text-slate-500 uppercase text-[8px] mt-1 tracking-widest font-bold">Student App</Badge>
           </div>
         </div>
         <Button variant="ghost" size="icon" onClick={handleSignOut} className="h-12 w-12 rounded-2xl hover:bg-white/5 transition-all">
@@ -116,17 +125,17 @@ export default function RiderDashboard() {
       <main className="flex-1 p-8 space-y-10 max-w-lg mx-auto w-full">
         <div className="space-y-2">
           <h2 className="text-5xl font-black text-white italic uppercase tracking-tighter leading-none">Hi, {profile?.fullName?.split(' ')[0]}</h2>
-          <p className="text-slate-500 font-bold italic text-sm">Your regional grid is ready for boarding.</p>
+          <p className="text-slate-500 font-bold italic text-sm">Where would you like to go today?</p>
         </div>
 
         {activeOtp ? (
           <Card className="bg-primary text-white border-none rounded-[3.5rem] p-10 text-center shadow-[0_30px_60px_rgba(59,130,246,0.3)] animate-in zoom-in-95 duration-700 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-2 bg-white/20 animate-pulse" />
             <Fingerprint className="h-20 w-20 mx-auto mb-8 opacity-40 animate-pulse" />
-            <p className="text-[10px] font-black uppercase tracking-[0.5em] mb-4 opacity-70">Biometric Auth Code</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.5em] mb-4 opacity-70">Your Boarding Code</p>
             <h3 className="text-7xl font-black tracking-[0.2em] italic font-headline leading-none">{activeOtp}</h3>
             <div className="mt-10 p-4 bg-white/10 rounded-2xl border border-white/10">
-              <p className="text-[10px] font-bold opacity-90 italic leading-relaxed">Present this code to the operator for verified boarding and terminal clearance.</p>
+              <p className="text-[10px] font-bold opacity-90 italic leading-relaxed">Tell this code to the driver when you get on the bus.</p>
             </div>
             <Button 
               variant="ghost" 
@@ -136,7 +145,7 @@ export default function RiderDashboard() {
                 setActiveOtp(null);
               }}
             >
-              Cancel Request
+              Cancel Boarding
             </Button>
           </Card>
         ) : (
@@ -145,9 +154,9 @@ export default function RiderDashboard() {
               <div className="p-10 bg-primary rounded-[3.5rem] text-white flex items-center justify-between cursor-pointer active:scale-95 transition-all shadow-[0_20px_40px_rgba(59,130,246,0.3)] group relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                 <div className="space-y-2 relative z-10">
-                  <h3 className="text-4xl font-black italic uppercase leading-none">Board Mission</h3>
+                  <h3 className="text-4xl font-black italic uppercase leading-none">Book a Ride</h3>
                   <Badge className="bg-white/20 text-white font-black uppercase text-[9px] tracking-widest border-none">
-                    {activeTrips?.length || 0} Shuttles Active
+                    {activeTrips?.length || 0} Shuttles Available
                   </Badge>
                 </div>
                 <Navigation className="h-14 w-14 relative z-10 group-hover:rotate-12 transition-transform" />
@@ -155,12 +164,12 @@ export default function RiderDashboard() {
             </DialogTrigger>
             <DialogContent className="bg-slate-900 border-white/5 text-white rounded-[3rem] p-10 max-w-[90vw] mx-auto">
               <DialogHeader>
-                <DialogTitle className="text-3xl font-black italic uppercase text-primary leading-none">Live Dispatch Grid</DialogTitle>
-                <DialogDescription className="font-bold text-slate-400 mt-2">Select an active hub mission to initiate boarding.</DialogDescription>
+                <DialogTitle className="text-3xl font-black italic uppercase text-primary leading-none">Nearby Buses</DialogTitle>
+                <DialogDescription className="font-bold text-slate-400 mt-2">Select a bus to book your seat.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 mt-8 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
                 {activeTrips?.length === 0 ? (
-                  <p className="text-center text-slate-500 font-bold py-10 italic">No active missions in your regional hub.</p>
+                  <p className="text-center text-slate-500 font-bold py-10 italic">No buses are currently running in your area.</p>
                 ) : (
                   activeTrips?.map((trip: any) => (
                     <div 
@@ -181,7 +190,7 @@ export default function RiderDashboard() {
                         disabled={isBooking}
                         className="bg-primary rounded-xl font-black italic uppercase group-hover:bg-white group-hover:text-primary h-12 px-6 shadow-lg shadow-primary/20"
                       >
-                        Request
+                        Book
                       </Button>
                     </div>
                   ))
@@ -194,7 +203,7 @@ export default function RiderDashboard() {
         <div className="grid grid-cols-2 gap-6">
           <Card className="bg-white rounded-[3rem] p-8 shadow-xl group border-none">
              <IndianRupee className="h-10 w-10 text-accent mb-4 group-hover:scale-110 transition-transform duration-500" />
-             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Scholar Wallet</p>
+             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Your Wallet</p>
              <div className="flex items-center justify-between mt-2">
                 <p className="text-4xl font-black italic font-headline text-slate-950">₹{(profile?.credits || 0).toFixed(0)}</p>
                 <Button 
@@ -208,15 +217,15 @@ export default function RiderDashboard() {
           </Card>
           <Card className="bg-white rounded-[3rem] p-8 shadow-xl flex flex-col items-center justify-center gap-3 group border-none cursor-pointer">
              <QrCode className="h-14 w-14 text-primary group-hover:scale-110 transition-transform duration-500" />
-             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Hub Identity</p>
+             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Your ID</p>
           </Card>
         </div>
 
         <section className="space-y-6 pt-4">
-           <h4 className="text-[10px] font-black uppercase tracking-[0.5em] text-white/20 italic px-2">Regional Hub Routes</h4>
+           <h4 className="text-[10px] font-black uppercase tracking-[0.5em] text-white/20 italic px-2">Popular Routes</h4>
            <div className="space-y-5">
               {activeRoutes?.length === 0 ? (
-                <p className="text-slate-600 font-bold italic text-center py-10">Waiting for mission dispatch...</p>
+                <p className="text-slate-600 font-bold italic text-center py-10">No active routes at the moment.</p>
               ) : (
                 activeRoutes?.map((route: any) => (
                   <div key={route.id} className="p-8 bg-white rounded-[3.5rem] shadow-2xl flex items-center justify-between group cursor-pointer active:scale-98 transition-all duration-500 border-none">
@@ -228,11 +237,11 @@ export default function RiderDashboard() {
                           <p className="font-black text-2xl italic uppercase text-slate-950 leading-none">{route.routeName}</p>
                           <div className="flex items-center gap-2 mt-2">
                             <Badge variant="secondary" className="bg-slate-100 text-slate-400 text-[8px] font-black uppercase tracking-widest border-none">
-                              Starts ₹{route.baseFare}
+                              From ₹{route.baseFare}
                             </Badge>
                             {route.surgeFare > 0 && (
                               <Badge className="bg-accent/10 text-accent text-[8px] font-black uppercase tracking-widest border-none">
-                                +₹{route.surgeFare} Surge
+                                +₹{route.surgeFare} Extra
                               </Badge>
                             )}
                           </div>
@@ -250,11 +259,11 @@ export default function RiderDashboard() {
         <div className="flex justify-around items-center max-w-lg mx-auto">
           <Button variant="ghost" className="flex-col h-auto py-3 gap-1 rounded-2xl text-primary">
             <Bus className="h-8 w-8" />
-            <span className="text-[8px] font-black uppercase tracking-widest">Commute</span>
+            <span className="text-[8px] font-black uppercase tracking-widest">Home</span>
           </Button>
           <Button variant="ghost" className="flex-col h-auto py-3 gap-1 rounded-2xl text-slate-500 hover:text-white transition-colors">
             <MapIcon className="h-8 w-8" />
-            <span className="text-[8px] font-black uppercase tracking-widest">Radar</span>
+            <span className="text-[8px] font-black uppercase tracking-widest">Map</span>
           </Button>
           <div className="bg-primary h-20 w-20 rounded-[2.5rem] flex items-center justify-center -mt-24 border-[8px] border-slate-950 shadow-[0_15px_30px_rgba(59,130,246,0.4)] relative group cursor-pointer active:scale-95 transition-all">
             <div className="absolute inset-0 bg-white/10 rounded-full animate-ping opacity-20 group-hover:animate-none" />
@@ -262,11 +271,11 @@ export default function RiderDashboard() {
           </div>
           <Button variant="ghost" className="flex-col h-auto py-3 gap-1 rounded-2xl text-slate-500 hover:text-white transition-colors">
             <Bell className="h-8 w-8" />
-            <span className="text-[8px] font-black uppercase tracking-widest">Inbox</span>
+            <span className="text-[8px] font-black uppercase tracking-widest">Alerts</span>
           </Button>
           <Button variant="ghost" className="flex-col h-auto py-3 gap-1 rounded-2xl text-slate-500 hover:text-white transition-colors">
             <Search className="h-8 w-8" />
-            <span className="text-[8px] font-black uppercase tracking-widest">Grid</span>
+            <span className="text-[8px] font-black uppercase tracking-widest">Search</span>
           </Button>
         </div>
       </nav>
