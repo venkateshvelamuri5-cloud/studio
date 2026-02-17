@@ -46,4 +46,7 @@
   .glass-card {
     @apply bg-white/5 backdrop-blur-2xl border border-white/10;
   }
+  .perspective-1000 {
+    perspective: 1000px;
+  }
 }

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -80,7 +79,7 @@ function HighTechSimulator() {
               </div>
             )}
 
-            {activeScreen === 1 && (activeScreen === 1 && 
+            {activeScreen === 1 && (
               <div className="flex-1 space-y-5 animate-in slide-in-from-right-8">
                 <Badge className="bg-accent/20 text-accent border-none text-[8px] font-black uppercase tracking-widest px-2 py-0.5">Verified ID</Badge>
                 <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-tight">Secure<br/>Access.</h3>

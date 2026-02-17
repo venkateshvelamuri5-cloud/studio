@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -258,7 +257,7 @@ export default function RiderDashboard() {
             <QrCode className="h-10 w-10 text-white" />
           </div>
           <Button variant="ghost" className="flex-col h-auto py-3 gap-1 rounded-2xl text-slate-500 hover:text-white transition-colors">
-            <Bell className="h-8 w-8" />
+             Bell className="h-8 w-8" />
             <span className="text-[8px] font-black uppercase tracking-widest">Inbox</span>
           </Button>
           <Button variant="ghost" className="flex-col h-auto py-3 gap-1 rounded-2xl text-slate-500 hover:text-white transition-colors">
