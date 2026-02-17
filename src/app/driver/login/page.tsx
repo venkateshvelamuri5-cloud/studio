@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Bus, ArrowLeft, Smartphone, Loader2, AlertCircle, ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Smartphone, Loader2, AlertCircle, ArrowLeft, Bus } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -64,7 +64,7 @@ export default function DriverLoginPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaRef.current);
       setConfirmationResult(result);
       setStep(2);
-      toast({ title: "OTP Sent to Driver Handset" });
+      toast({ title: "Signal Transmitted", description: "OTP sent to regional handset." });
     } catch (error: any) {
       console.error("SMS Error", error);
       if (error.code === 'auth/captcha-check-failed' || error.message?.includes('Hostname match not found')) {
@@ -73,7 +73,7 @@ export default function DriverLoginPage() {
         toast({
           variant: "destructive",
           title: "Network Error",
-          description: "Could not reach the authentication server.",
+          description: "Could not reach the authentication satellite.",
         });
       }
     } finally {
@@ -90,14 +90,13 @@ export default function DriverLoginPage() {
       const result = await confirmationResult.confirm(otp);
       const user = result.user;
 
-      // PROFILE CHECK
       const userSnap = await getDoc(doc(db, 'users', user.uid));
       const profile = userSnap.data();
 
       if (!userSnap.exists()) {
         toast({
           title: "Identity Required",
-          description: "No driver profile found. Redirecting to workforce onboarding...",
+          description: "No driver profile found. Redirecting to onboard terminal...",
         });
         router.push('/driver/signup');
         return;
@@ -108,7 +107,7 @@ export default function DriverLoginPage() {
         toast({
           variant: "destructive",
           title: "Access Denied",
-          description: "This portal is strictly for registered AAGO Drivers.",
+          description: "This portal is strictly for AAGO Hub Operators.",
         });
         setStep(1);
         setOtp('');
@@ -119,8 +118,8 @@ export default function DriverLoginPage() {
       console.error("OTP Error", error);
       toast({
         variant: "destructive",
-        title: "Invalid OTP",
-        description: "The verification code is incorrect.",
+        title: "Invalid Protocol",
+        description: "The verification sequence is incorrect.",
       });
     } finally {
       setLoading(false);
@@ -128,46 +127,49 @@ export default function DriverLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 p-4 font-body">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#020617] p-6 font-body">
       <div id="recaptcha-container-driver"></div>
       
-      <div className="mb-12 flex flex-col items-center gap-4 text-white">
-        <div className="bg-primary p-4 rounded-[1.5rem] shadow-2xl rotate-3">
-          <ShieldCheck className="h-10 w-10 text-white" />
+      <div className="mb-12 flex flex-col items-center gap-6 animate-in fade-in duration-1000">
+        <div className="bg-primary p-5 rounded-[1.75rem] shadow-[0_0_40px_rgba(59,130,246,0.3)] rotate-3">
+          <ShieldCheck className="h-12 w-12 text-slate-950" />
         </div>
-        <h1 className="text-4xl font-black font-headline italic tracking-tighter uppercase">DRIVER PORTAL</h1>
+        <div className="text-center">
+           <h1 className="text-4xl font-black font-headline italic tracking-tighter uppercase text-white leading-none">AAGO OPS</h1>
+           <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mt-2">Workforce Terminal v4.0</p>
+        </div>
       </div>
 
-      <Card className="w-full max-w-md shadow-2xl border-none rounded-[2.5rem] overflow-hidden bg-slate-900 text-white">
-        <CardHeader className="space-y-3 pt-10 pb-6 text-center">
-          <CardTitle className="text-3xl font-black font-headline uppercase italic tracking-tighter text-primary">Workforce Login</CardTitle>
-          <CardDescription className="font-bold text-slate-400">
-            AAGO Mobility Official Driver Access
+      <Card className="w-full max-w-md shadow-2xl border-none rounded-[3rem] overflow-hidden bg-slate-950/50 backdrop-blur-xl border border-white/5">
+        <CardHeader className="space-y-3 pt-12 pb-8 text-center">
+          <CardTitle className="text-3xl font-black font-headline uppercase italic tracking-tighter text-white">Operator Access</CardTitle>
+          <CardDescription className="font-bold text-slate-500 uppercase text-[10px] tracking-widest italic">
+            Secure regional mission clearance
           </CardDescription>
         </CardHeader>
-        <CardContent className="px-8">
+        <CardContent className="px-10 pb-10">
           {hostnameError && (
-            <Alert variant="destructive" className="mb-6 rounded-2xl bg-red-500/10 border-red-500/50">
+            <Alert variant="destructive" className="mb-8 rounded-2xl bg-red-500/10 border-red-500/50">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Network Restriction</AlertTitle>
-              <AlertDescription className="text-xs">
-                Domain <strong>{currentHostname}</strong> is not authorized. Please notify the administrator.
+              <AlertTitle className="font-black italic uppercase text-xs">Security Protocol Alert</AlertTitle>
+              <AlertDescription className="text-[10px] font-bold">
+                Domain <strong>{currentHostname}</strong> is unauthorized. Notify regional lead.
               </AlertDescription>
             </Alert>
           )}
 
           {step === 1 ? (
-            <form onSubmit={handleSendOtp} className="space-y-6">
-              <div className="space-y-2">
-                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-500 ml-1">Work Phone Number</Label>
+            <form onSubmit={handleSendOtp} className="space-y-8">
+              <div className="space-y-3">
+                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-500 ml-1">Handset Number</Label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-500">+91</span>
+                  <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-slate-500">+91</span>
                   <Input 
                     type="tel" 
                     value={phoneNumber} 
                     onChange={(e) => setPhoneNumber(e.target.value)} 
                     placeholder="10-digit number" 
-                    className="h-14 pl-14 rounded-2xl bg-slate-800 border-none font-bold text-white placeholder:text-slate-600" 
+                    className="h-16 pl-16 rounded-2xl bg-slate-900 border-white/5 font-black text-white placeholder:text-slate-700 text-lg" 
                     required
                   />
                 </div>
@@ -175,21 +177,21 @@ export default function DriverLoginPage() {
               <Button 
                 type="submit" 
                 disabled={loading || phoneNumber.length < 10}
-                className="w-full bg-primary hover:bg-primary/90 h-16 rounded-2xl text-lg font-black uppercase italic shadow-xl"
+                className="w-full bg-primary hover:bg-primary/90 text-slate-950 h-18 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all active:scale-95"
               >
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : <><Smartphone className="h-6 w-6 mr-2" /> Start Shift</>}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : <><Smartphone className="h-6 w-6 mr-3" /> Start Shift</>}
               </Button>
             </form>
           ) : (
-            <form onSubmit={handleVerifyOtp} className="space-y-6">
-              <div className="space-y-2">
-                <Label className="font-black text-[10px] uppercase tracking-widest text-slate-500 ml-1">Verification Code</Label>
+            <form onSubmit={handleVerifyOtp} className="space-y-8">
+              <div className="space-y-3">
+                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-500 ml-1">Auth Sequence</Label>
                 <Input 
                   type="text" 
                   value={otp} 
                   onChange={(e) => setOtp(e.target.value)} 
                   placeholder="000000" 
-                  className="h-16 text-center text-2xl tracking-[1em] rounded-2xl bg-slate-800 border-none font-black text-white" 
+                  className="h-20 text-center text-3xl tracking-[0.5em] rounded-2xl bg-slate-900 border-white/5 font-black text-white" 
                   maxLength={6}
                   required
                 />
@@ -197,17 +199,17 @@ export default function DriverLoginPage() {
               <Button 
                 type="submit" 
                 disabled={loading || otp.length < 6}
-                className="w-full bg-accent hover:bg-accent/90 h-16 rounded-2xl text-lg font-black uppercase italic shadow-xl"
+                className="w-full bg-accent hover:bg-accent/90 text-white h-18 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all active:scale-95"
               >
                 {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Identity"}
               </Button>
-              <Button variant="ghost" onClick={() => setStep(1)} className="w-full font-bold text-slate-400 hover:text-white">Back to Number</Button>
+              <Button variant="ghost" onClick={() => setStep(1)} className="w-full font-black text-slate-500 hover:text-white uppercase italic text-[10px] tracking-widest">Abort Sequence</Button>
             </form>
           )}
         </CardContent>
-        <CardFooter className="bg-black/20 p-6 flex flex-col gap-4 mt-4">
-          <Link href="/" className="text-xs font-black uppercase tracking-widest text-slate-500 hover:text-primary transition-colors flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" /> Return to Public Area
+        <CardFooter className="bg-slate-950/80 p-8 flex flex-col gap-4">
+          <Link href="/" className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-600 hover:text-primary transition-colors flex items-center gap-3">
+            <ArrowLeft className="h-4 w-4" /> Return to Public Hub
           </Link>
         </CardFooter>
       </Card>
