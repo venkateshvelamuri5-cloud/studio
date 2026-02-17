@@ -23,7 +23,9 @@ import {
   Trash2,
   TrendingUp,
   ShieldCheck,
-  MapPinned
+  MapPinned,
+  ChevronRight,
+  Radio
 } from 'lucide-react';
 import { 
   Dialog,
@@ -473,4 +475,3 @@ export default function DriverConsole() {
     </div>
   );
 }
-
