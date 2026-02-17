@@ -35,7 +35,8 @@ import {
   Globe,
   TrendingUp,
   Tag,
-  ArrowRight
+  ArrowRight,
+  IndianRupee
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, increment, collection, query, where, arrayUnion, limit, addDoc } from 'firebase/firestore';
@@ -166,8 +167,8 @@ export default function StudentDashboard() {
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/'); };
 
-  const scholarPoints = (pastTrips?.length || 0) * 10 + 50; // Base points
-  const carbonSaved = (pastTrips?.length || 0) * 1.2; // kg of CO2 saved
+  const scholarPoints = (pastTrips?.length || 0) * 10 + 50; 
+  const carbonSaved = (pastTrips?.length || 0) * 1.2; 
 
   if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>;
 
@@ -346,7 +347,7 @@ export default function StudentDashboard() {
                           <div className="p-10 bg-primary/5 rounded-[3.5rem] border-2 border-primary/10 relative overflow-hidden">
                             <div className="absolute top-0 left-0 p-6 opacity-5"><Zap className="h-12 w-12 text-primary" /></div>
                             <p className="text-[11px] font-black uppercase text-primary tracking-widest mb-2 italic">Standard Boarding Fare</p>
-                            <h3 className="text-7xl font-black italic text-slate-900 leading-none tracking-tighter">₹{selectedTrip.farePerRider}</h3>
+                            <h3 className="text-7xl font-black italic text-slate-900 leading-none tracking-tighter">₹{selectedTrip?.farePerRider || 20}</h3>
                           </div>
                         </div>
                       )}
@@ -444,7 +445,7 @@ export default function StudentDashboard() {
                   { title: "7-Day Hub Corridor Pass", pts: "1200 PTS", icon: Zap, color: "bg-blue-50 text-blue-500" },
                   { title: "Campus Meal Voucher", pts: "450 PTS", icon: Tag, color: "bg-orange-50 text-orange-500" },
                   { title: "Premium Scholar ID Badge", pts: "250 PTS", icon: ShieldCheck, color: "bg-green-50 text-green-600" },
-                  { title: "Hub Hub Discount (20%)", pts: "150 PTS", icon: TrendingUp, color: "bg-purple-50 text-purple-500" },
+                  { title: "Hub Discount (20%)", pts: "150 PTS", icon: TrendingUp, color: "bg-purple-50 text-purple-500" },
                 ].map((perk, i) => (
                   <Card key={i} className="bg-white border border-slate-100 rounded-[2.5rem] p-8 flex justify-between items-center shadow-sm hover:shadow-xl transition-all group">
                     <div className="flex items-center gap-6">
@@ -513,4 +514,3 @@ export default function StudentDashboard() {
     </div>
   );
 }
-

@@ -24,7 +24,6 @@ import {
   IndianRupee,
   Wallet,
   TrendingUp,
-  Clock,
   Car,
   Fuel,
   AlertTriangle,
@@ -33,7 +32,7 @@ import {
   Zap
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
-import { doc, updateDoc, collection, addDoc, onSnapshot, query, where, arrayUnion, getDocs, limit } from 'firebase/firestore';
+import { doc, updateDoc, collection, addDoc, onSnapshot, query, where, arrayUnion, getDocs } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -51,7 +50,7 @@ import { Bar, BarChart, XAxis } from "recharts";
 
 const mapContainerStyle = { width: '100%', height: '240px', borderRadius: '2rem' };
 const mapOptions = { mapId: "da87e9c90896eba04be76dde", disableDefaultUI: true };
-const DEFAULT_CENTER = { lat: 17.6868, lng: 83.2185 }; // Vizag Hub
+const DEFAULT_CENTER = { lat: 17.6868, lng: 83.2185 }; 
 
 const chartConfig = {
   earnings: {
@@ -261,7 +260,7 @@ export default function DriverConsole() {
 
       toast({ 
         title: "Mission Finished", 
-        description: `₹${driverShare.toFixed(0)} credited to your regional account.` 
+        description: `₹${driverShare.toFixed(0)} credited to your account.` 
       });
     } catch (e) {
       toast({ variant: "destructive", title: "Error Closing Mission" });
@@ -330,9 +329,6 @@ export default function DriverConsole() {
                   <span className="text-[10px] font-black text-slate-900 italic">₹{dailyEarnings.toFixed(0)} / ₹{dailyGoal}</span>
                </div>
                <Progress value={goalProgress} className="h-2 bg-slate-100" />
-               <p className="text-[8px] font-bold text-slate-400 uppercase italic tracking-widest">
-                 {goalProgress >= 100 ? "Goal Smashed! Great job operator." : `You are ${Math.round(100 - goalProgress)}% away from your daily target.`}
-               </p>
             </Card>
             
             <div className="grid grid-cols-2 gap-4">
@@ -357,7 +353,7 @@ export default function DriverConsole() {
               {availableRoutes.length === 0 ? (
                 <Card className="p-12 text-center bg-white border-dashed border-2 border-slate-200 rounded-[2.5rem]">
                    <AlertCircle className="h-10 w-10 text-slate-300 mx-auto mb-4" />
-                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Scanning for missions...</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Scanning missions...</p>
                 </Card>
               ) : (
                 availableRoutes.map((route: any) => (
@@ -365,12 +361,9 @@ export default function DriverConsole() {
                     <CardContent className="p-8 flex justify-between items-center">
                       <div className="space-y-1">
                         <h3 className="font-black text-xl text-slate-900 uppercase italic leading-none">{route.routeName}</h3>
-                        <div className="flex items-center gap-2">
-                           <Badge className="bg-slate-100 text-slate-500 border-none text-[8px] font-black uppercase tracking-widest">₹{route.baseFare} Base</Badge>
-                           <Badge className="bg-green-50 text-green-600 border-none text-[8px] font-black uppercase tracking-widest">High Demand</Badge>
-                        </div>
+                        <Badge className="bg-slate-100 text-slate-500 border-none text-[8px] font-black uppercase tracking-widest">₹{route.baseFare} Base</Badge>
                       </div>
-                      <Button onClick={() => startTrip(route)} disabled={isUpdating || profile?.status === 'offline'} className="rounded-xl h-12 px-8 bg-primary text-white font-black uppercase italic shadow-lg hover:scale-105 transition-all">Begin</Button>
+                      <Button onClick={() => startTrip(route)} disabled={isUpdating || profile?.status === 'offline'} className="rounded-xl h-12 px-8 bg-primary text-white font-black uppercase italic shadow-lg">Begin</Button>
                     </CardContent>
                   </Card>
                 ))
@@ -400,7 +393,7 @@ export default function DriverConsole() {
               ) : (
                 <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50">
                    <MapPinned className="h-10 w-10 text-slate-200 mb-4" />
-                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Syncing Map...</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Map Hub Offline</p>
                 </div>
               )}
             </div>
@@ -429,16 +422,15 @@ export default function DriverConsole() {
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Scholar Manifest</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">Student Manifest</h3>
                 <div className="space-y-3">
                   {!passengerDetails || passengerDetails.length === 0 ? (
                     <div className="p-12 text-center bg-slate-50 rounded-[2rem] border border-dashed border-slate-100">
-                      <Activity className="h-8 w-8 text-slate-200 mx-auto mb-3" />
-                      <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest italic">Waiting for regional bookings</p>
+                      <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest italic">Waiting for bookings</p>
                     </div>
                   ) : (
                     passengerDetails.map((p: any) => (
-                      <div key={p.uid} className="p-5 bg-slate-50 rounded-[1.5rem] flex justify-between items-center border border-slate-100 transition-all hover:bg-white hover:shadow-sm">
+                      <div key={p.uid} className="p-5 bg-slate-50 rounded-[1.5rem] flex justify-between items-center border border-slate-100">
                         <div className="flex items-center gap-4">
                           <div className={`h-12 w-12 rounded-xl flex items-center justify-center font-black text-xs ${activeTrip.verifiedPassengers?.includes(p.uid) ? 'bg-green-100 text-green-600' : 'bg-primary/10 text-primary'}`}>
                             {activeTrip.verifiedPassengers?.includes(p.uid) ? <CheckCircle2 className="h-6 w-6" /> : p.fullName[0]}
@@ -448,7 +440,7 @@ export default function DriverConsole() {
                             <p className="text-[9px] font-bold text-slate-400 uppercase mt-1 tracking-widest">{p.destinationStopName || 'Regional Hub'}</p>
                           </div>
                         </div>
-                        <Button onClick={() => window.open(`tel:${p.phoneNumber}`, '_self')} variant="ghost" className="h-12 w-12 p-0 rounded-xl text-primary hover:bg-primary/10 transition-all"><Phone className="h-5 w-5" /></Button>
+                        <Button onClick={() => window.open(`tel:${p.phoneNumber}`, '_self')} variant="ghost" className="h-12 w-12 p-0 rounded-xl text-primary"><Phone className="h-5 w-5" /></Button>
                       </div>
                     ))
                   )}
@@ -492,12 +484,12 @@ export default function DriverConsole() {
                 </Card>
               ) : (
                 pastTrips.map((trip: any) => (
-                  <Card key={trip.id} className="bg-white border-slate-100 rounded-[2rem] p-6 flex justify-between items-center shadow-sm hover:shadow-md transition-all">
+                  <Card key={trip.id} className="bg-white border-slate-100 rounded-[2rem] p-6 flex justify-between items-center shadow-sm">
                     <div className="flex items-center gap-4">
                        <div className="h-12 w-12 bg-green-50 rounded-xl flex items-center justify-center text-green-500"><IndianRupee className="h-6 w-6" /></div>
                        <div>
                           <h4 className="font-black text-sm text-slate-900 uppercase italic leading-none mb-1.5">{trip.routeName}</h4>
-                          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest italic">{new Date(trip.endTime).toLocaleDateString()} • {trip.riderCount} Scholars</p>
+                          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest italic">{new Date(trip.endTime).toLocaleDateString()} • {trip.riderCount} Students</p>
                        </div>
                     </div>
                     <div className="text-right">
@@ -515,19 +507,16 @@ export default function DriverConsole() {
           <div className="space-y-8 animate-in fade-in">
              <div className="space-y-1">
                <h2 className="text-4xl font-black text-slate-900 italic uppercase tracking-tighter leading-none">Fleet Hub</h2>
-               <p className="text-slate-400 font-bold italic text-[10px] uppercase tracking-widest">Asset Management & Service Status</p>
+               <p className="text-slate-400 font-bold italic text-[10px] uppercase tracking-widest">Asset Management</p>
              </div>
              
              <div className="grid grid-cols-1 gap-6">
                 <Card className="p-8 bg-white border-none rounded-[3rem] shadow-sm flex items-center gap-6 relative overflow-hidden">
                    <div className="absolute top-0 right-0 p-8 opacity-5"><Car className="h-32 w-32" /></div>
-                   <div className="h-20 w-20 bg-primary/10 rounded-3xl flex items-center justify-center text-primary shadow-inner"><Car className="h-10 w-10" /></div>
+                   <div className="h-20 w-20 bg-primary/10 rounded-3xl flex items-center justify-center text-primary"><Car className="h-10 w-10" /></div>
                    <div>
                       <h4 className="font-black uppercase italic text-2xl text-slate-900 leading-none mb-2">{profile?.vehicleNumber}</h4>
-                      <div className="flex items-center gap-2">
-                         <Badge className="bg-slate-100 text-slate-500 border-none text-[8px] font-black uppercase">{profile?.vehicleType}</Badge>
-                         <Badge className="bg-green-100 text-green-600 border-none text-[8px] font-black uppercase">Fleet Ready</Badge>
-                      </div>
+                      <Badge className="bg-slate-100 text-slate-500 border-none text-[8px] font-black uppercase">{profile?.vehicleType}</Badge>
                    </div>
                 </Card>
 
@@ -547,42 +536,6 @@ export default function DriverConsole() {
                       </div>
                    </Card>
                 </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                   {[
-                     { label: 'Brakes', val: 'Good', icon: Wrench, color: 'text-blue-500' },
-                     { label: 'Tires', val: 'Optimal', icon: Zap, color: 'text-yellow-500' },
-                     { label: 'Cleanliness', val: 'Premium', icon: ShieldCheck, color: 'text-green-500' }
-                   ].map((item, i) => (
-                      <Card key={i} className="p-4 bg-white border-none rounded-2xl shadow-sm text-center space-y-2">
-                         <item.icon className={`h-4 w-4 mx-auto ${item.color}`} />
-                         <p className="text-[7px] font-black uppercase text-slate-400">{item.label}</p>
-                         <p className="text-[9px] font-black italic text-slate-900 uppercase">{item.val}</p>
-                      </Card>
-                   ))}
-                </div>
-                
-                <Card className="p-10 bg-slate-900 text-white rounded-[3rem] space-y-6 shadow-2xl">
-                   <div className="flex items-center justify-between">
-                      <h5 className="font-black italic uppercase text-xs text-primary">Pre-Shift Protocol</h5>
-                      <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase">Required</Badge>
-                   </div>
-                   <div className="space-y-4">
-                      {[
-                        "Regional Radar Calibrated",
-                        "Sanitation Certificate Logged",
-                        "Emergency Signal Verified",
-                        "Route Telemetry Synced"
-                      ].map((check, i) => (
-                        <div key={i} className="flex items-center gap-4 group cursor-pointer">
-                           <div className="h-6 w-6 rounded-lg border-2 border-white/20 flex items-center justify-center transition-all group-hover:border-primary">
-                              <CheckCircle2 className="h-4 w-4 text-primary opacity-50 group-hover:opacity-100" />
-                           </div>
-                           <span className="text-xs font-bold italic opacity-70 group-hover:opacity-100 transition-all">{check}</span>
-                        </div>
-                      ))}
-                   </div>
-                </Card>
              </div>
           </div>
         )}
@@ -592,7 +545,6 @@ export default function DriverConsole() {
             <div className="flex flex-col items-center gap-6 py-8">
               <div className="h-40 w-40 rounded-[3.5rem] overflow-hidden border-4 border-primary/10 shadow-2xl bg-white flex items-center justify-center relative">
                 {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : <UserIcon className="h-16 w-16 text-slate-200 m-auto" />}
-                <div className="absolute -bottom-2 -right-2 bg-green-500 p-3 rounded-2xl text-white shadow-xl"><ShieldCheck className="h-6 w-6" /></div>
               </div>
               <div>
                 <h2 className="text-4xl font-black italic uppercase text-slate-900 leading-none">{profile?.fullName}</h2>
@@ -606,8 +558,8 @@ export default function DriverConsole() {
                 { label: 'Vehicle Class', val: profile?.vehicleType, icon: Bus },
                 { label: 'Total Missions', val: pastTrips?.length || 0, icon: History }
               ].map((item, i) => (
-                <div key={i} className="bg-white border border-slate-50 rounded-[1.5rem] p-6 flex items-center gap-6 text-left shadow-sm hover:shadow-md transition-all">
-                  <div className="h-12 w-12 bg-slate-50 rounded-2xl flex items-center justify-center text-primary shadow-inner">
+                <div key={i} className="bg-white border border-slate-50 rounded-[1.5rem] p-6 flex items-center gap-6 text-left shadow-sm">
+                  <div className="h-12 w-12 bg-slate-50 rounded-2xl flex items-center justify-center text-primary">
                     <item.icon className="h-6 w-6" />
                   </div>
                   <div>
@@ -617,7 +569,7 @@ export default function DriverConsole() {
                 </div>
               ))}
             </div>
-            <Button onClick={handleSignOut} className="w-full h-20 bg-red-50 text-red-500 rounded-[2.5rem] font-black uppercase italic mt-10 hover:bg-red-100 transition-all shadow-sm border border-red-100">
+            <Button onClick={handleSignOut} className="w-full h-20 bg-red-50 text-red-500 rounded-[2.5rem] font-black uppercase italic mt-10 shadow-sm border border-red-100">
               <LogOut className="h-6 w-6 mr-3" /> Sign Out
             </Button>
           </div>
@@ -633,4 +585,3 @@ export default function DriverConsole() {
     </div>
   );
 }
-

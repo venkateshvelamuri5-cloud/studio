@@ -30,21 +30,16 @@ import {
   Route as RouteIcon,
   Sparkles,
   ClipboardList,
-  AlertCircle,
   Activity,
   ArrowUpRight,
-  ShieldCheck,
   AlertTriangle,
-  History,
   Plus,
   Trash2,
   MapPin,
-  CheckCircle2,
-  XCircle,
   Search
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
-import { collection, query, doc, setDoc, orderBy, limit, where, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, doc, setDoc, orderBy, limit, addDoc, deleteDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { generateShuttleRoutes, AdminGenerateShuttleRoutesInput } from '@/ai/flows/admin-generate-shuttle-routes';
@@ -191,7 +186,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="flex h-screen bg-slate-50 font-body text-slate-900">
-      {/* Sidebar */}
       <aside className="w-72 bg-white flex flex-col shrink-0 border-r border-slate-200 shadow-2xl z-20">
         <div className="p-8 h-24 flex items-center border-b border-slate-100">
           <div className="flex items-center gap-3">
@@ -225,7 +219,6 @@ export default function AdminDashboard() {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
         <header className="h-24 bg-white border-b border-slate-100 px-10 flex items-center justify-between shadow-sm">
           <div>
             <h2 className="text-3xl font-black font-headline text-slate-900 italic uppercase tracking-tighter leading-none">{activeTab.replace('-', ' ')}</h2>
@@ -255,7 +248,6 @@ export default function AdminDashboard() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                {/* Active Missions Table */}
                 <Card className="border-none bg-white rounded-[3rem] shadow-sm overflow-hidden">
                   <CardHeader className="p-10 border-b border-slate-50"><CardTitle className="text-xl font-black italic uppercase text-slate-900 flex items-center gap-3"><Activity className="h-6 w-6 text-primary" /> Active Missions</CardTitle></CardHeader>
                   <CardContent className="p-0">
@@ -290,7 +282,6 @@ export default function AdminDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* Driver Tracking List */}
                 <Card className="border-none bg-white rounded-[3rem] shadow-sm overflow-hidden">
                   <CardHeader className="p-10 border-b border-slate-50"><CardTitle className="text-xl font-black italic uppercase text-slate-900 flex items-center gap-3"><Users className="h-6 w-6 text-primary" /> Workforce Summary</CardTitle></CardHeader>
                   <CardContent className="p-0">
