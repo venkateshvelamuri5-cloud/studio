@@ -46,7 +46,9 @@
         "totalYield": { "type": "number" },
         "driverShare": { "type": "number" },
         "startTime": { "type": "string", "format": "date-time" },
-        "endTime": { "type": "string", "format": "date-time" }
+        "endTime": { "type": "string", "format": "date-time" },
+        "studentRating": { "type": "number" },
+        "driverRating": { "type": "number" }
       },
       "required": ["driverId", "routeName", "status"]
     },
