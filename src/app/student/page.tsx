@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import { 
   Dialog,
   DialogContent,
@@ -41,17 +42,18 @@ import {
   ArrowRight,
   IndianRupee,
   Ticket,
-  Clock
+  Clock,
+  Leaf
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, increment, collection, query, where, arrayUnion, limit, addDoc, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, increment, collection, query, where, arrayUnion, limit, addDoc, getDocs, orderBy } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { GoogleMap, useJsApiLoader, Marker, Polyline } from '@react-google-maps/api';
 import { googleMapsApiKey } from '@/firebase/config';
 
-const mapContainerStyle = { width: '100%', height: '100%', borderRadius: '3rem' };
+const mapContainerStyle = { width: '100%', height: '100%', borderRadius: '3.5rem' };
 const mapOptions = { 
   mapId: "da87e9c90896eba04be76dde", 
   disableDefaultUI: true, 
@@ -95,7 +97,7 @@ export default function StudentDashboard() {
 
   const pastTripsQuery = useMemo(() => {
     if (!db || !user?.uid) return null;
-    return query(collection(db, 'trips'), where('status', '==', 'completed'), where('verifiedPassengers', 'array-contains', user.uid), limit(20));
+    return query(collection(db, 'trips'), where('status', '==', 'completed'), where('verifiedPassengers', 'array-contains', user.uid));
   }, [db, user?.uid]);
   const { data: pastTrips } = useCollection(pastTripsQuery);
 
@@ -154,7 +156,7 @@ export default function StudentDashboard() {
       timestamp: new Date().toISOString(),
       location: currentPosition || 'Regional Hub'
     });
-    toast({ variant: "destructive", title: "SOS Dispatched", description: "Regional safety protocols activated." });
+    toast({ variant: "destructive", title: "SOS Alert Sent", description: "The regional safety hub is monitoring your trip." });
   };
 
   const handleApplyVoucher = async () => {
@@ -163,14 +165,14 @@ export default function StudentDashboard() {
       const vQuery = query(collection(db, 'vouchers'), where('code', '==', voucherCode.toUpperCase()), where('isActive', '==', true));
       const snap = await getDocs(vQuery);
       if (snap.empty) {
-        toast({ variant: "destructive", title: "Invalid Voucher" });
+        toast({ variant: "destructive", title: "Invalid Code", description: "This voucher is not recognized." });
         setAppliedDiscount(0);
       } else {
         setAppliedDiscount(snap.docs[0].data().discountAmount);
-        toast({ title: "Voucher Applied", description: `Discount: ₹${snap.docs[0].data().discountAmount}` });
+        toast({ title: "Discount Applied", description: `You saved ₹${snap.docs[0].data().discountAmount}!` });
       }
     } catch (e) {
-      toast({ variant: "destructive", title: "Check Failed" });
+      toast({ variant: "destructive", title: "Error", description: "Could not apply voucher." });
     }
   };
 
@@ -191,7 +193,7 @@ export default function StudentDashboard() {
         passengers: arrayUnion(user!.uid)
       });
       setBookingStep(3);
-      toast({ title: "Seat Secured", description: `Boarding ID generated. Earned ${pointsEarned} Points.` });
+      toast({ title: "Booking Confirmed", description: `Boarding ID created. You earned ${pointsEarned} points!` });
     } catch (e) {
       toast({ variant: "destructive", title: "Booking Failed" });
     } finally {
@@ -204,26 +206,33 @@ export default function StudentDashboard() {
     await updateDoc(doc(db, 'trips', unratedTrip.id), { studentRating: rating });
     setIsRatingOpen(false);
     setRating(0);
-    toast({ title: "Feedback Received", description: "Thank you for helping us improve Aago." });
+    toast({ title: "Rating Saved", description: "Thanks for helping us stay smart." });
   };
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/'); };
+
+  const scholarTier = useMemo(() => {
+    const points = profile?.loyaltyPoints || 0;
+    if (points > 500) return { name: "Gold Scholar", color: "text-amber-500", bg: "bg-amber-50" };
+    if (points > 200) return { name: "Silver Scholar", color: "text-slate-400", bg: "bg-slate-50" };
+    return { name: "Bronze Scholar", color: "text-orange-500", bg: "bg-orange-50" };
+  }, [profile?.loyaltyPoints]);
 
   if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-primary h-10 w-10" /></div>;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-body pb-32">
-      <header className="px-8 py-6 flex items-center justify-between border-b border-slate-200 bg-white/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary"><Bus className="h-5 w-5" /></div>
+      <header className="px-8 py-8 flex items-center justify-between border-b border-slate-200 bg-white/80 backdrop-blur-3xl sticky top-0 z-50 shadow-sm">
+        <div className="flex items-center gap-5">
+          <div className="h-12 w-12 rounded-[1.25rem] bg-primary/10 flex items-center justify-center text-primary shadow-inner"><Bus className="h-6 w-6" /></div>
           <div>
-            <h1 className="text-xl font-black text-slate-900 italic uppercase tracking-tighter leading-none">AAGO</h1>
-            <p className="text-[8px] font-black uppercase text-slate-400 tracking-[0.3em] mt-1">{profile?.city} Hub</p>
+            <h1 className="text-2xl font-black text-slate-900 italic uppercase tracking-tighter leading-none">AAGO</h1>
+            <p className="text-[9px] font-black uppercase text-slate-400 tracking-[0.4em] mt-1.5">{profile?.city} Regional Hub</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-           <Button variant="ghost" size="icon" onClick={triggerSOS} className="text-red-500 hover:bg-red-50 h-11 w-11 rounded-2xl"><AlertTriangle className="h-5 w-5" /></Button>
-           <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase px-5 py-2 rounded-full">Network: Optimal</Badge>
+        <div className="flex items-center gap-4">
+           <Button variant="ghost" size="icon" onClick={triggerSOS} className="text-red-500 hover:bg-red-50 h-12 w-12 rounded-[1.5rem]"><AlertTriangle className="h-6 w-6" /></Button>
+           <Badge className="bg-green-500/10 text-green-600 border-none text-[8px] font-black uppercase px-6 py-2.5 rounded-full tracking-widest">Network Pulse: 100%</Badge>
         </div>
       </header>
 
@@ -232,116 +241,124 @@ export default function StudentDashboard() {
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
             <div className="flex justify-between items-end">
               <div className="space-y-1">
-                <h2 className="text-4xl font-black text-slate-900 italic uppercase tracking-tighter leading-none">Hi, {profile?.fullName?.split(' ')[0]}.</h2>
-                <p className="text-slate-400 font-bold italic text-[10px] uppercase tracking-widest">Scholar Terminal</p>
+                <h2 className="text-5xl font-black text-slate-900 italic uppercase tracking-tighter leading-[0.85]">Hi, <br/> {profile?.fullName?.split(' ')[0]}.</h2>
+                <div className="flex items-center gap-2 mt-3">
+                   <Badge className={`${scholarTier.bg} ${scholarTier.color} border-none text-[9px] font-black uppercase px-4 py-1.5 rounded-full tracking-widest`}>{scholarTier.name}</Badge>
+                </div>
               </div>
-              <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-50">
-                 <p className="text-[7px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Scholar Points</p>
-                 <div className="flex items-center gap-1.5">
-                   <Star className="h-4 w-4 text-accent fill-accent" />
-                   <span className="text-sm font-black text-slate-900 uppercase italic">{profile?.loyaltyPoints || 0}</span>
+              <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-50 text-center min-w-[120px]">
+                 <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-2">My Points</p>
+                 <div className="flex items-center justify-center gap-2">
+                   <Star className="h-5 w-5 text-accent fill-accent" />
+                   <span className="text-2xl font-black text-slate-900 uppercase italic leading-none">{profile?.loyaltyPoints || 0}</span>
                  </div>
               </div>
             </div>
 
             {profile?.activeOtp && currentBooking ? (
               <div className="space-y-6">
-                <div className="h-80 w-full rounded-[4rem] overflow-hidden border border-slate-100 shadow-2xl bg-white relative">
+                <div className="h-[22rem] w-full rounded-[4.5rem] overflow-hidden border border-slate-100 shadow-2xl bg-white relative">
                   {isLoaded ? (
-                    <GoogleMap mapContainerStyle={mapContainerStyle} center={driverProfile?.currentLat ? { lat: driverProfile.currentLat, lng: driverProfile.currentLng } : (currentPosition || { lat: 17.6868, lng: 83.2185 })} zoom={14} options={mapOptions}>
+                    <GoogleMap mapContainerStyle={mapContainerStyle} center={driverProfile?.currentLat ? { lat: driverProfile.currentLat, lng: driverProfile.currentLng } : (currentPosition || DEFAULT_CENTER)} zoom={14} options={mapOptions}>
                       {driverProfile?.currentLat && (
                         <Marker 
                           position={{ lat: driverProfile.currentLat, lng: driverProfile.currentLng }} 
-                          icon={{ url: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', scaledSize: new window.google.maps.Size(40, 40) }}
+                          icon={{ url: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', scaledSize: new window.google.maps.Size(50, 50) }}
                         />
                       )}
                       {activeRouteData?.stops && (
                         <Polyline 
                           path={activeRouteData.stops.map((s: any) => ({ lat: s.lat, lng: s.lng }))}
-                          options={{ strokeColor: "#3b82f6", strokeOpacity: 0.8, strokeWeight: 6 }}
+                          options={{ strokeColor: "#3b82f6", strokeOpacity: 0.8, strokeWeight: 8 }}
                         />
                       )}
                     </GoogleMap>
                   ) : <div className="h-full flex items-center justify-center text-slate-400 font-black italic">Tactical Radar Loading...</div>}
-                  <div className="absolute top-8 right-8 bg-white/90 backdrop-blur-md p-4 rounded-3xl shadow-xl flex items-center gap-3 border border-slate-100">
-                    <Clock className="h-4 w-4 text-primary animate-pulse" />
-                    <span className="text-xs font-black italic uppercase">ETA: {etaMinutes} MINS</span>
+                  <div className="absolute top-10 right-10 bg-white/95 backdrop-blur-md p-5 rounded-[2.5rem] shadow-2xl flex items-center gap-4 border border-slate-100">
+                    <Clock className="h-5 w-5 text-primary animate-pulse" />
+                    <span className="text-sm font-black italic uppercase">ETA: {etaMinutes} MINS</span>
                   </div>
                 </div>
 
-                <Card className="bg-primary text-white border-none rounded-[4rem] p-12 text-center shadow-xl relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-10 opacity-20"><QrCode className="h-12 w-12" /></div>
-                  <h3 className="text-8xl font-black tracking-tighter italic font-headline leading-none mb-4">{profile.activeOtp}</h3>
-                  <p className="text-[10px] font-black uppercase tracking-[0.6em] mb-12 opacity-80">Boarding ID</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white/10 p-6 rounded-3xl text-left border border-white/10">
-                      <p className="text-[8px] font-black uppercase opacity-60 mb-1">Corridor</p>
-                      <p className="text-xs font-black italic uppercase truncate">{currentBooking.routeName}</p>
+                <Card className="bg-slate-900 text-white border-none rounded-[4.5rem] p-16 text-center shadow-2xl relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.1),transparent_70%)]" />
+                  <div className="absolute top-0 right-0 p-12 opacity-10 group-hover:rotate-12 transition-transform"><QrCode className="h-16 w-16" /></div>
+                  <h3 className="text-9xl font-black tracking-tighter italic font-headline leading-none mb-4 relative z-10">{profile.activeOtp}</h3>
+                  <p className="text-[12px] font-black uppercase tracking-[0.6em] mb-14 opacity-60 relative z-10">Boarding ID Code</p>
+                  <div className="grid grid-cols-2 gap-6 relative z-10">
+                    <div className="bg-white/10 p-8 rounded-[2rem] text-left border border-white/5 backdrop-blur-md">
+                      <p className="text-[9px] font-black uppercase opacity-40 mb-2 tracking-widest">Active Corridor</p>
+                      <p className="text-sm font-black italic uppercase truncate">{currentBooking.routeName}</p>
                     </div>
-                    <div className="bg-white/10 p-6 rounded-3xl text-left border border-white/10">
-                      <p className="text-[8px] font-black uppercase opacity-60 mb-1">Target Stop</p>
-                      <p className="text-xs font-black italic uppercase truncate">{profile.destinationStopName}</p>
+                    <div className="bg-white/10 p-8 rounded-[2rem] text-left border border-white/5 backdrop-blur-md">
+                      <p className="text-[9px] font-black uppercase opacity-40 mb-2 tracking-widest">Target Hub</p>
+                      <p className="text-sm font-black italic uppercase truncate">{profile.destinationStopName}</p>
                     </div>
                   </div>
                 </Card>
               </div>
             ) : (
               <div className="space-y-8">
-                <div className="grid grid-cols-2 gap-4">
-                  <Card className="p-6 bg-white border-none shadow-sm rounded-[2.5rem] space-y-2">
-                    <p className="text-[8px] font-black uppercase text-slate-400">Total Rides</p>
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-primary" />
-                      <span className="text-xl font-black text-slate-900 italic">{pastTrips?.length || 0}</span>
+                <div className="grid grid-cols-2 gap-6">
+                  <Card className="p-8 bg-white border-none shadow-xl rounded-[3rem] space-y-3 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-6 opacity-5"><TrendingUp className="h-10 w-10" /></div>
+                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Total Rides</p>
+                    <div className="flex items-center gap-3">
+                      <Bus className="h-5 w-5 text-primary" />
+                      <span className="text-3xl font-black text-slate-900 italic leading-none">{pastTrips?.length || 0}</span>
                     </div>
                   </Card>
-                  <Card className="p-6 bg-slate-900 border-none shadow-xl rounded-[2.5rem] space-y-2">
-                    <p className="text-[8px] font-black uppercase text-primary tracking-widest">Global Hub Status</p>
-                    <div className="flex items-center gap-2 text-white">
-                      <Activity className="h-4 w-4 text-green-500" />
-                      <span className="text-xl font-black italic">ACTIVE</span>
+                  <Card className="p-8 bg-green-500 border-none shadow-xl rounded-[3rem] space-y-3 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-6 opacity-20"><Leaf className="h-10 w-10 text-white" /></div>
+                    <p className="text-[9px] font-black uppercase text-white/60 tracking-widest">Saving Earth</p>
+                    <div className="flex items-center gap-3 text-white">
+                      <span className="text-3xl font-black italic leading-none">{( (pastTrips?.length || 0) * 0.4 ).toFixed(1)}kg</span>
                     </div>
+                    <p className="text-[7px] font-black uppercase text-white/50 leading-none">CO2 SAVED</p>
                   </Card>
                 </div>
 
                 <Dialog>
                   <DialogTrigger asChild>
-                    <div className="p-14 bg-white border border-slate-100 rounded-[4rem] shadow-xl flex items-center justify-between cursor-pointer hover:shadow-2xl transition-all border-b-8 border-b-primary group">
-                      <div className="space-y-3">
-                        <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase tracking-widest px-4 py-1">Mission Finder</Badge>
-                        <h3 className="text-5xl font-black italic uppercase text-slate-900 leading-[0.85] tracking-tighter">Find<br/>a Bus</h3>
+                    <div className="p-16 bg-white border border-slate-100 rounded-[5rem] shadow-2xl flex items-center justify-between cursor-pointer hover:scale-[1.02] transition-all border-b-[12px] border-b-primary group">
+                      <div className="space-y-4">
+                        <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase tracking-[0.4em] px-6 py-2 rounded-full">Mission Grid</Badge>
+                        <h3 className="text-6xl font-black italic uppercase text-slate-900 leading-[0.8] tracking-tighter">Find <br/> a Bus</h3>
                       </div>
-                      <div className="h-20 w-20 rounded-[2rem] bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all shadow-inner"><Navigation className="h-10 w-10" /></div>
+                      <div className="h-24 w-24 rounded-[2.5rem] bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all shadow-inner"><Navigation className="h-12 w-12" /></div>
                     </div>
                   </DialogTrigger>
-                  <DialogContent className="bg-white border-none rounded-[4rem] p-12 h-[90vh] flex flex-col overflow-hidden shadow-2xl">
-                    <DialogHeader className="mb-8 shrink-0">
-                      <DialogTitle className="text-5xl font-black italic uppercase text-primary leading-none tracking-tighter">Station</DialogTitle>
+                  <DialogContent className="bg-white border-none rounded-[5rem] p-16 h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+                    <DialogHeader className="mb-10 shrink-0">
+                      <DialogTitle className="text-6xl font-black italic uppercase text-primary leading-none tracking-tighter">Station</DialogTitle>
                     </DialogHeader>
-                    <div className="flex-1 overflow-y-auto space-y-8 pr-2 custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto space-y-10 pr-4 custom-scrollbar">
                       {bookingStep === 1 && (
                         <>
-                          <div className="space-y-4">
-                            <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Trip Protocol</Label>
-                            <select value={pickupStop} onChange={e => setPickupStop(e.target.value)} className="w-full h-20 bg-slate-50 border-none rounded-3xl px-8 font-black italic text-lg outline-none">
-                              <option value="">Start Station</option>
-                              {allStops.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                            <select value={destinationStop} onChange={e => setDestinationStop(e.target.value)} className="w-full h-20 bg-slate-50 border-none rounded-3xl px-8 font-black italic text-lg outline-none">
-                              <option value="">End Station</option>
-                              {allStops.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
+                          <div className="space-y-6">
+                            <Label className="text-[11px] font-black uppercase text-slate-400 tracking-[0.4em] ml-2">Regional Protocol</Label>
+                            <div className="space-y-4">
+                               <select value={pickupStop} onChange={e => setPickupStop(e.target.value)} className="w-full h-22 bg-slate-50 border-none rounded-[2rem] px-10 font-black italic text-xl outline-none shadow-inner">
+                                 <option value="">Start Station</option>
+                                 {allStops.map(s => <option key={s} value={s}>{s}</option>)}
+                               </select>
+                               <select value={destinationStop} onChange={e => setDestinationStop(e.target.value)} className="w-full h-22 bg-slate-50 border-none rounded-[2rem] px-10 font-black italic text-xl outline-none shadow-inner">
+                                 <option value="">End Station</option>
+                                 {allStops.map(s => <option key={s} value={s}>{s}</option>)}
+                               </select>
+                            </div>
                           </div>
-                          <div className="space-y-4 pb-10">
-                            <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Live Corridors</Label>
+                          <div className="space-y-6 pb-12">
+                            <Label className="text-[11px] font-black uppercase text-slate-400 tracking-[0.4em] ml-2">Active Shuttles</Label>
                             {filteredTrips.length === 0 ? (
-                               <div className="p-8 text-center text-xs font-bold text-slate-400 italic">No shuttles found for this route.</div>
+                               <div className="p-16 text-center text-sm font-bold text-slate-400 italic bg-slate-50 rounded-[3rem] border border-dashed border-slate-200 uppercase">No active missions detected.</div>
                             ) : filteredTrips.map((trip: any) => (
-                              <div key={trip.id} onClick={() => setSelectedTrip(trip)} className={`p-8 rounded-[3rem] border-4 transition-all cursor-pointer ${selectedTrip?.id === trip.id ? 'bg-primary border-primary text-white shadow-xl' : 'bg-slate-50 border-transparent'}`}>
-                                <h4 className="font-black uppercase italic text-2xl mb-1">{trip.routeName}</h4>
+                              <div key={trip.id} onClick={() => setSelectedTrip(trip)} className={`p-10 rounded-[3.5rem] border-4 transition-all cursor-pointer relative overflow-hidden ${selectedTrip?.id === trip.id ? 'bg-primary border-primary text-white shadow-2xl scale-[1.02]' : 'bg-slate-50 border-transparent hover:bg-slate-100'}`}>
+                                <div className="absolute top-0 right-0 p-8 opacity-5"><Bus className="h-16 w-16" /></div>
+                                <h4 className="font-black uppercase italic text-3xl mb-2 tracking-tighter leading-none">{trip.routeName}</h4>
                                 <div className="flex justify-between items-center">
-                                   <Badge className={`${selectedTrip?.id === trip.id ? 'bg-white/20 text-white' : 'bg-white text-slate-400'} border-none text-[8px] font-black uppercase`}>₹{trip.farePerRider}</Badge>
-                                   <p className="text-[8px] font-black uppercase opacity-60">{trip.verifiedPassengers?.length || 0} Boarded</p>
+                                   <Badge className={`${selectedTrip?.id === trip.id ? 'bg-white/20 text-white' : 'bg-white text-slate-400'} border-none text-[10px] font-black uppercase px-5 py-2 rounded-full`}>Fare: ₹{trip.farePerRider}</Badge>
+                                   <p className="text-[10px] font-black uppercase opacity-60 tracking-widest">{trip.verifiedPassengers?.length || 0} Scholars On Board</p>
                                 </div>
                               </div>
                             ))}
@@ -349,37 +366,40 @@ export default function StudentDashboard() {
                         </>
                       )}
                       {bookingStep === 2 && (
-                        <div className="space-y-8 animate-in zoom-in-95">
-                          <div className="bg-slate-900 p-10 rounded-[4rem] text-center shadow-2xl relative overflow-hidden">
-                             <div className="absolute top-0 right-0 p-8 opacity-10"><Zap className="h-12 w-12 text-primary" /></div>
-                             <p className="text-[10px] font-black uppercase text-primary tracking-widest mb-4">Official Hub UPI ID</p>
-                             <h4 className="text-lg font-black text-white italic truncate">{profile?.city === 'Vizag' ? (globalConfig as any)?.vizagUpiId : (globalConfig as any)?.vzmUpiId || 'hub.aago@upi'}</h4>
+                        <div className="space-y-10 animate-in zoom-in-95">
+                          <div className="bg-slate-900 p-12 rounded-[4rem] text-center shadow-2xl relative overflow-hidden">
+                             <div className="absolute top-0 right-0 p-10 opacity-10"><Zap className="h-16 w-16 text-primary" /></div>
+                             <p className="text-[11px] font-black uppercase text-primary tracking-[0.4em] mb-6">Hub Payment Address</p>
+                             <h4 className="text-xl font-black text-white italic truncate tracking-tight">{profile?.city === 'Vizag' ? (globalConfig as any)?.vizagUpiId : (globalConfig as any)?.vzmUpiId || 'hub.aago@upi'}</h4>
                           </div>
-                          <div className="bg-slate-50 p-8 rounded-[3rem] space-y-4">
-                            <Label className="text-[10px] font-black uppercase text-slate-400">Regional Voucher</Label>
-                            <div className="flex gap-2">
-                               <Input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="CODE" className="h-14 bg-white rounded-xl font-black italic" />
-                               <Button onClick={handleApplyVoucher} className="h-14 bg-slate-900 text-white rounded-xl font-black uppercase italic text-[10px]">Apply</Button>
+                          <div className="bg-slate-50 p-10 rounded-[3.5rem] space-y-6">
+                            <Label className="text-[11px] font-black uppercase text-slate-400 tracking-[0.4em] ml-2">Gift Voucher</Label>
+                            <div className="flex gap-4">
+                               <Input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="ENTER CODE" className="h-18 bg-white rounded-2xl font-black italic text-lg px-8 border-none shadow-inner" />
+                               <Button onClick={handleApplyVoucher} className="h-18 px-10 bg-slate-900 text-white rounded-2xl font-black uppercase italic text-xs">Apply</Button>
                             </div>
                           </div>
-                          <div className="p-10 bg-primary/5 rounded-[3.5rem] border-2 border-primary/10 text-center">
-                            <p className="text-[11px] font-black uppercase text-primary tracking-widest mb-2 italic">Fare Amount</p>
-                            <h3 className="text-6xl font-black italic text-slate-900 leading-none">₹{Math.max(0, selectedTrip?.farePerRider - appliedDiscount)}</h3>
+                          <div className="p-14 bg-primary/5 rounded-[4rem] border-4 border-primary/10 text-center relative overflow-hidden">
+                            <div className="absolute bottom-0 right-0 p-10 opacity-5"><IndianRupee className="h-20 w-20" /></div>
+                            <p className="text-[12px] font-black uppercase text-primary tracking-[0.5em] mb-4 italic">Final Commute Fare</p>
+                            <h3 className="text-8xl font-black italic text-slate-900 leading-none tracking-tighter">₹{Math.max(0, selectedTrip?.farePerRider - appliedDiscount)}</h3>
                           </div>
                         </div>
                       )}
                       {bookingStep === 3 && (
-                        <div className="flex flex-col items-center justify-center text-center space-y-8 py-16">
-                           <div className="h-32 w-32 bg-green-500 rounded-[3rem] flex items-center justify-center text-white shadow-xl animate-bounce"><CheckCircle2 className="h-16 w-16" /></div>
-                           <h3 className="text-4xl font-black italic uppercase text-slate-900 leading-none">Seat Confirmed</h3>
-                           <p className="text-sm font-bold text-slate-400 italic">Your boarding ID is ready on the home screen.</p>
+                        <div className="flex flex-col items-center justify-center text-center space-y-10 py-20 animate-in zoom-in">
+                           <div className="h-44 w-44 bg-green-500 rounded-[4rem] flex items-center justify-center text-white shadow-2xl animate-bounce"><CheckCircle2 className="h-24 w-24" /></div>
+                           <div className="space-y-4">
+                              <h3 className="text-5xl font-black italic uppercase text-slate-900 leading-none tracking-tighter">Seat Secured</h3>
+                              <p className="text-base font-bold text-slate-400 italic leading-relaxed">Your regional mission is ready. <br/> Access your Boarding ID on the home screen.</p>
+                           </div>
                         </div>
                       )}
                     </div>
                     <div className="pt-10 shrink-0">
-                      {bookingStep === 1 && <Button onClick={() => setBookingStep(2)} disabled={!selectedTrip} className="w-full h-20 bg-primary text-white rounded-[2rem] font-black uppercase italic text-2xl shadow-xl">Proceed <ArrowRight className="ml-3 h-6 w-6" /></Button>}
-                      {bookingStep === 2 && <Button onClick={handleConfirmPayment} disabled={isBooking} className="w-full h-20 bg-green-600 text-white rounded-[2rem] font-black uppercase italic text-2xl shadow-xl">{isBooking ? <Loader2 className="animate-spin h-8 w-8" /> : "Verify & Clear Pay"}</Button>}
-                      {bookingStep === 3 && <Button onClick={() => { setBookingStep(1); setSelectedTrip(null); }} className="w-full h-20 bg-slate-900 text-white rounded-[2rem] font-black uppercase italic text-2xl shadow-xl">Return to Hub</Button>}
+                      {bookingStep === 1 && <Button onClick={() => setBookingStep(2)} disabled={!selectedTrip} className="w-full h-24 bg-primary text-white rounded-[2.5rem] font-black uppercase italic text-2xl shadow-2xl hover:scale-[1.02] transition-all">Select Seat <ArrowRight className="ml-4 h-8 w-8" /></Button>}
+                      {bookingStep === 2 && <Button onClick={handleConfirmPayment} disabled={isBooking} className="w-full h-24 bg-green-600 text-white rounded-[2.5rem] font-black uppercase italic text-2xl shadow-2xl hover:scale-[1.02] transition-all">{isBooking ? <Loader2 className="animate-spin h-10 w-10" /> : "Verify & Pay"}</Button>}
+                      {bookingStep === 3 && <Button onClick={() => { setBookingStep(1); setSelectedTrip(null); }} className="w-full h-24 bg-slate-900 text-white rounded-[2.5rem] font-black uppercase italic text-2xl shadow-2xl">Return to Hub</Button>}
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -389,29 +409,38 @@ export default function StudentDashboard() {
         )}
 
         {activeTab === 'history' && (
-          <div className="space-y-8 animate-in fade-in">
-             <h2 className="text-4xl font-black text-slate-900 italic uppercase tracking-tighter leading-none">Past Rides</h2>
-             <div className="space-y-4">
+          <div className="space-y-10 animate-in fade-in">
+             <div className="flex justify-between items-center">
+                <h2 className="text-4xl font-black text-slate-900 italic uppercase tracking-tighter leading-none">My Rides</h2>
+                <Badge className="bg-slate-900 text-white border-none font-black uppercase text-[8px] px-4 py-1.5 rounded-full tracking-widest">{pastTrips?.length || 0} Total</Badge>
+             </div>
+             <div className="space-y-6">
                 {!pastTrips || pastTrips.length === 0 ? (
-                  <div className="p-12 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
-                    <History className="h-10 w-10 text-slate-100 mx-auto mb-4" />
-                    <p className="text-xs font-bold text-slate-400 italic">No completed rides detected.</p>
+                  <div className="p-20 text-center bg-white rounded-[4rem] border border-dashed border-slate-200 shadow-sm">
+                    <History className="h-12 w-12 text-slate-100 mx-auto mb-6" />
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-400 italic">No mission history found.</p>
                   </div>
                 ) : (
-                  pastTrips.map((trip: any) => (
-                    <Card key={trip.id} className="bg-white border-none rounded-[3rem] p-8 flex justify-between items-center shadow-sm">
-                      <div>
-                        <h4 className="font-black text-slate-900 uppercase italic text-2xl leading-none mb-1">{trip.routeName}</h4>
-                        <div className="flex items-center gap-2">
-                           <Badge className="bg-slate-50 text-slate-400 border-none text-[8px] font-black uppercase">{new Date(trip.endTime).toLocaleDateString()}</Badge>
-                           <Badge className="bg-primary/5 text-primary border-none text-[8px] font-black uppercase">₹{trip.farePerRider}</Badge>
+                  [...pastTrips].sort((a,b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime()).map((trip: any) => (
+                    <Card key={trip.id} className="bg-white border-none rounded-[3.5rem] p-10 flex justify-between items-center shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
+                      <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:rotate-12 transition-transform"><History className="h-16 w-16" /></div>
+                      <div className="relative z-10">
+                        <h4 className="font-black text-slate-900 uppercase italic text-3xl leading-none mb-3 tracking-tighter">{trip.routeName}</h4>
+                        <div className="flex items-center gap-3">
+                           <Badge className="bg-slate-100 text-slate-500 border-none text-[9px] font-black uppercase px-4 py-1.5 rounded-full">{new Date(trip.endTime).toLocaleDateString()}</Badge>
+                           <Badge className="bg-primary/5 text-primary border-none text-[9px] font-black uppercase px-4 py-1.5 rounded-full">₹{trip.farePerRider}</Badge>
                         </div>
                       </div>
-                      {trip.studentRating ? (
-                         <Badge className="bg-accent/10 text-accent border-none text-[8px] font-black uppercase">{trip.studentRating} ★</Badge>
-                      ) : (
-                         <ArrowRight className="h-6 w-6 text-slate-200" />
-                      )}
+                      <div className="relative z-10">
+                        {trip.studentRating ? (
+                           <div className="flex items-center gap-2 bg-accent/5 px-4 py-2 rounded-2xl text-accent">
+                              <span className="text-lg font-black italic">{trip.studentRating}</span>
+                              <Star className="h-4 w-4 fill-accent" />
+                           </div>
+                        ) : (
+                           <div className="h-12 w-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-200"><Star className="h-6 w-6" /></div>
+                        )}
+                      </div>
                     </Card>
                   ))
                 )}
@@ -420,60 +449,67 @@ export default function StudentDashboard() {
         )}
 
         {activeTab === 'profile' && (
-          <div className="space-y-10 animate-in fade-in text-center">
-             <div className="flex flex-col items-center gap-8 py-12">
-                <div className="h-40 w-40 rounded-[3.5rem] bg-white border-4 border-primary/10 flex items-center justify-center shadow-2xl overflow-hidden relative group">
-                  {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : <span className="text-7xl font-black italic">{profile?.fullName?.[0]}</span>}
+          <div className="space-y-12 animate-in fade-in text-center">
+             <div className="flex flex-col items-center gap-10 py-12">
+                <div className="h-44 w-44 rounded-[4.5rem] bg-white border-4 border-primary/10 flex items-center justify-center shadow-2xl overflow-hidden relative group">
+                  {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : <span className="text-8xl font-black italic text-slate-200">{profile?.fullName?.[0]}</span>}
                   <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <Badge className="bg-white text-primary text-[8px] font-black uppercase">Identity Verified</Badge>
+                    <Badge className="bg-white text-primary text-[9px] font-black uppercase tracking-widest shadow-xl">Verified Identity</Badge>
                   </div>
                 </div>
-                <div>
-                   <h2 className="text-4xl font-black text-slate-900 italic uppercase leading-none mb-4">{profile?.fullName}</h2>
-                   <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">{profile?.collegeName} • {profile?.city} Hub</p>
+                <div className="space-y-3">
+                   <h2 className="text-5xl font-black text-slate-900 italic uppercase leading-[0.9] tracking-tighter">{profile?.fullName}</h2>
+                   <div className="flex items-center justify-center gap-3">
+                      <Badge className="bg-primary text-white border-none text-[9px] font-black uppercase px-5 py-2 rounded-full tracking-widest">{profile?.collegeName}</Badge>
+                      <Badge className="bg-slate-100 text-slate-500 border-none text-[9px] font-black uppercase px-5 py-2 rounded-full tracking-widest">{profile?.city} Hub</Badge>
+                   </div>
                 </div>
              </div>
-             <div className="grid grid-cols-1 gap-4 max-w-sm mx-auto">
-                <div className="bg-white p-8 rounded-[2rem] flex items-center gap-6 border border-slate-100 shadow-sm text-left">
-                  <div className="h-12 w-12 bg-slate-50 rounded-2xl flex items-center justify-center text-primary"><ShieldCheck className="h-6 w-6" /></div>
-                  <div>
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Scholar ID</p>
-                     <p className="font-black italic text-slate-900 uppercase text-lg">{profile?.studentId}</p>
+             
+             <div className="grid grid-cols-1 gap-6 max-w-sm mx-auto">
+                {[
+                  { label: "Scholar ID Number", value: profile?.studentId, icon: ShieldCheck },
+                  { label: "Main Station", value: profile?.city, icon: MapPin },
+                  { label: "Eco Impact Score", value: `${(pastTrips?.length || 0) * 12} Trees`, icon: Leaf },
+                  { label: "Reward Status", value: scholarTier.name, icon: Gift }
+                ].map((item, i) => (
+                  <div key={i} className="bg-white p-10 rounded-[2.5rem] flex items-center gap-8 border border-slate-100 shadow-sm text-left group hover:shadow-md transition-all">
+                    <div className="h-14 w-14 bg-slate-50 rounded-[1.5rem] flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all shadow-inner"><item.icon className="h-7 w-7" /></div>
+                    <div>
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{item.label}</p>
+                       <p className="font-black italic text-slate-900 uppercase text-xl tracking-tight leading-none">{item.value}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="bg-white p-8 rounded-[2rem] flex items-center gap-6 border border-slate-100 shadow-sm text-left">
-                  <div className="h-12 w-12 bg-slate-50 rounded-2xl flex items-center justify-center text-primary"><MapPin className="h-6 w-6" /></div>
-                  <div>
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Regional Hub</p>
-                     <p className="font-black italic text-slate-900 uppercase text-lg">{profile?.city}</p>
-                  </div>
-                </div>
+                ))}
              </div>
-             <Button variant="ghost" onClick={handleSignOut} className="w-full h-24 bg-red-50 text-red-500 rounded-[3.5rem] font-black uppercase italic mt-12 border border-red-100 hover:bg-red-500 hover:text-white transition-all"><LogOut className="mr-4 h-8 w-8" /> Terminate Session</Button>
+             
+             <Button variant="ghost" onClick={handleSignOut} className="w-full h-26 bg-red-50 text-red-500 rounded-[3.5rem] font-black uppercase italic mt-12 border border-red-100 hover:bg-red-500 hover:text-white transition-all shadow-sm">
+                <LogOut className="mr-5 h-10 w-10" /> End Scholar Session
+             </Button>
           </div>
         )}
       </main>
 
       <Dialog open={isRatingOpen} onOpenChange={setIsRatingOpen}>
-        <DialogContent className="bg-white border-none rounded-[4rem] p-12 text-center shadow-2xl">
-          <DialogHeader><DialogTitle className="text-4xl font-black italic uppercase text-primary tracking-tighter text-center">Rate your Ride</DialogTitle></DialogHeader>
-          <div className="py-10 space-y-8">
-            <p className="text-sm font-bold text-slate-400 italic">How was your commute on {unratedTrip?.routeName}?</p>
+        <DialogContent className="bg-white border-none rounded-[5rem] p-16 text-center shadow-2xl">
+          <DialogHeader><DialogTitle className="text-5xl font-black italic uppercase text-primary tracking-tighter text-center leading-none mb-4">Rate Mission</DialogTitle></DialogHeader>
+          <div className="py-12 space-y-12">
+            <p className="text-base font-bold text-slate-400 italic">How was your commute on {unratedTrip?.routeName}?</p>
             <div className="flex justify-center gap-4">
               {[1, 2, 3, 4, 5].map((star) => (
-                <button key={star} onClick={() => setRating(star)} className={`p-4 rounded-2xl transition-all ${rating >= star ? 'bg-accent text-white scale-110 shadow-lg' : 'bg-slate-50 text-slate-200'}`}><Star className="h-8 w-8 fill-current" /></button>
+                <button key={star} onClick={() => setRating(star)} className={`p-6 rounded-[2rem] transition-all ${rating >= star ? 'bg-accent text-white scale-110 shadow-2xl' : 'bg-slate-50 text-slate-200'}`}><Star className="h-12 w-12 fill-current" /></button>
               ))}
             </div>
           </div>
-          <Button onClick={submitRating} disabled={!rating} className="h-20 bg-primary text-white font-black uppercase italic text-2xl rounded-3xl shadow-xl">Post Feedback</Button>
+          <Button onClick={submitRating} disabled={!rating} className="h-24 bg-primary text-white font-black uppercase italic text-2xl rounded-[2.5rem] shadow-2xl hover:scale-[1.02] transition-all">Publish Feedback</Button>
         </DialogContent>
       </Dialog>
 
-      <nav className="fixed bottom-0 left-0 right-0 p-8 bg-white/90 backdrop-blur-3xl border-t border-slate-200 z-50 rounded-t-[5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
+      <nav className="fixed bottom-0 left-0 right-0 p-10 bg-white/90 backdrop-blur-3xl border-t border-slate-200 z-50 rounded-t-[6rem] shadow-[0_-15px_60px_rgba(0,0,0,0.1)]">
         <div className="flex justify-around items-center max-w-lg mx-auto">
-          <Button variant="ghost" onClick={() => setActiveTab('home')} className={`flex-col h-auto py-4 gap-3 rounded-3xl transition-all ${activeTab === 'home' ? 'text-primary scale-110' : 'text-slate-400'}`}><Bus className="h-9 w-9" /><span className="text-[10px] font-black uppercase tracking-widest">Missions</span></Button>
-          <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-4 gap-3 rounded-3xl transition-all ${activeTab === 'history' ? 'text-primary scale-110' : 'text-slate-400'}`}><History className="h-9 w-9" /><span className="text-[10px] font-black uppercase tracking-widest">Past Rides</span></Button>
-          <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-4 gap-3 rounded-3xl transition-all ${activeTab === 'profile' ? 'text-primary scale-110' : 'text-slate-400'}`}><UserIcon className="h-9 w-9" /><span className="text-[10px] font-black uppercase tracking-widest">Identity</span></Button>
+          <Button variant="ghost" onClick={() => setActiveTab('home')} className={`flex-col h-auto py-4 gap-4 rounded-[2rem] transition-all ${activeTab === 'home' ? 'text-primary scale-110' : 'text-slate-400'}`}><Bus className="h-10 w-10" /><span className="text-[11px] font-black uppercase tracking-widest">Missions</span></Button>
+          <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-4 gap-4 rounded-[2rem] transition-all ${activeTab === 'history' ? 'text-primary scale-110' : 'text-slate-400'}`}><History className="h-10 w-10" /><span className="text-[11px] font-black uppercase tracking-widest">My Rides</span></Button>
+          <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-4 gap-4 rounded-[2rem] transition-all ${activeTab === 'profile' ? 'text-primary scale-110' : 'text-slate-400'}`}><UserIcon className="h-10 w-10" /><span className="text-[11px] font-black uppercase tracking-widest">Identity</span></Button>
         </div>
       </nav>
     </div>
