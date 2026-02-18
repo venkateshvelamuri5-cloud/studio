@@ -35,7 +35,8 @@ import {
   Star,
   Clock,
   Settings,
-  ShieldQuestion
+  ShieldQuestion,
+  Leaf
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
 import { doc, updateDoc, collection, addDoc, onSnapshot, query, where, arrayUnion, getDocs, limit, increment, orderBy } from 'firebase/firestore';
@@ -81,14 +82,20 @@ export default function DriverConsole() {
   }, [db, user?.uid]);
   const { data: pastTrips } = useCollection(historyQuery);
 
-  const todayStats = useMemo(() => {
-    if (!pastTrips) return { earnings: 0, count: 0 };
+  const stats = useMemo(() => {
+    if (!pastTrips) return { earnings: 0, count: 0, scholars: 0, carbon: 0 };
     const todayTrips = pastTrips.filter(t => t.endTime && t.endTime.startsWith(today));
     const earnings = todayTrips.reduce((acc, t) => acc + (t.driverShare || 0), 0);
-    return { earnings, count: todayTrips.length };
+    const totalScholars = pastTrips.reduce((acc, t) => acc + (t.finalRiderCount || t.riderCount || 0), 0);
+    return { 
+      earnings, 
+      count: todayTrips.length,
+      scholars: totalScholars,
+      carbon: (totalScholars * 0.4).toFixed(1)
+    };
   }, [pastTrips, today]);
 
-  // Periodic Location Updates for Radar
+  // Periodic Location Updates
   useEffect(() => {
     if (!profile || profile.status === 'offline' || !userRef) return;
     const interval = setInterval(() => {
@@ -101,7 +108,7 @@ export default function DriverConsole() {
           });
         });
       }
-    }, 10000);
+    }, 15000);
     return () => clearInterval(interval);
   }, [profile?.status, userRef]);
 
@@ -133,8 +140,14 @@ export default function DriverConsole() {
 
   const triggerSOS = async () => {
     if (!db || !user || !profile) return;
-    addDoc(collection(db, 'alerts'), { type: 'DRIVER_SOS', userId: user.uid, userName: profile.fullName, city: profile.city, timestamp: new Date().toISOString() });
-    toast({ variant: "destructive", title: "SOS Alert Sent", description: "Our hub team is coming to help." });
+    addDoc(collection(db, 'alerts'), { 
+      type: 'DRIVER_SOS', 
+      userId: user.uid, 
+      userName: profile.fullName, 
+      city: profile.city, 
+      timestamp: new Date().toISOString() 
+    });
+    toast({ variant: "destructive", title: "Emergency Alert Sent", description: "The regional safety hub has been notified." });
   };
 
   const handleToggleStatus = async () => {
@@ -145,7 +158,7 @@ export default function DriverConsole() {
     else setShiftStartTime(null);
     
     await updateDoc(userRef, { status: newStatus });
-    toast({ title: isGoingOnline ? "Shift Started" : "Shift Ended", description: isGoingOnline ? "Ready for new missions." : "See you tomorrow!" });
+    toast({ title: isGoingOnline ? "Shift Started" : "Shift Ended", description: isGoingOnline ? "You are now online for missions." : "Shift records saved." });
   };
 
   const startTrip = async (route: any) => {
@@ -180,7 +193,7 @@ export default function DriverConsole() {
     try {
       const snap = await getDocs(query(collection(db, 'users'), where('activeOtp', '==', verificationOtp.trim())));
       if (snap.empty) {
-        toast({ variant: "destructive", title: "Wrong Code", description: "Please ask the student for the code on their screen." });
+        toast({ variant: "destructive", title: "Invalid Code", description: "Double check the scholar's ID code." });
       } else {
         const rider = snap.docs[0].data();
         const riderId = snap.docs[0].id;
@@ -189,7 +202,7 @@ export default function DriverConsole() {
           riderCount: increment(1)
         });
         await updateDoc(doc(db, 'users', riderId), { activeOtp: null });
-        toast({ title: "Scholar Boarded", description: `${rider.fullName} is now on board.` });
+        toast({ title: "Scholar Boarded", description: `${rider.fullName} verified successfully.` });
         setVerificationOtp("");
       }
     } catch (e) {
@@ -219,9 +232,9 @@ export default function DriverConsole() {
         activeTripId: null, 
         totalEarnings: increment(driverPayout) 
       });
-      toast({ title: "Mission Completed", description: `You earned ₹${driverPayout.toFixed(0)} from this trip.` });
+      toast({ title: "Mission Ended", description: `Payout of ₹${driverPayout.toFixed(0)} credited.` });
     } catch (e) {
-      toast({ variant: "destructive", title: "End Trip Failed" });
+      toast({ variant: "destructive", title: "Error ending trip" });
     } finally {
       setIsUpdating(false);
     }
@@ -232,7 +245,7 @@ export default function DriverConsole() {
     await updateDoc(doc(db, 'trips', unratedTrip.id), { driverRating: rating });
     setIsRatingOpen(false);
     setRating(0);
-    toast({ title: "Thank You", description: "Your feedback helps the network grow." });
+    toast({ title: "Rating Saved", description: "Thanks for your feedback!" });
   };
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/driver/login'); };
@@ -264,39 +277,44 @@ export default function DriverConsole() {
       <main className="flex-1 p-6 space-y-6 max-w-lg mx-auto w-full">
         {activeTab === 'trips' && (!activeTrip ? (
           <div className="space-y-6 animate-in fade-in">
-            {/* Today's Goals */}
-            <Card className="bg-slate-900 text-white border-none rounded-[2.5rem] p-8 space-y-6 shadow-xl relative overflow-hidden">
-               <div className="absolute top-0 right-0 p-8 opacity-10"><TrendingUp className="h-16 w-16" /></div>
-               <div className="flex justify-between items-end">
-                  <div className="space-y-1">
-                     <p className="text-[10px] font-black uppercase text-primary tracking-widest">Today's Earnings</p>
-                     <h2 className="text-4xl font-black italic uppercase leading-none">₹{todayStats.earnings.toFixed(0)}</h2>
-                  </div>
-                  <div className="text-right">
-                     <p className="text-[8px] font-black uppercase text-slate-400">Missions</p>
-                     <p className="text-lg font-black italic">{todayStats.count}</p>
-                  </div>
+            {/* Mission Stats */}
+            <div className="grid grid-cols-2 gap-4">
+              <Card className="bg-slate-900 text-white border-none rounded-[2rem] p-6 space-y-4 shadow-xl">
+                 <p className="text-[9px] font-black uppercase text-primary tracking-widest">Today's Earnings</p>
+                 <h2 className="text-3xl font-black italic uppercase leading-none">₹{stats.earnings.toFixed(0)}</h2>
+                 <Progress value={(stats.earnings / 2000) * 100} className="h-1 bg-white/10" />
+              </Card>
+              <Card className="bg-white border-none rounded-[2rem] p-6 space-y-4 shadow-sm">
+                 <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Missions Run</p>
+                 <h2 className="text-3xl font-black italic text-slate-900 leading-none">{stats.count}</h2>
+                 <p className="text-[8px] font-bold text-slate-400 uppercase italic">Across {profile?.city} Hub</p>
+              </Card>
+            </div>
+
+            {/* Eco Impact */}
+            <Card className="bg-green-50 border-none rounded-[2.5rem] p-8 flex items-center justify-between shadow-sm relative overflow-hidden">
+               <div className="absolute top-0 right-0 p-8 opacity-10"><Leaf className="h-16 w-16 text-green-600" /></div>
+               <div className="space-y-1">
+                  <p className="text-[9px] font-black uppercase text-green-600 tracking-widest">Eco Impact</p>
+                  <h3 className="text-2xl font-black italic uppercase text-slate-900 leading-none">{stats.carbon} kg</h3>
+                  <p className="text-[8px] font-bold text-green-700/60 uppercase">Carbon Footprint Saved</p>
                </div>
-               <div className="space-y-3">
-                  <div className="flex justify-between text-[8px] font-black uppercase tracking-widest">
-                     <span>Daily Progress</span>
-                     <span className="text-primary">{Math.min(100, (todayStats.earnings / 2000) * 100).toFixed(0)}%</span>
-                  </div>
-                  <Progress value={(todayStats.earnings / 2000) * 100} className="h-2 bg-white/10" />
+               <div className="h-12 w-12 bg-white rounded-2xl flex items-center justify-center text-green-600 shadow-inner">
+                  <Leaf className="h-6 w-6" />
                </div>
             </Card>
 
             <h2 className="text-2xl font-black italic uppercase text-slate-900 leading-none">Open Corridors</h2>
-            {availableRoutes.length === 0 ? (
-              <div className="p-12 text-center bg-white rounded-[2.5rem] border border-dashed border-slate-200">
-                <MapPinned className="h-10 w-10 text-slate-200 mx-auto mb-4" />
-                <p className="text-xs font-bold text-slate-400 italic">No corridors active in {profile?.city}</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {availableRoutes.map((route: any) => (
+            <div className="space-y-4">
+              {availableRoutes.length === 0 ? (
+                <div className="p-12 text-center bg-white rounded-[2.5rem] border border-dashed border-slate-200">
+                  <MapPinned className="h-10 w-10 text-slate-200 mx-auto mb-4" />
+                  <p className="text-xs font-bold text-slate-400 italic">No routes active in {profile?.city}</p>
+                </div>
+              ) : (
+                availableRoutes.map((route: any) => (
                   <Card key={route.id} className="bg-white border-none rounded-[2rem] shadow-sm hover:shadow-md transition-all group overflow-hidden">
-                    <CardContent className="p-8 flex justify-between items-center relative">
+                    <CardContent className="p-8 flex justify-between items-center">
                       <div className="space-y-1">
                         <h3 className="font-black text-xl text-slate-900 uppercase italic leading-none">{route.routeName}</h3>
                         <div className="flex gap-2">
@@ -307,15 +325,15 @@ export default function DriverConsole() {
                       <Button 
                         onClick={() => startTrip(route)} 
                         disabled={profile?.status === 'offline' || isUpdating} 
-                        className="rounded-xl h-12 px-8 bg-primary text-white font-black uppercase italic shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+                        className="rounded-xl h-12 px-8 bg-primary text-white font-black uppercase italic shadow-lg"
                       >
-                        {isUpdating ? <Loader2 className="animate-spin h-5 w-5" /> : "Start"}
+                        Start
                       </Button>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
           </div>
         ) : (
           <div className="space-y-6 animate-in slide-in-from-bottom-4">
@@ -326,54 +344,38 @@ export default function DriverConsole() {
                   <Polyline path={routeStops.map((s: any) => ({ lat: s.lat, lng: s.lng }))} options={{ strokeColor: "#3b82f6", strokeOpacity: 0.8, strokeWeight: 6 }} />
                 </GoogleMap>
               )}
-              <div className="absolute top-6 left-6 flex gap-2">
-                 <Badge className="bg-primary text-white border-none px-4 py-2 rounded-full font-black uppercase text-[8px] italic shadow-lg">Live Mission Radar</Badge>
-              </div>
             </div>
             
             <Card className="bg-white border-none rounded-[3.5rem] p-10 space-y-10 shadow-2xl">
               <div className="flex justify-between items-start">
                 <div className="space-y-1">
                   <h2 className="text-4xl font-black italic uppercase leading-none tracking-tighter">{activeTrip.routeName}</h2>
-                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Current Corridor Mission</p>
+                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Active Mission Radar</p>
                 </div>
-                <Badge className="bg-green-500/10 text-green-600 border-none text-[9px] font-black uppercase px-5 py-2.5 rounded-full">{activeTrip.verifiedPassengers?.length || 0} On Board</Badge>
+                <Badge className="bg-green-500/10 text-green-600 border-none text-[9px] font-black uppercase px-5 py-2.5 rounded-full">{activeTrip.verifiedPassengers?.length || 0} Scholars</Badge>
               </div>
 
-              <div className="bg-slate-50 p-10 rounded-[3rem] space-y-6">
-                <div className="space-y-2">
-                   <Label className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 ml-1">Boarding Verification Code</Label>
-                   <div className="flex gap-4">
-                      <input 
-                        value={verificationOtp} 
-                        onChange={(e) => setVerificationOtp(e.target.value)} 
-                        placeholder="000000" 
-                        className="h-18 w-full text-center font-black tracking-[0.5em] text-3xl rounded-2xl bg-white border-none shadow-inner outline-none focus:ring-2 focus:ring-primary" 
-                        maxLength={6} 
-                      />
-                      <Button 
-                        onClick={verifyPassenger} 
-                        disabled={isVerifying || !verificationOtp} 
-                        className="h-18 w-18 rounded-2xl bg-primary text-white shadow-xl p-0"
-                      >
-                        {isVerifying ? <Loader2 className="animate-spin h-6 w-6" /> : <CheckCircle2 className="h-10 w-10" />}
-                      </Button>
-                   </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6">
-                <div className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100">
-                   <p className="text-[9px] font-black uppercase text-slate-400 mb-2">Estimated Yield</p>
-                   <p className="text-2xl font-black italic text-slate-900">₹{(activeTrip.verifiedPassengers?.length * activeTrip.farePerRider * 0.9).toFixed(0)}</p>
-                </div>
-                <div className="p-8 bg-slate-50 rounded-[2rem] border border-slate-100">
-                   <p className="text-[9px] font-black uppercase text-slate-400 mb-2">Time Elapsed</p>
-                   <p className="text-2xl font-black italic text-slate-900">{Math.floor((new Date().getTime() - new Date(activeTrip.startTime).getTime()) / 60000)}m</p>
+              <div className="bg-slate-50 p-8 rounded-[2.5rem] space-y-4">
+                <Label className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-400 ml-1">Boarding ID Code</Label>
+                <div className="flex gap-4">
+                  <input 
+                    value={verificationOtp} 
+                    onChange={(e) => setVerificationOtp(e.target.value)} 
+                    placeholder="000000" 
+                    className="h-18 w-full text-center font-black tracking-[0.5em] text-3xl rounded-2xl bg-white border-none shadow-inner outline-none focus:ring-2 focus:ring-primary" 
+                    maxLength={6} 
+                  />
+                  <Button 
+                    onClick={verifyPassenger} 
+                    disabled={isVerifying || !verificationOtp} 
+                    className="h-18 w-18 rounded-2xl bg-primary text-white shadow-xl p-0"
+                  >
+                    {isVerifying ? <Loader2 className="animate-spin h-6 w-6" /> : <CheckCircle2 className="h-10 w-10" />}
+                  </Button>
                 </div>
               </div>
 
-              <Button onClick={endTrip} disabled={isUpdating} className="w-full h-24 bg-slate-900 text-white rounded-[2rem] font-black uppercase italic text-xl shadow-2xl hover:scale-[1.02] transition-all">Complete Mission</Button>
+              <Button onClick={endTrip} disabled={isUpdating} className="w-full h-24 bg-slate-900 text-white rounded-[2rem] font-black uppercase italic text-xl shadow-2xl">Complete Mission</Button>
             </Card>
           </div>
         ))}
@@ -381,9 +383,9 @@ export default function DriverConsole() {
         {activeTab === 'history' && (
           <div className="space-y-8 animate-in fade-in">
              <div className="flex justify-between items-center">
-                <h3 className="text-3xl font-black italic uppercase text-slate-900">My Ledger</h3>
+                <h3 className="text-3xl font-black italic uppercase text-slate-900">Mission Ledger</h3>
                 <div className="text-right">
-                   <p className="text-[8px] font-black uppercase text-slate-400">Total Payouts</p>
+                   <p className="text-[8px] font-black uppercase text-slate-400">Total Earnings</p>
                    <p className="text-2xl font-black italic text-primary">₹{(profile?.totalEarnings || 0).toFixed(0)}</p>
                 </div>
              </div>
@@ -391,17 +393,14 @@ export default function DriverConsole() {
                 {!pastTrips || pastTrips.length === 0 ? (
                   <div className="p-16 text-center bg-white rounded-[3rem] border border-dashed border-slate-200">
                     <History className="h-10 w-10 text-slate-100 mx-auto mb-4" />
-                    <p className="text-xs font-bold text-slate-400 italic uppercase">No mission logs detected</p>
+                    <p className="text-xs font-bold text-slate-400 italic uppercase">No mission history</p>
                   </div>
                 ) : (
                   [...pastTrips].sort((a,b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime()).map((trip: any) => (
-                    <Card key={trip.id} className="bg-white border-none rounded-[2.5rem] p-8 flex justify-between items-center shadow-sm hover:shadow-md transition-all">
-                      <div className="flex items-center gap-6">
-                        <div className="h-14 w-14 bg-green-50 rounded-2xl flex items-center justify-center text-green-500 shadow-inner"><IndianRupee className="h-6 w-6" /></div>
-                        <div>
-                            <h4 className="font-black text-base uppercase italic mb-1">{trip.routeName}</h4>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase italic">{new Date(trip.endTime).toLocaleDateString()} • {trip.finalRiderCount || trip.riderCount} Scholars Boarded</p>
-                        </div>
+                    <Card key={trip.id} className="bg-white border-none rounded-[2.5rem] p-8 flex justify-between items-center shadow-sm">
+                      <div className="space-y-1">
+                          <h4 className="font-black text-base uppercase italic">{trip.routeName}</h4>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase italic">{new Date(trip.endTime).toLocaleDateString()} • {trip.finalRiderCount || trip.riderCount} Scholars</p>
                       </div>
                       <div className="text-right">
                          <p className="text-xl font-black italic text-primary">+₹{(trip.driverShare || 0).toFixed(0)}</p>
@@ -416,13 +415,13 @@ export default function DriverConsole() {
 
         {activeTab === 'fleet' && (
           <div className="space-y-8 animate-in fade-in">
-             <h3 className="text-3xl font-black italic uppercase text-slate-900">Fleet Diagnostics</h3>
+             <h3 className="text-3xl font-black italic uppercase text-slate-900">Fleet Health</h3>
              <div className="grid grid-cols-1 gap-6">
                 {[
                   { label: "Vehicle Status", value: "Optimal", icon: Bus, color: "text-green-500", progress: 95 },
-                  { label: "Brake Lining", value: "Health: 88%", icon: ShieldCheck, color: "text-blue-500", progress: 88 },
-                  { label: "Tire Pressure", value: "Uniform", icon: Zap, color: "text-orange-500", progress: 100 },
-                  { label: "Interior Hygiene", value: "Verified", icon: CheckCircle2, color: "text-green-500", progress: 100 },
+                  { label: "Brake Lining", value: "Verified", icon: ShieldCheck, color: "text-blue-500", progress: 88 },
+                  { label: "Sanitation Status", value: "Excellent", icon: CheckCircle2, color: "text-green-500", progress: 100 },
+                  { label: "Engine Pulse", value: "Stable", icon: Activity, color: "text-orange-500", progress: 92 },
                 ].map((item, i) => (
                   <Card key={i} className="bg-white border-none rounded-[2.5rem] p-8 shadow-sm space-y-4">
                      <div className="flex justify-between items-center">
@@ -442,11 +441,8 @@ export default function DriverConsole() {
         {activeTab === 'profile' && (
           <div className="space-y-8 animate-in fade-in text-center">
             <div className="flex flex-col items-center gap-8 py-10">
-              <div className="h-44 w-44 rounded-[4rem] overflow-hidden border-4 border-primary/10 bg-white flex items-center justify-center shadow-2xl relative group">
+              <div className="h-44 w-44 rounded-[4rem] overflow-hidden border-4 border-primary/10 bg-white flex items-center justify-center shadow-2xl">
                 {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : <UserIcon className="h-16 w-16 text-slate-200" />}
-                <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <Badge className="bg-white text-primary text-[8px] font-black uppercase">Active Operator</Badge>
-                </div>
               </div>
               <div>
                 <h2 className="text-5xl font-black italic uppercase text-slate-900 leading-none tracking-tighter">{profile?.fullName}</h2>
@@ -459,12 +455,12 @@ export default function DriverConsole() {
 
             <div className="grid grid-cols-1 gap-4 text-left">
               {[
-                { label: "Regional Vehicle ID", value: profile?.vehicleNumber, icon: Car },
-                { label: "Operational License", value: profile?.licenseNumber, icon: ShieldCheck },
+                { label: "Vehicle Number", value: profile?.vehicleNumber, icon: Car },
+                { label: "License ID", value: profile?.licenseNumber, icon: ShieldCheck },
                 { label: "Safety Rating", value: "4.9 / 5.0", icon: Star },
-                { label: "Network Standing", value: "Gold Level", icon: Target }
+                { label: "Total Payouts", value: `₹${(profile?.totalEarnings || 0).toFixed(0)}`, icon: Wallet }
               ].map((item, i) => (
-                <div key={i} className="p-8 bg-white rounded-[2.5rem] flex items-center gap-6 shadow-sm border border-slate-50">
+                <div key={i} className="p-8 bg-white rounded-[2.5rem] flex items-center gap-6 shadow-sm">
                    <div className="h-12 w-12 bg-slate-50 rounded-2xl flex items-center justify-center text-primary"><item.icon className="h-6 w-6" /></div>
                    <div>
                       <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">{item.label}</p>
@@ -474,8 +470,8 @@ export default function DriverConsole() {
               ))}
             </div>
 
-            <Button onClick={handleSignOut} className="w-full h-24 bg-red-50 text-red-500 rounded-[3rem] font-black uppercase italic mt-10 shadow-sm border border-red-100 hover:bg-red-500 hover:text-white transition-all">
-              <LogOut className="h-8 w-8 mr-4" /> End Shift & Exit
+            <Button onClick={handleSignOut} className="w-full h-24 bg-red-50 text-red-500 rounded-[3rem] font-black uppercase italic mt-10 shadow-sm border border-red-100">
+              <LogOut className="h-8 w-8 mr-4" /> End Shift
             </Button>
           </div>
         )}
@@ -483,20 +479,20 @@ export default function DriverConsole() {
 
       <Dialog open={isRatingOpen} onOpenChange={setIsRatingOpen}>
         <DialogContent className="bg-white border-none rounded-[4rem] p-12 text-center shadow-2xl">
-          <DialogHeader><h3 className="text-4xl font-black italic uppercase text-primary tracking-tighter text-center leading-none">Rate Missions</h3></DialogHeader>
+          <DialogHeader><h3 className="text-4xl font-black italic uppercase text-primary tracking-tighter text-center leading-none">Mission Feedback</h3></DialogHeader>
           <div className="py-10 space-y-10">
-            <p className="text-sm font-bold text-slate-400 italic">How was the boarding quality on {unratedTrip?.routeName}?</p>
+            <p className="text-sm font-bold text-slate-400 italic">How was the boarding on {unratedTrip?.routeName}?</p>
             <div className="flex justify-center gap-4">
               {[1, 2, 3, 4, 5].map((star) => (
                 <button key={star} onClick={() => setRating(star)} className={`p-5 rounded-3xl transition-all ${rating >= star ? 'bg-accent text-white scale-110 shadow-xl' : 'bg-slate-50 text-slate-200'}`}><Star className="h-10 w-10 fill-current" /></button>
               ))}
             </div>
           </div>
-          <Button onClick={submitRating} disabled={!rating} className="h-24 bg-primary text-white font-black uppercase italic text-2xl rounded-[2.5rem] shadow-xl">Complete Record</Button>
+          <Button onClick={submitRating} disabled={!rating} className="h-24 bg-primary text-white font-black uppercase italic text-2xl rounded-[2.5rem]">Save Rating</Button>
         </DialogContent>
       </Dialog>
 
-      <nav className="fixed bottom-0 left-0 right-0 p-10 bg-white/90 backdrop-blur-3xl border-t border-slate-200 flex justify-around items-center rounded-t-[5rem] z-50 shadow-[0_-10px_60px_rgba(0,0,0,0.08)]">
+      <nav className="fixed bottom-0 left-0 right-0 p-10 bg-white/90 backdrop-blur-3xl border-t border-slate-200 flex justify-around items-center rounded-t-[5rem] z-50 shadow-sm">
         <Button variant="ghost" onClick={() => setActiveTab('trips')} className={`flex-col h-auto py-3 gap-2 rounded-2xl transition-all ${activeTab === 'trips' ? 'text-primary scale-110' : 'text-slate-400'}`}><Bus className="h-10 w-10" /><span className="text-[10px] font-black uppercase tracking-[0.2em]">Missions</span></Button>
         <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-3 gap-2 rounded-2xl transition-all ${activeTab === 'history' ? 'text-primary scale-110' : 'text-slate-400'}`}><IndianRupee className="h-10 w-10" /><span className="text-[10px] font-black uppercase tracking-[0.2em]">Ledger</span></Button>
         <Button variant="ghost" onClick={() => setActiveTab('fleet')} className={`flex-col h-auto py-3 gap-2 rounded-2xl transition-all ${activeTab === 'fleet' ? 'text-primary scale-110' : 'text-slate-400'}`}><Settings className="h-10 w-10" /><span className="text-[10px] font-black uppercase tracking-[0.2em]">Fleet</span></Button>
@@ -505,4 +501,3 @@ export default function DriverConsole() {
     </div>
   );
 }
-
