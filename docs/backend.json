@@ -12,12 +12,17 @@
         "email": { "type": "string" },
         "collegeName": { "type": "string" },
         "studentId": { "type": "string" },
+        "gender": { "type": "string", "enum": ["Male", "Female", "Other"] },
+        "emergencyContactName": { "type": "string" },
+        "emergencyContactPhone": { "type": "string" },
         "city": { "type": "string", "enum": ["Vizag", "Vizianagaram"] },
         "role": { "type": "string", "enum": ["rider", "admin", "driver"] },
         "status": { "type": "string", "enum": ["available", "on-trip", "offline"] },
         "photoUrl": { "type": "string" },
         "vehicleNumber": { "type": "string" },
         "vehicleType": { "type": "string", "enum": ["Bus", "Mini-Bus", "Van"] },
+        "aadhaarNumber": { "type": "string" },
+        "yearsOfExperience": { "type": "number" },
         "currentLat": { "type": "number" },
         "currentLng": { "type": "number" },
         "activeOtp": { "type": "string" },
@@ -43,57 +48,13 @@
         "farePerRider": { "type": "number" },
         "passengers": { "type": "array", "items": { "type": "string" } },
         "verifiedPassengers": { "type": "array", "items": { "type": "string" } },
+        "noShowReports": { "type": "array", "items": { "type": "string" } },
         "totalYield": { "type": "number" },
         "driverShare": { "type": "number" },
         "startTime": { "type": "string", "format": "date-time" },
-        "endTime": { "type": "string", "format": "date-time" },
-        "studentRating": { "type": "number" },
-        "driverRating": { "type": "number" }
+        "endTime": { "type": "string", "format": "date-time" }
       },
       "required": ["driverId", "routeName", "status"]
-    },
-    "Route": {
-      "title": "Route",
-      "description": "A predefined shuttle route with stops.",
-      "type": "object",
-      "properties": {
-        "routeName": { "type": "string" },
-        "city": { "type": "string", "enum": ["Vizag", "Vizianagaram"] },
-        "baseFare": { "type": "number" },
-        "stops": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": { "type": "string" },
-              "lat": { "type": "number" },
-              "lng": { "type": "number" }
-            }
-          }
-        },
-        "status": { "type": "string", "enum": ["active", "inactive"] }
-      }
-    },
-    "Voucher": {
-      "title": "Voucher",
-      "description": "Discount codes for student rides.",
-      "type": "object",
-      "properties": {
-        "code": { "type": "string" },
-        "discountAmount": { "type": "number" },
-        "isActive": { "type": "boolean", "default": true },
-        "createdAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "AppConfig": {
-      "title": "App Config",
-      "description": "Global settings for the mobility network.",
-      "type": "object",
-      "properties": {
-        "vizagUpiId": { "type": "string" },
-        "vzmUpiId": { "type": "string" },
-        "networkStatus": { "type": "string" }
-      }
     }
   },
   "auth": {
