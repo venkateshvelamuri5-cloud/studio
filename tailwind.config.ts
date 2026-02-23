@@ -51,9 +51,14 @@ export default {
       },
       borderRadius: {
         lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 4px)',
-        sm: 'calc(var(--radius) - 8px)',
+        md: 'calc(var(--radius) - 1rem)',
+        sm: 'calc(var(--radius) - 2rem)',
       },
+      fontSize: {
+        '10xl': ['10rem', { lineHeight: '0.8' }],
+        '11xl': ['12rem', { lineHeight: '0.8' }],
+        '12xl': ['14rem', { lineHeight: '0.8' }],
+      }
     },
   },
   plugins: [require('tailwindcss-animate')],

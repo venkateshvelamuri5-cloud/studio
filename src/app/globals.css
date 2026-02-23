@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --background: 222 47% 4%;
+    --background: 222 47% 2%;
     --foreground: 210 40% 98%;
-    --card: 222 47% 6%;
+    --card: 222 47% 4%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 4%;
+    --popover: 222 47% 2%;
     --popover-foreground: 210 40% 98%;
     --primary: 199 89% 48%;
     --primary-foreground: 222.2 47% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 217.2 32.6% 12%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 217.2 32.6% 12%;
+    --muted-foreground: 215 20.2% 55.1%;
     --accent: 180 100% 50%;
     --accent-foreground: 222.2 47% 11.2%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    --border: 217.2 32.6% 12%;
+    --input: 217.2 32.6% 12%;
     --ring: 199 89% 48%;
-    --radius: 3rem;
+    --radius: 4rem;
   }
 }
 
@@ -35,34 +35,31 @@
     @apply bg-background text-foreground font-body antialiased selection:bg-primary selection:text-white;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-headline tracking-tighter leading-none uppercase italic font-black;
+    @apply font-headline tracking-[calc(-0.06em)] leading-[0.8] uppercase italic font-black;
   }
 }
 
 @layer utilities {
   .text-glow {
-    text-shadow: 0 0 40px rgba(0, 255, 255, 0.4);
+    text-shadow: 0 0 50px rgba(0, 255, 255, 0.5);
   }
   .glass-card {
-    @apply bg-white/5 backdrop-blur-3xl border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)];
+    @apply bg-white/[0.03] backdrop-blur-[40px] border border-white/10 shadow-[0_64px_128px_-12px_rgba(0,0,0,0.8)];
   }
-  .perspective-1000 {
-    perspective: 1000px;
+  .perspective-2000 {
+    perspective: 2000px;
   }
-  .animate-float {
-    animation: float 8s ease-in-out infinite;
+  .animate-slow-float {
+    animation: float 12s ease-in-out infinite;
   }
   @keyframes float {
-    0%, 100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-30px) rotate(2deg); }
+    0%, 100% { transform: translateY(0) rotateX(0deg); }
+    50% { transform: translateY(-40px) rotateX(5deg); }
   }
   .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    @apply bg-transparent;
+    width: 4px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
+    @apply bg-white/20 rounded-full hover:bg-white/40 transition-colors;
   }
 }
