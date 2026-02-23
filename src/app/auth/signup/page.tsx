@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -9,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Bus, ArrowLeft, Loader2, UserCircle, ShieldAlert, Heart } from 'lucide-react';
+import { Bus, ArrowLeft, Loader2 } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
@@ -104,33 +103,33 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 font-body safe-area-inset">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 sm:p-6 font-body safe-area-inset">
       <div id="recaptcha-container-signup"></div>
       
-      <div className="mb-8 flex flex-col items-center gap-4 animate-in fade-in duration-1000">
+      <div className="mb-6 flex flex-col items-center gap-3 animate-in fade-in duration-1000">
         <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/20">
-          <Bus className="h-8 w-8 text-black" />
+          <Bus className="h-6 w-6 text-black" />
         </div>
-        <h1 className="text-2xl font-black font-headline italic uppercase tracking-tighter text-primary">SCHOLAR REGISTRATION</h1>
+        <h1 className="text-xl font-black font-headline italic uppercase tracking-tighter text-primary">SCHOLAR REGISTRATION</h1>
       </div>
 
-      <Card className="w-full max-w-md glass-card border-none rounded-[3rem] overflow-hidden shadow-2xl">
-        <CardHeader className="pt-10 pb-6 text-center border-b border-white/5 bg-white/5">
-          <CardTitle className="text-xl font-black uppercase italic tracking-tighter text-foreground leading-none">Identity Sequence</CardTitle>
+      <Card className="w-full max-w-md glass-card border-none rounded-[2.5rem] overflow-hidden shadow-2xl">
+        <CardHeader className="pt-8 pb-4 text-center border-b border-white/5 bg-white/5">
+          <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-foreground leading-none">Identity Sequence</CardTitle>
           <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Step {step} of 4</CardDescription>
         </CardHeader>
         
-        <CardContent className="px-10 py-10">
+        <CardContent className="px-6 py-8 sm:px-10">
           {step === 1 && (
-            <div className="space-y-6 animate-in slide-in-from-right-8 duration-500">
+            <div className="space-y-5 animate-in slide-in-from-right-8 duration-500 max-h-[50vh] overflow-y-auto px-1 custom-scrollbar">
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Rahul Sharma" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-lg" />
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Rahul Sharma" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Gender</Label>
                 <Select value={gender} onValueChange={setGender}>
-                  <SelectTrigger className="h-14 bg-white/5 border-white/10 text-foreground font-black italic">
+                  <SelectTrigger className="h-14 bg-white/5 border-white/10 text-foreground font-black italic rounded-xl">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-background border-white/10">
@@ -142,45 +141,45 @@ export default function SignupPage() {
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">College ID / Reg Number</Label>
-                <Input value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="ID-12345" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-lg" />
+                <Input value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="ID-12345" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
               </div>
-              <Button onClick={() => setStep(2)} disabled={!fullName || !studentId} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl">Safety Details</Button>
+              <Button onClick={() => setStep(2)} disabled={!fullName || !studentId} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl mt-2">Next Protocol</Button>
             </div>
           )}
 
           {step === 2 && (
-            <div className="space-y-6 animate-in slide-in-from-right-8 duration-500">
+            <div className="space-y-5 animate-in slide-in-from-right-8 duration-500 max-h-[50vh] overflow-y-auto px-1 custom-scrollbar">
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Emergency Contact Name</Label>
-                <Input value={emergencyName} onChange={(e) => setEmergencyName(e.target.value)} placeholder="e.g. Parent Name" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-lg" />
+                <Input value={emergencyName} onChange={(e) => setEmergencyName(e.target.value)} placeholder="e.g. Parent Name" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Emergency Contact Phone</Label>
-                <Input value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)} placeholder="0000000000" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-lg" />
+                <Input value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)} placeholder="0000000000" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Home Hub (City)</Label>
                 <Select value={city} onValueChange={setCity}>
-                  <SelectTrigger className="h-14 bg-white/5 border-white/10 text-foreground font-black italic">
+                  <SelectTrigger className="h-14 bg-white/5 border-white/10 text-foreground font-black italic rounded-xl">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-background border-white/10">
-                    <SelectItem value="Vizag">Vizag Hub</SelectItem>
-                    <SelectItem value="Vizianagaram">VZM Hub</SelectItem>
+                    <SelectItem value="Vizag">Global Hub A</SelectItem>
+                    <SelectItem value="Vizianagaram">Global Hub B</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={() => setStep(3)} disabled={!emergencyName || !emergencyPhone} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl">Final Step</Button>
-              <Button variant="ghost" onClick={() => setStep(1)} className="w-full text-xs font-black uppercase italic text-muted-foreground">Go Back</Button>
+              <Button onClick={() => setStep(3)} disabled={!emergencyName || !emergencyPhone} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl mt-2">Final Step</Button>
+              <Button variant="ghost" onClick={() => setStep(1)} className="w-full text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Go Back</Button>
             </div>
           )}
 
           {step === 3 && (
-            <form onSubmit={handleSendOtp} className="space-y-8 animate-in slide-in-from-right-8 duration-500">
+            <form onSubmit={handleSendOtp} className="space-y-6 animate-in slide-in-from-right-8 duration-500">
               <div className="space-y-3">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Personal Handset</Label>
                 <div className="relative">
-                  <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-primary">+91</span>
+                  <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-primary text-lg">+91</span>
                   <Input 
                     type="tel" 
                     value={phoneNumber} 
@@ -191,14 +190,14 @@ export default function SignupPage() {
                   />
                 </div>
               </div>
-              <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-accent text-black h-18 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all active:scale-95">
+              <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-18 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all active:scale-95">
                 {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Request Access Code"}
               </Button>
             </form>
           )}
 
           {step === 4 && (
-            <form onSubmit={handleVerifyOtp} className="space-y-8 animate-in zoom-in-95 duration-500">
+            <form onSubmit={handleVerifyOtp} className="space-y-6 animate-in zoom-in-95 duration-500">
               <div className="space-y-3 text-center">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Verify Identity Code</Label>
                 <Input 
@@ -218,8 +217,8 @@ export default function SignupPage() {
           )}
         </CardContent>
 
-        <CardFooter className="flex flex-col space-y-6 bg-white/5 p-10">
-          <p className="text-xs text-center font-bold text-muted-foreground uppercase tracking-widest">
+        <CardFooter className="flex flex-col space-y-4 bg-white/5 p-8 border-t border-white/5">
+          <p className="text-[10px] text-center font-bold text-muted-foreground uppercase tracking-widest">
             Profile Exists?{' '}
             <Link href="/auth/login" className="text-primary font-black hover:underline italic">Sign In</Link>
           </p>
