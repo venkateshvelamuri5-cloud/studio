@@ -7,12 +7,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Bus, ArrowLeft, Smartphone, Loader2, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
+const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
+  <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <circle cx="10" cy="10" r="3" fill="currentColor" className="animate-pulse" />
+    <circle cx="30" cy="10" r="3" fill="currentColor" />
+    <circle cx="20" cy="30" r="3" fill="currentColor" className="animate-pulse" style={{ animationDelay: '1s' }} />
+    <path d="M10 10L30 10M30 10L20 30M20 30L10 10" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" />
+  </svg>
+);
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
@@ -103,7 +112,7 @@ export default function LoginPage() {
       
       <div className="mb-10 flex flex-col items-center gap-6 animate-in fade-in duration-1000">
         <div className="bg-primary p-4 rounded-2xl shadow-xl shadow-primary/20 rotate-3">
-          <Bus className="h-10 w-10 text-black" />
+          <ConnectingDotsLogo className="h-10 w-10 text-black" />
         </div>
         <div className="text-center">
           <h1 className="text-3xl font-black font-headline italic uppercase tracking-tighter text-primary text-glow">AAGO HUB</h1>
@@ -176,14 +185,11 @@ export default function LoginPage() {
             </form>
           )}
         </CardContent>
-        <CardFooter className="flex flex-col space-y-8 bg-white/5 p-10">
+        <CardFooter className="flex flex-col space-y-4 bg-white/5 p-10">
           <p className="text-xs text-center font-bold text-muted-foreground uppercase tracking-widest">
             New Grid Node?{' '}
             <Link href="/auth/signup" className="text-primary font-black hover:underline italic">Create Profile</Link>
           </p>
-          <Link href="/" className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground hover:text-primary transition-colors">
-            <ArrowLeft className="h-4 w-4" /> Return to Hub
-          </Link>
         </CardFooter>
       </Card>
     </div>

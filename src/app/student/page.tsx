@@ -44,12 +44,21 @@ import {
   Phone
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, increment, collection, query, where, arrayUnion, limit, addDoc, getDocs, orderBy } from 'firebase/firestore';
+import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { googleMapsApiKey } from '@/firebase/config';
+
+const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
+  <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <circle cx="10" cy="10" r="3" fill="currentColor" className="animate-pulse" />
+    <circle cx="30" cy="10" r="3" fill="currentColor" />
+    <circle cx="20" cy="30" r="3" fill="currentColor" className="animate-pulse" style={{ animationDelay: '1s' }} />
+    <path d="M10 10L30 10M30 10L20 30M20 30L10 10" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" />
+  </svg>
+);
 
 const mapContainerStyle = { width: '100%', height: '100%', borderRadius: '1.5rem' };
 const mapOptions = { mapId: "da87e9c90896eba04be76dde", disableDefaultUI: true };
@@ -117,7 +126,6 @@ export default function StudentApp() {
     }
   }, []);
 
-  // Sync auth state to avoid automatic logout on reload
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/auth/login');
@@ -193,7 +201,7 @@ export default function StudentApp() {
       <header className="px-6 py-6 flex items-center justify-between border-b border-white/5 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center text-black shadow-lg shadow-primary/20">
-            <Bus className="h-5 w-5" />
+            <ConnectingDotsLogo className="h-5 w-5 text-black" />
           </div>
           <div>
             <h1 className="text-lg font-black italic uppercase tracking-tighter leading-none text-primary text-glow">AAGO</h1>
@@ -246,7 +254,7 @@ export default function StudentApp() {
                 <Dialog>
                   <DialogTrigger asChild>
                     <div className="p-12 bg-primary text-black rounded-[3rem] shadow-2xl shadow-primary/20 flex items-center justify-between cursor-pointer active:scale-95 transition-all group overflow-hidden relative">
-                      <div className="absolute -right-8 -top-8 p-12 opacity-10 rotate-12 group-hover:scale-110 transition-transform"><Bus className="h-32 w-32" /></div>
+                      <div className="absolute -right-8 -top-8 p-12 opacity-10 rotate-12 group-hover:scale-110 transition-transform"><ConnectingDotsLogo className="h-32 w-32" /></div>
                       <div className="space-y-1 relative z-10">
                         <Badge className="bg-black/10 text-black border-none text-[8px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full mb-2">Book a Ride</Badge>
                         <h3 className="text-4xl font-black italic uppercase leading-none tracking-tighter">Find <br/> Ride</h3>

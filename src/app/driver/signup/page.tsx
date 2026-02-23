@@ -8,12 +8,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldCheck, Loader2, ArrowLeft, Camera, RefreshCcw } from 'lucide-react';
+import { Loader2, Camera, RefreshCcw } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
+const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
+  <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <circle cx="10" cy="10" r="3" fill="currentColor" className="animate-pulse" />
+    <circle cx="30" cy="10" r="3" fill="currentColor" />
+    <circle cx="20" cy="30" r="3" fill="currentColor" className="animate-pulse" style={{ animationDelay: '1s' }} />
+    <path d="M10 10L30 10M30 10L20 30M20 30L10 10" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" />
+  </svg>
+);
 
 export default function DriverSignupPage() {
   const [step, setStep] = useState(1); // 1: Info, 2: Vehicle, 3: Photo, 4: Phone, 5: OTP
@@ -147,7 +155,7 @@ export default function DriverSignupPage() {
       
       <div className="mb-6 flex flex-col items-center gap-3 animate-in fade-in duration-1000">
         <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/30">
-          <ShieldCheck className="h-6 w-6 text-black" />
+          <ConnectingDotsLogo className="h-6 w-6 text-black" />
         </div>
         <h1 className="text-xl font-black italic uppercase tracking-tighter text-foreground">DRIVER JOIN GRID</h1>
       </div>
@@ -272,7 +280,6 @@ export default function DriverSignupPage() {
 
         <CardFooter className="bg-white/5 p-8 flex flex-col gap-4 border-t border-white/5">
           <Link href="/driver/login" className="text-[10px] font-black uppercase italic text-primary hover:underline tracking-widest">Login Instead</Link>
-          <Link href="/" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-3"><ArrowLeft className="h-4 w-4" /> Cancel</Link>
         </CardFooter>
       </Card>
     </div>

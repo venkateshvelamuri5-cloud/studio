@@ -8,11 +8,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Bus, ArrowLeft, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+
+const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
+  <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <circle cx="10" cy="10" r="3" fill="currentColor" className="animate-pulse" />
+    <circle cx="30" cy="10" r="3" fill="currentColor" />
+    <circle cx="20" cy="30" r="3" fill="currentColor" className="animate-pulse" style={{ animationDelay: '1s' }} />
+    <path d="M10 10L30 10M30 10L20 30M20 30L10 10" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" />
+  </svg>
+);
 
 export default function SignupPage() {
   const [step, setStep] = useState(1); // 1: Basic Info, 2: Emergency, 3: Phone, 4: OTP
@@ -108,7 +117,7 @@ export default function SignupPage() {
       
       <div className="mb-6 flex flex-col items-center gap-3 animate-in fade-in duration-1000">
         <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/20">
-          <Bus className="h-6 w-6 text-black" />
+          <ConnectingDotsLogo className="h-6 w-6 text-black" />
         </div>
         <h1 className="text-xl font-black font-headline italic uppercase tracking-tighter text-primary">SCHOLAR REGISTRATION</h1>
       </div>
@@ -222,9 +231,6 @@ export default function SignupPage() {
             Profile Exists?{' '}
             <Link href="/auth/login" className="text-primary font-black hover:underline italic">Sign In</Link>
           </p>
-          <Link href="/" className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground hover:text-primary transition-colors">
-            <ArrowLeft className="h-4 w-4" /> Cancel Registration
-          </Link>
         </CardFooter>
       </Card>
     </div>

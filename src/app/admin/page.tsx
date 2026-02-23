@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { 
   Dialog,
   DialogContent,
@@ -17,7 +16,6 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { 
-  Bus, 
   LayoutDashboard, 
   Navigation,
   LogOut,
@@ -28,17 +26,14 @@ import {
   IndianRupee,
   Route as RouteIcon,
   Sparkles,
-  ClipboardList,
   Activity,
   ArrowUpRight,
   AlertTriangle,
   Plus,
   Trash2,
-  MapPin,
   Search,
   Tag,
   Ticket,
-  Percent,
   Settings,
   Wallet
 } from 'lucide-react';
@@ -47,6 +42,15 @@ import { collection, query, doc, setDoc, orderBy, limit, addDoc, deleteDoc, upda
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { generateShuttleRoutes, AdminGenerateShuttleRoutesInput } from '@/ai/flows/admin-generate-shuttle-routes';
+
+const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
+  <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <circle cx="10" cy="10" r="3" fill="currentColor" className="animate-pulse" />
+    <circle cx="30" cy="10" r="3" fill="currentColor" />
+    <circle cx="20" cy="30" r="3" fill="currentColor" className="animate-pulse" style={{ animationDelay: '1s' }} />
+    <path d="M10 10L30 10M30 10L20 30M20 30L10 10" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" />
+  </svg>
+);
 
 export default function AdminDashboard() {
   const db = useFirestore();
@@ -239,7 +243,7 @@ export default function AdminDashboard() {
       <aside className="w-72 bg-black/20 flex flex-col shrink-0 border-r border-white/5 shadow-sm z-20 backdrop-blur-3xl">
         <div className="p-8 h-28 flex items-center border-b border-white/5">
           <div className="flex items-center gap-4">
-            <div className="p-2.5 bg-primary rounded-xl text-black shadow-lg shadow-primary/20"><Bus className="h-5 w-5" /></div>
+            <div className="p-2.5 bg-primary rounded-xl text-black shadow-lg shadow-primary/20"><ConnectingDotsLogo className="h-5 w-5" /></div>
             <span className="text-2xl font-black font-headline italic tracking-tighter uppercase text-primary text-glow leading-none">AAGO OPS</span>
           </div>
         </div>

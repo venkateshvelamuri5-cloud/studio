@@ -33,8 +33,15 @@ import { doc, updateDoc, collection, addDoc, onSnapshot, query, where, arrayUnio
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
-import { googleMapsApiKey } from '@/firebase/config';
+
+const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
+  <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <circle cx="10" cy="10" r="3" fill="currentColor" className="animate-pulse" />
+    <circle cx="30" cy="10" r="3" fill="currentColor" />
+    <circle cx="20" cy="30" r="3" fill="currentColor" className="animate-pulse" style={{ animationDelay: '1s' }} />
+    <path d="M10 10L30 10M30 10L20 30M20 30L10 10" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" />
+  </svg>
+);
 
 export default function DriverApp() {
   const { user, loading: authLoading } = useUser();
@@ -76,7 +83,6 @@ export default function DriverApp() {
     return () => clearInterval(interval);
   }, [profile?.status, userRef]);
 
-  // Sync auth state to avoid automatic logout on reload
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/driver/login');
@@ -165,7 +171,7 @@ export default function DriverApp() {
       <header className="px-6 py-6 flex items-center justify-between border-b border-white/5 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center text-black shadow-lg shadow-primary/20">
-            {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover rounded-xl" /> : <ShieldCheck className="h-5 w-5" />}
+            <ConnectingDotsLogo className="h-6 w-6 text-black" />
           </div>
           <div>
             <h1 className="text-lg font-black italic uppercase tracking-tighter leading-none text-primary text-glow">FLEET HUB</h1>

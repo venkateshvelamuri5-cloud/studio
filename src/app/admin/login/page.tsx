@@ -6,12 +6,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Bus, Lock, Mail, Loader2, ShieldAlert } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import Link from 'next/link';
+
+const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
+  <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <circle cx="10" cy="10" r="3" fill="currentColor" className="animate-pulse" />
+    <circle cx="30" cy="10" r="3" fill="currentColor" />
+    <circle cx="20" cy="30" r="3" fill="currentColor" className="animate-pulse" style={{ animationDelay: '1s' }} />
+    <path d="M10 10L30 10M30 10L20 30M20 30L10 10" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" />
+  </svg>
+);
 
 export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false);
@@ -57,7 +65,7 @@ export default function AdminLoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 font-body safe-area-inset">
       <div className="mb-10 flex flex-col items-center gap-4">
         <div className="bg-primary p-4 rounded-2xl shadow-xl shadow-primary/20 scale-110">
-          <ShieldAlert className="h-8 w-8 text-black" />
+          <ConnectingDotsLogo className="h-8 w-8 text-black" />
         </div>
         <h1 className="text-3xl font-black italic uppercase tracking-tighter text-primary">AAGO OPS</h1>
       </div>
@@ -84,9 +92,6 @@ export default function AdminLoginPage() {
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="bg-white/5 p-8 flex justify-center">
-          <Link href="/" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Return to Hub</Link>
-        </CardFooter>
       </Card>
     </div>
   );
