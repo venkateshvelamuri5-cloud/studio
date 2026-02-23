@@ -1,41 +1,28 @@
-
 {
   "placeholderImages": [
     {
-      "id": "hero-shuttle",
-      "description": "Premium student shuttle on Vizag beach road",
-      "imageUrl": "https://picsum.photos/seed/aago-vizag-1/1200/800",
-      "imageHint": "vizag shuttle"
+      "id": "3d-shuttle",
+      "description": "3D isometric render of a modern blue student shuttle",
+      "imageUrl": "https://picsum.photos/seed/aago-3d-bus/1200/800",
+      "imageHint": "3d shuttle"
     },
     {
-      "id": "student-mobile",
-      "description": "Indian student in Vizag using a mobile app",
-      "imageUrl": "https://picsum.photos/seed/aago-vizag-2/600/800",
-      "imageHint": "indian student"
+      "id": "3d-network",
+      "description": "3D abstract glowing network nodes and connections",
+      "imageUrl": "https://picsum.photos/seed/aago-3d-grid/800/600",
+      "imageHint": "3d network"
     },
     {
-      "id": "student-group",
-      "description": "A group of happy Indian college students on campus",
-      "imageUrl": "https://picsum.photos/seed/aago-group/800/600",
-      "imageHint": "college students"
+      "id": "3d-map",
+      "description": "3D stylized city map with glowing route markers",
+      "imageUrl": "https://picsum.photos/seed/aago-3d-map/800/600",
+      "imageHint": "3d map"
     },
     {
-      "id": "vizag-route",
-      "description": "Coastal route visualization for Vizag Hub",
-      "imageUrl": "https://picsum.photos/seed/route-vizag/800/600",
-      "imageHint": "vizag coast"
-    },
-    {
-      "id": "vzm-route",
-      "description": "Express highway route for VZM Hub",
-      "imageUrl": "https://picsum.photos/seed/route-vzm/800/600",
-      "imageHint": "highway"
-    },
-    {
-      "id": "live-map",
-      "description": "Live traffic map of Vizag - Vizianagaram highway",
-      "imageUrl": "https://picsum.photos/seed/map-vizag-1/800/400",
-      "imageHint": "andhra map"
+      "id": "scholar-3d",
+      "description": "3D abstract representation of a student identity",
+      "imageUrl": "https://picsum.photos/seed/aago-3d-user/600/800",
+      "imageHint": "3d character"
     }
   ]
 }
