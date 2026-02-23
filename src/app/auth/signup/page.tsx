@@ -73,7 +73,18 @@ export default function SignupPage() {
       setStep(4);
       toast({ title: "Code Sent", description: "Verification code sent to your phone." });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to send code. Try again." });
+      console.error(error);
+      let message = "Failed to send code. Try again.";
+      if (error.code === 'auth/too-many-requests') {
+        message = "Too many attempts. Please wait a few minutes.";
+      }
+      toast({ variant: "destructive", title: "Error", description: message });
+      if (recaptchaRef.current) {
+        recaptchaRef.current.render().then(() => {
+          recaptchaRef.current?.clear();
+          recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup', { size: 'invisible' });
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -179,7 +190,7 @@ export default function SignupPage() {
                 </Select>
               </div>
               <Button onClick={() => setStep(3)} disabled={!emergencyName || !emergencyPhone} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl mt-2">Final Step</Button>
-              <Button variant="ghost" onClick={() => setStep(1)} className="w-full text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Go Back</Button>
+              <Button variant="ghost" type="button" onClick={() => setStep(1)} className="w-full text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Go Back</Button>
             </div>
           )}
 
@@ -188,13 +199,13 @@ export default function SignupPage() {
               <div className="space-y-3">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number</Label>
                 <div className="relative">
-                  <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary text-lg z-10">+91</span>
+                  <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary text-lg z-20">+91</span>
                   <Input 
                     type="tel" 
                     value={phoneNumber} 
                     onChange={(e) => setPhoneNumber(e.target.value)} 
                     placeholder="0000000000" 
-                    className="h-16 pl-16 rounded-xl bg-white/5 border-white/10 font-black italic text-xl relative" 
+                    className="h-16 pl-20 rounded-xl bg-white/5 border-white/10 font-black italic text-xl relative z-10" 
                     required
                   />
                 </div>

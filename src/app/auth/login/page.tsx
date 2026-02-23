@@ -29,7 +29,6 @@ export default function LoginPage() {
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState(1); // 1: Phone, 2: OTP
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-  const [hostnameError, setHostnameError] = useState(false);
   
   const router = useRouter();
   const auth = useAuth();
@@ -59,17 +58,28 @@ export default function LoginPage() {
     e.preventDefault();
     if (!auth || !recaptchaRef.current) return;
     setLoading(true);
-    setHostnameError(false);
 
     try {
       const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaRef.current);
       setConfirmationResult(result);
       setStep(2);
-      toast({ title: "Code Sent", description: "Verification code sent to your phone." });
+      toast({ title: "Code Sent", description: "Check your phone messages." });
     } catch (error: any) {
       console.error(error);
-      setHostnameError(true);
+      let message = "Could not send code. Try again later.";
+      if (error.code === 'auth/too-many-requests') {
+        message = "Too many attempts. Please wait a few minutes.";
+      } else if (error.code === 'auth/unauthorized-domain') {
+        message = "Terminal access restricted for this domain.";
+      }
+      toast({ variant: "destructive", title: "Auth Error", description: message });
+      if (recaptchaRef.current) {
+        recaptchaRef.current.render().then((id) => {
+          recaptchaRef.current?.clear();
+          recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -86,7 +96,7 @@ export default function LoginPage() {
       const userSnap = await getDoc(doc(db, 'users', user.uid));
 
       if (!userSnap.exists()) {
-        toast({ title: "New Member", description: "Please complete your profile registration." });
+        toast({ title: "Welcome", description: "Let's create your profile." });
         router.push('/auth/signup');
         return;
       }
@@ -94,7 +104,7 @@ export default function LoginPage() {
       const profile = userSnap.data();
       if (profile.role === 'driver') {
         await signOut(auth!);
-        toast({ variant: "destructive", title: "Wrong Portal", description: "Drivers must use the Driver App login." });
+        toast({ variant: "destructive", title: "Wrong Portal", description: "Please use Driver Login." });
         router.push('/driver/login');
       } else {
         router.push('/student');
@@ -111,7 +121,7 @@ export default function LoginPage() {
       <div id="recaptcha-container"></div>
       
       <div className="mb-10 flex flex-col items-center gap-6 animate-in fade-in duration-1000">
-        <div className="bg-primary p-4 rounded-2xl shadow-xl shadow-primary/20 rotate-3">
+        <div className="bg-primary p-4 rounded-2xl shadow-xl shadow-primary/20">
           <ConnectingDotsLogo className="h-10 w-10 text-black" />
         </div>
         <div className="text-center">
@@ -128,26 +138,18 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="px-10 pb-8">
-          {hostnameError && (
-            <Alert variant="destructive" className="mb-8 rounded-2xl border-destructive/20 bg-destructive/5">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle className="text-xs font-black uppercase">Auth Blocked</AlertTitle>
-              <AlertDescription className="text-[10px] font-bold">Domain not authorized. Please check terminal settings.</AlertDescription>
-            </Alert>
-          )}
-
           {step === 1 ? (
             <form onSubmit={handleSendOtp} className="space-y-8">
               <div className="space-y-3">
                 <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Phone Number</Label>
                 <div className="relative">
-                  <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary italic z-10">+91</span>
+                  <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary italic z-20">+91</span>
                   <Input 
                     type="tel" 
                     value={phoneNumber} 
                     onChange={(e) => setPhoneNumber(e.target.value)} 
                     placeholder="0000000000" 
-                    className="h-16 pl-16 rounded-2xl bg-white/5 border-white/10 font-black italic text-xl focus:ring-2 focus:ring-primary relative" 
+                    className="h-16 pl-20 rounded-2xl bg-white/5 border-white/10 font-black italic text-xl focus:ring-2 focus:ring-primary relative z-10" 
                     required
                   />
                 </div>
@@ -181,7 +183,7 @@ export default function LoginPage() {
               >
                 {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Me"}
               </Button>
-              <Button variant="ghost" onClick={() => setStep(1)} className="w-full font-black text-muted-foreground uppercase italic text-[10px] tracking-widest">Change Phone</Button>
+              <Button variant="ghost" type="button" onClick={() => setStep(1)} className="w-full font-black text-muted-foreground uppercase italic text-[10px] tracking-widest">Change Phone</Button>
             </form>
           )}
         </CardContent>

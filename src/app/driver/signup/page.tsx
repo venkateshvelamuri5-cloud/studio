@@ -57,7 +57,7 @@ export default function DriverSignupPage() {
 
   useEffect(() => {
     if (auth && !recaptchaRef.current) {
-      recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup', {
+      recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup-driver', {
         size: 'invisible',
       });
     }
@@ -116,7 +116,18 @@ export default function DriverSignupPage() {
       setStep(5);
       toast({ title: "Code Sent", description: "Verification code sent to your phone." });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to send code." });
+      console.error(error);
+      let message = "Failed to send code.";
+      if (error.code === 'auth/too-many-requests') {
+        message = "Rate limit hit. Please wait.";
+      }
+      toast({ variant: "destructive", title: "Error", description: message });
+      if (recaptchaRef.current) {
+        recaptchaRef.current.render().then(() => {
+          recaptchaRef.current?.clear();
+          recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup-driver', { size: 'invisible' });
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -151,7 +162,7 @@ export default function DriverSignupPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 sm:p-6 font-body safe-area-inset">
-      <div id="recaptcha-container-signup"></div>
+      <div id="recaptcha-container-signup-driver"></div>
       
       <div className="mb-6 flex flex-col items-center gap-3 animate-in fade-in duration-1000">
         <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/30">
@@ -263,7 +274,7 @@ export default function DriverSignupPage() {
                     value={phoneNumber} 
                     onChange={(e) => setPhoneNumber(e.target.value)} 
                     placeholder="0000000000" 
-                    className="h-16 pl-16 rounded-xl bg-white/5 border-white/10 font-black italic text-xl relative" 
+                    className="h-16 pl-20 rounded-xl bg-white/5 border-white/10 font-black italic text-xl relative z-10" 
                     required 
                   />
                 </div>

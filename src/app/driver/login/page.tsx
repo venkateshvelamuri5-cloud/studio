@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'export';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -65,7 +65,18 @@ export default function DriverLoginPage() {
       setStep(2);
       toast({ title: "Code Sent", description: "Verification code sent to your phone." });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: "Check your signal." });
+      console.error(error);
+      let message = "Check your signal.";
+      if (error.code === 'auth/too-many-requests') {
+        message = "Too many attempts. Please wait.";
+      }
+      toast({ variant: "destructive", title: "Error", description: message });
+      if (recaptchaRef.current) {
+        recaptchaRef.current.render().then(() => {
+          recaptchaRef.current?.clear();
+          recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-driver', { size: 'invisible' });
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -129,13 +140,13 @@ export default function DriverLoginPage() {
               <div className="space-y-3">
                 <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Phone Number</Label>
                 <div className="relative">
-                  <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary italic z-10">+91</span>
+                  <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary italic z-20">+91</span>
                   <Input 
                     type="tel" 
                     value={phoneNumber} 
                     onChange={(e) => setPhoneNumber(e.target.value)} 
                     placeholder="0000000000" 
-                    className="h-16 w-full pl-16 rounded-2xl bg-white/5 border-white/10 font-black text-foreground text-xl italic outline-none relative" 
+                    className="h-16 w-full pl-20 rounded-2xl bg-white/5 border-white/10 font-black text-foreground text-xl italic outline-none relative z-10" 
                     required
                   />
                 </div>
@@ -169,7 +180,7 @@ export default function DriverLoginPage() {
               >
                 {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Me"}
               </Button>
-              <Button variant="ghost" onClick={() => setStep(1)} className="w-full font-black text-muted-foreground uppercase italic text-[10px] tracking-widest">Change Phone</Button>
+              <Button variant="ghost" type="button" onClick={() => setStep(1)} className="w-full font-black text-muted-foreground uppercase italic text-[10px] tracking-widest">Change Phone</Button>
             </form>
           )}
         </CardContent>
