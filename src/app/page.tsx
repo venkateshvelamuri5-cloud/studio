@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { 
   Bus, 
   ArrowRight, 
@@ -402,7 +403,7 @@ export default function GlobalLandingPage() {
                 <div className="bg-primary p-6 rounded-[2.5rem] shadow-3xl"><Bus className="h-12 w-12 text-slate-950" /></div>
                 <span className="text-6xl font-black italic uppercase tracking-[calc(-0.06em)] text-white">AAGO</span>
               </Link>
-              <p className="max-w-md text-[14px] font-black uppercase tracking-[0.8em] text-slate-600 italic leading-loose">The urban mobility protocol. Operating high-tech corridors across global hubs. Architecture for efficiency.</p>
+              <p className="max-w-md text-[14px] font-black uppercase tracking-[0.8em] text-slate-700 italic leading-loose">The urban mobility protocol. Operating high-tech corridors across global hubs. Architecture for efficiency.</p>
               <div className="flex gap-12">
                  <div className="h-20 w-20 rounded-[2.5rem] glass-card flex items-center justify-center text-slate-500 hover:text-primary transition-all cursor-pointer"><Cpu className="h-10 w-10" /></div>
                  <div className="h-20 w-20 rounded-[2.5rem] glass-card flex items-center justify-center text-slate-500 hover:text-primary transition-all cursor-pointer"><Sparkles className="h-10 w-10" /></div>
@@ -428,7 +429,7 @@ export default function GlobalLandingPage() {
             </div>
           </div>
           <div className="mt-48 pt-24 border-t border-white/5 flex flex-col lg:flex-row justify-between items-center gap-12">
-            <p className="text-[14px] font-black uppercase tracking-[0.9em] text-slate-700 italic">© 2024 AAGO GLOBAL GRID. SYNCED.</p>
+            <p className="text-[14px] font-black uppercase tracking-[0.9em] text-slate-800 italic">© 2024 AAGO GLOBAL GRID. SYNCED.</p>
             <div className="flex gap-20 text-[13px] font-black uppercase tracking-[0.7em] text-slate-600">
                <span className="text-primary">Network Pulse Live</span>
                <span className="text-primary">Global Node Sync</span>
