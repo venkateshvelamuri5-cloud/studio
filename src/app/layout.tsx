@@ -8,9 +8,12 @@ export const metadata: Metadata = {
   title: 'AAGO - Smart Mobility Grid',
   description: 'The easiest way to get around. Real-time tracking and secure booking for modern scholars.',
   manifest: '/manifest.json',
+  icons: {
+    icon: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2230%22 cy=%2230%22 r=%2210%22 fill=%22%2300FFFF%22/><circle cx=%2270%22 cy=%2230%22 r=%2210%22 fill=%22%2300FFFF%22/><circle cx=%2250%22 cy=%2270%22 r=%2210%22 fill=%22%2300FFFF%22/><path d=%22M30 30L70 30L50 70Z%22 stroke=%22%2300FFFF%22 stroke-width=%224%22 fill=%22none%22 stroke-dasharray=%225 5%22/></svg>',
+  },
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'default',
+    statusBarStyle: 'black-translucent',
     title: 'AAGO',
   },
   applicationName: 'AAGO',
@@ -20,7 +23,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#EA580C',
+  themeColor: '#020617',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -40,9 +43,8 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <link rel="manifest" href="/manifest.json" />
       </head>
-      <body className="font-body antialiased bg-white text-slate-900 overflow-x-hidden selection:bg-primary selection:text-white">
+      <body className="font-body antialiased bg-background text-foreground overflow-x-hidden selection:bg-primary selection:text-black">
         <FirebaseClientProvider>
           <FirebaseErrorListener />
           {children}

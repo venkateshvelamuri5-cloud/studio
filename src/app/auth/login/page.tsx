@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -8,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Bus, ArrowLeft, Smartphone, Loader2, AlertCircle } from 'lucide-react';
+import { Bus, ArrowLeft, Smartphone, Loader2, AlertCircle, ShieldCheck } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -22,7 +21,6 @@ export default function LoginPage() {
   const [step, setStep] = useState(1); // 1: Phone, 2: OTP
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [hostnameError, setHostnameError] = useState(false);
-  const [currentHostname, setCurrentHostname] = useState('');
   
   const router = useRouter();
   const auth = useAuth();
@@ -31,10 +29,6 @@ export default function LoginPage() {
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setCurrentHostname(window.location.hostname);
-    }
-    
     if (auth && !recaptchaRef.current) {
       try {
         recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
@@ -44,7 +38,6 @@ export default function LoginPage() {
         console.error("reCAPTCHA initialization failed", error);
       }
     }
-    
     return () => {
       if (recaptchaRef.current) {
         recaptchaRef.current.clear();
@@ -64,21 +57,10 @@ export default function LoginPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaRef.current);
       setConfirmationResult(result);
       setStep(2);
-      toast({
-        title: "OTP Sent",
-        description: "Please check your mobile for the verification code.",
-      });
+      toast({ title: "OTP Sent", description: "Verification code sent to your handset." });
     } catch (error: any) {
-      console.error("SMS Error", error);
-      if (error.code === 'auth/captcha-check-failed' || error.message?.includes('Hostname match not found')) {
-        setHostnameError(true);
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Verification Failed",
-          description: error.message || "Could not send OTP. Please try again.",
-        });
-      }
+      console.error(error);
+      setHostnameError(true);
     } finally {
       setLoading(false);
     }
@@ -92,86 +74,71 @@ export default function LoginPage() {
     try {
       const result = await confirmationResult.confirm(otp);
       const user = result.user;
-
-      // CHECK IF PROFILE EXISTS
       const userSnap = await getDoc(doc(db, 'users', user.uid));
-      const profile = userSnap.data();
 
       if (!userSnap.exists()) {
-        toast({
-          title: "Profile Not Found",
-          description: "No student profile linked to this number. Redirecting to registration...",
-        });
+        toast({ title: "Profile Missing", description: "Identity not found. Initializing registration..." });
         router.push('/auth/signup');
         return;
       }
 
+      const profile = userSnap.data();
       if (profile.role === 'driver') {
         await signOut(auth!);
-        toast({
-          variant: "destructive",
-          title: "Wrong Portal",
-          description: "This is the Student Login. Please use the Driver Portal.",
-        });
+        toast({ variant: "destructive", title: "Access Denied", description: "Use Driver Terminal." });
         router.push('/driver/login');
       } else {
         router.push('/student');
       }
     } catch (error: any) {
-      console.error("OTP Error", error);
-      toast({
-        variant: "destructive",
-        title: "Invalid OTP",
-        description: "The code you entered is incorrect. Please check and try again.",
-      });
+      toast({ variant: "destructive", title: "Invalid Code", description: "The verification sequence is incorrect." });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-secondary/30 p-4 font-body">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 font-body safe-area-inset">
       <div id="recaptcha-container"></div>
       
-      <div className="mb-12 flex flex-col items-center gap-4">
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="bg-primary p-3 rounded-[1.25rem] shadow-xl group-hover:rotate-12 transition-transform">
-            <Bus className="h-8 w-8 text-white" />
-          </div>
-          <span className="text-4xl font-black text-primary font-headline italic tracking-tight uppercase">AAGO</span>
-        </Link>
+      <div className="mb-10 flex flex-col items-center gap-6 animate-in fade-in duration-1000">
+        <div className="bg-primary p-4 rounded-2xl shadow-xl shadow-primary/20 rotate-3">
+          <Bus className="h-10 w-10 text-black" />
+        </div>
+        <div className="text-center">
+          <h1 className="text-3xl font-black font-headline italic uppercase tracking-tighter text-primary text-glow">AAGO HUB</h1>
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground mt-2">Scholar Onboarding</p>
+        </div>
       </div>
 
-      <Card className="w-full max-w-md shadow-[0_32px_64px_-12px_rgba(0,0,0,0.15)] border-none rounded-[2.5rem] overflow-hidden bg-white">
-        <CardHeader className="space-y-3 pt-10 pb-6">
-          <CardTitle className="text-3xl font-black text-center font-headline uppercase italic tracking-tighter text-primary">Student Access</CardTitle>
-          <CardDescription className="text-center font-bold text-muted-foreground">
-            Sign in with your scholarship credentials
+      <Card className="w-full max-w-md glass-card border-none rounded-[3rem] overflow-hidden shadow-2xl">
+        <CardHeader className="space-y-3 pt-12 pb-8 text-center">
+          <CardTitle className="text-2xl font-black uppercase italic tracking-tighter text-foreground leading-none">Access Portal</CardTitle>
+          <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic">
+            Enter the mobility grid
           </CardDescription>
         </CardHeader>
-        <CardContent className="px-8">
+        <CardContent className="px-10 pb-8">
           {hostnameError && (
-            <Alert variant="destructive" className="mb-6 rounded-2xl">
+            <Alert variant="destructive" className="mb-8 rounded-2xl border-destructive/20 bg-destructive/5">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Action Required</AlertTitle>
-              <AlertDescription className="text-xs">
-                Hostname mismatch. Please add <strong>{currentHostname || 'your-hostname'}</strong> to &quot;Authorized Domains&quot; in your Firebase Console.
-              </AlertDescription>
+              <AlertTitle className="text-xs font-black uppercase">Auth Blocked</AlertTitle>
+              <AlertDescription className="text-[10px] font-bold">Domain not authorized. Please check terminal settings.</AlertDescription>
             </Alert>
           )}
 
           {step === 1 ? (
-            <form onSubmit={handleSendOtp} className="space-y-6">
-              <div className="space-y-2">
-                <Label className="font-black text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Phone Number</Label>
+            <form onSubmit={handleSendOtp} className="space-y-8">
+              <div className="space-y-3">
+                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Phone Signal</Label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">+91</span>
+                  <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary italic">+91</span>
                   <Input 
                     type="tel" 
                     value={phoneNumber} 
                     onChange={(e) => setPhoneNumber(e.target.value)} 
-                    placeholder="10-digit number" 
-                    className="h-14 pl-14 rounded-2xl bg-secondary/30 border-none font-bold" 
+                    placeholder="0000000000" 
+                    className="h-18 pl-18 rounded-2xl bg-white/5 border-white/10 font-black italic text-xl focus:ring-2 focus:ring-primary" 
                     required
                   />
                 </div>
@@ -179,21 +146,21 @@ export default function LoginPage() {
               <Button 
                 type="submit" 
                 disabled={loading || phoneNumber.length < 10}
-                className="w-full bg-accent hover:bg-accent/90 h-16 rounded-2xl text-lg font-black uppercase italic shadow-xl shadow-accent/20"
+                className="w-full bg-primary hover:bg-primary/90 text-black h-18 rounded-2xl text-lg font-black uppercase italic shadow-2xl shadow-primary/20 transition-all active:scale-95"
               >
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : <><Smartphone className="h-6 w-6 mr-2" /> Send OTP</>}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Request OTP"}
               </Button>
             </form>
           ) : (
-            <form onSubmit={handleVerifyOtp} className="space-y-6">
-              <div className="space-y-2">
-                <Label className="font-black text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Enter 6-Digit OTP</Label>
+            <form onSubmit={handleVerifyOtp} className="space-y-8">
+              <div className="space-y-3">
+                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Auth Sequence</Label>
                 <Input 
                   type="text" 
                   value={otp} 
                   onChange={(e) => setOtp(e.target.value)} 
                   placeholder="000000" 
-                  className="h-16 text-center text-2xl tracking-[1em] rounded-2xl bg-secondary/30 border-none font-black" 
+                  className="h-20 text-center text-4xl tracking-[0.4em] rounded-2xl bg-white/5 border-white/10 font-black text-primary outline-none" 
                   maxLength={6}
                   required
                 />
@@ -201,21 +168,21 @@ export default function LoginPage() {
               <Button 
                 type="submit" 
                 disabled={loading || otp.length < 6}
-                className="w-full bg-primary hover:bg-primary/90 h-16 rounded-2xl text-lg font-black uppercase italic shadow-xl shadow-primary/20"
+                className="w-full bg-accent hover:bg-accent/90 text-black h-18 rounded-2xl text-lg font-black uppercase italic shadow-2xl shadow-accent/20 transition-all active:scale-95"
               >
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify & Sign In"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Identity"}
               </Button>
-              <Button variant="ghost" onClick={() => setStep(1)} className="w-full font-bold">Change Number</Button>
+              <Button variant="ghost" onClick={() => setStep(1)} className="w-full font-black text-muted-foreground uppercase italic text-[10px] tracking-widest">Abort Sequence</Button>
             </form>
           )}
         </CardContent>
-        <CardFooter className="flex flex-col space-y-6 bg-secondary/20 p-8 mt-4">
-          <p className="text-sm text-center font-bold text-muted-foreground">
-            New to Aago?{' '}
-            <Link href="/auth/signup" className="text-primary font-black hover:underline italic">Create Account</Link>
+        <CardFooter className="flex flex-col space-y-8 bg-white/5 p-10">
+          <p className="text-xs text-center font-bold text-muted-foreground uppercase tracking-widest">
+            New Grid Node?{' '}
+            <Link href="/auth/signup" className="text-primary font-black hover:underline italic">Create Profile</Link>
           </p>
-          <Link href="/" className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">
-            <ArrowLeft className="h-4 w-4" /> Back to Home
+          <Link href="/" className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground hover:text-primary transition-colors">
+            <ArrowLeft className="h-4 w-4" /> Return to Hub
           </Link>
         </CardFooter>
       </Card>

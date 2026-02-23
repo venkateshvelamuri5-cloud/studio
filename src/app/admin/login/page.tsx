@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -7,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Bus, Lock, Mail, Loader2 } from 'lucide-react';
+import { Bus, Lock, Mail, Loader2, ShieldAlert } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -32,12 +31,9 @@ export default function AdminLoginPage() {
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
       const user = result.user;
-
-      // Check if user has a profile in Firestore
       const userRef = doc(db, 'users', user.uid);
       const userSnap = await getDoc(userRef);
 
-      // Provision admin profile if it's the specific admin email and doesn't exist
       if (!userSnap.exists() && email === 'admin@aago.in') {
         await setDoc(userRef, {
           uid: user.uid,
@@ -49,82 +45,47 @@ export default function AdminLoginPage() {
         });
       }
 
-      toast({
-        title: "Admin Authenticated",
-        description: "Accessing regional operations dashboard...",
-      });
       router.push('/admin');
     } catch (error: any) {
-      console.error("Login Error", error);
-      toast({
-        variant: "destructive",
-        title: "Access Denied",
-        description: error.message || "Invalid admin credentials. Please contact the head office.",
-      });
+      toast({ variant: "destructive", title: "Access Denied", description: "Invalid terminal key." });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-primary p-4 font-body">
-      <div className="mb-12 flex flex-col items-center gap-4">
-        <div className="bg-white p-4 rounded-[1.5rem] shadow-2xl rotate-3">
-          <Bus className="h-10 w-10 text-primary" />
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 font-body safe-area-inset">
+      <div className="mb-10 flex flex-col items-center gap-4">
+        <div className="bg-primary p-4 rounded-2xl shadow-xl shadow-primary/20 scale-110">
+          <ShieldAlert className="h-8 w-8 text-black" />
         </div>
-        <h1 className="text-4xl font-black text-white font-headline italic tracking-tighter uppercase">AAGO OPS</h1>
+        <h1 className="text-3xl font-black italic uppercase tracking-tighter text-primary">AAGO OPS</h1>
       </div>
 
-      <Card className="w-full max-w-md shadow-2xl border-none rounded-[2.5rem] overflow-hidden bg-white">
-        <CardHeader className="space-y-3 pt-10 pb-6 text-center">
-          <CardTitle className="text-3xl font-black font-headline uppercase italic tracking-tighter text-primary">Regional Access</CardTitle>
-          <CardDescription className="font-bold text-muted-foreground">
-            Administrative terminal for Vizag & VZM hubs
+      <Card className="w-full max-w-md glass-card border-none rounded-[3rem] overflow-hidden shadow-2xl">
+        <CardHeader className="space-y-3 pt-12 pb-8 text-center">
+          <CardTitle className="text-2xl font-black uppercase italic tracking-tighter text-foreground leading-none">Ops Terminal</CardTitle>
+          <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic mt-2">
+            Restricted Central Control
           </CardDescription>
         </CardHeader>
-        <CardContent className="px-8 pb-10">
+        <CardContent className="px-12 pb-10">
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <Label className="font-black text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Admin Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input 
-                  type="email" 
-                  value={email} 
-                  onChange={(e) => setEmail(e.target.value)} 
-                  placeholder="admin@aago.in" 
-                  className="h-14 pl-12 rounded-2xl bg-secondary/30 border-none font-bold" 
-                  required
-                />
-              </div>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-2">Email Address</Label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@aago.in" className="h-16 bg-white/5 border-white/10 font-black italic text-lg px-6" required />
             </div>
             <div className="space-y-2">
-              <Label className="font-black text-[10px] uppercase tracking-widest text-muted-foreground ml-1">Terminal Key</Label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input 
-                  type="password" 
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  placeholder="••••••••" 
-                  className="h-14 pl-12 rounded-2xl bg-secondary/30 border-none font-bold" 
-                  required
-                />
-              </div>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-2">Terminal Key</Label>
+              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="h-16 bg-white/5 border-white/10 font-black italic text-lg px-6" required />
             </div>
-            <Button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-accent hover:bg-accent/90 h-16 rounded-2xl text-lg font-black uppercase italic shadow-xl shadow-accent/20"
-            >
-              {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Initiate Terminal Access"}
+            <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90 text-black h-18 rounded-2xl text-lg font-black uppercase italic shadow-xl transition-all active:scale-95">
+              {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Initiate Control"}
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="bg-secondary/50 p-6 flex flex-col gap-4">
-          <Link href="/" className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">
-            Return to Public Landing
-          </Link>
+        <CardFooter className="bg-white/5 p-8 flex justify-center">
+          <Link href="/" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Return to Hub</Link>
         </CardFooter>
       </Card>
     </div>
