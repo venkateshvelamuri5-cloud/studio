@@ -24,7 +24,7 @@
     --border: 217.2 32.6% 12%;
     --input: 217.2 32.6% 12%;
     --ring: 199 89% 48%;
-    --radius: 4rem;
+    --radius: 2rem;
   }
 }
 
@@ -34,18 +34,27 @@
   }
   body {
     @apply bg-background text-foreground font-body antialiased selection:bg-primary selection:text-white;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-headline tracking-[calc(-0.06em)] leading-[0.8] uppercase italic font-black;
+    @apply font-headline tracking-[calc(-0.04em)] leading-[0.9] uppercase italic font-black;
   }
 }
 
 @layer utilities {
+  .safe-area-inset {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-area-inset-bottom {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
   .text-glow {
-    text-shadow: 0 0 30px rgba(0, 255, 255, 0.4);
+    text-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
   }
   .glass-card {
-    @apply bg-white/[0.03] backdrop-blur-[40px] border border-white/10 shadow-[0_64px_128px_-12px_rgba(0,0,0,0.8)];
+    @apply bg-white/[0.03] backdrop-blur-[40px] border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)];
   }
   .perspective-2000 {
     perspective: 2000px;
@@ -55,12 +64,12 @@
   }
   @keyframes float {
     0%, 100% { transform: translateY(0) rotateX(15deg) rotateY(-5deg); }
-    50% { transform: translateY(-30px) rotateX(10deg) rotateY(5deg); }
+    50% { transform: translateY(-15px) rotateX(10deg) rotateY(5deg); }
   }
   .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
+    width: 3px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-white/20 rounded-full hover:bg-white/40 transition-colors;
+    @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
   }
 }

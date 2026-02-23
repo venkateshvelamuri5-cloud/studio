@@ -1,0 +1,23 @@
+
+{
+  "name": "AAGO Grid",
+  "short_name": "AAGO",
+  "description": "High-Tech Mobility Network for Scholars and Operators",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/aago-icon/192/192",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://picsum.photos/seed/aago-icon/512/512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
