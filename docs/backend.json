@@ -21,6 +21,7 @@
         "photoUrl": { "type": "string" },
         "vehicleNumber": { "type": "string" },
         "vehicleType": { "type": "string", "enum": ["Bus", "Mini-Bus", "Van"] },
+        "seatingCapacity": { "type": "number" },
         "aadhaarNumber": { "type": "string" },
         "yearsOfExperience": { "type": "number" },
         "currentLat": { "type": "number" },

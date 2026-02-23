@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldCheck, Loader2, ArrowLeft, Camera, UserCircle, Briefcase, IdentificationCard } from 'lucide-react';
+import { ShieldCheck, Loader2, ArrowLeft, Camera, UserCircle, Briefcase, IdentificationCard, Bus, Car } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
@@ -29,6 +29,7 @@ export default function DriverSignupPage() {
   // Vehicle Details
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [vehicleType, setVehicleType] = useState('Bus');
+  const [seatingCapacity, setSeatingCapacity] = useState('40');
 
   // Photo Protocol
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -110,6 +111,7 @@ export default function DriverSignupPage() {
         uid: result.user.uid,
         phoneNumber: result.user.phoneNumber,
         fullName, city, licenseNumber, vehicleNumber, vehicleType,
+        seatingCapacity: parseInt(seatingCapacity),
         aadhaarNumber,
         yearsOfExperience: parseInt(experience),
         photoUrl: photoUrl || `https://picsum.photos/seed/${result.user.uid}/400/400`,
@@ -152,7 +154,7 @@ export default function DriverSignupPage() {
                 <Input value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} placeholder="DL-0000000" className="h-14 bg-white/5 border-white/10 font-black italic text-lg" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Gov ID (Aadhaar/PAN)</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Gov ID (Aadhaar)</Label>
                 <Input value={aadhaarNumber} onChange={(e) => setAadhaarNumber(e.target.value)} placeholder="XXXX XXXX XXXX" className="h-14 bg-white/5 border-white/10 font-black italic text-lg" />
               </div>
               <div className="space-y-2">
@@ -170,20 +172,28 @@ export default function DriverSignupPage() {
                 <Input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="AP-31-XX-0000" className="h-14 bg-white/5 border-white/10 font-black italic text-lg" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Fleet Class</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Vehicle Class</Label>
                 <Select value={vehicleType} onValueChange={setVehicleType}>
                   <SelectTrigger className="h-14 bg-white/5 border-white/10 text-foreground font-black italic"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-background border-white/10"><SelectItem value="Bus">Heavy Bus</SelectItem><SelectItem value="Mini-Bus">Medium Mini-Bus</SelectItem><SelectItem value="Van">Small Van</SelectItem></SelectContent>
+                  <SelectContent className="bg-background border-white/10">
+                    <SelectItem value="Bus">Heavy Bus</SelectItem>
+                    <SelectItem value="Mini-Bus">Medium Mini-Bus</SelectItem>
+                    <SelectItem value="Van">Small Van</SelectItem>
+                  </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Deployment City</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Seating Capacity</Label>
+                <Input type="number" value={seatingCapacity} onChange={(e) => setSeatingCapacity(e.target.value)} placeholder="e.g. 40" className="h-14 bg-white/5 border-white/10 font-black italic text-lg" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Deployment Node (City)</Label>
                 <Select value={city} onValueChange={setCity}>
                   <SelectTrigger className="h-14 bg-white/5 border-white/10 text-foreground font-black italic"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-background border-white/10"><SelectItem value="Vizag">Vizag Hub</SelectItem><SelectItem value="Vizianagaram">VZM Hub</SelectItem></SelectContent>
                 </Select>
               </div>
-              <Button onClick={() => { setStep(3); startCamera(); }} disabled={!vehicleNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl">Bio Verification</Button>
+              <Button onClick={() => { setStep(3); startCamera(); }} disabled={!vehicleNumber || !seatingCapacity} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl">Bio Verification</Button>
             </div>
           )}
 
