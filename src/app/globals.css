@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -41,7 +42,7 @@
 
 @layer utilities {
   .text-glow {
-    text-shadow: 0 0 50px rgba(0, 255, 255, 0.5);
+    text-shadow: 0 0 30px rgba(0, 255, 255, 0.4);
   }
   .glass-card {
     @apply bg-white/[0.03] backdrop-blur-[40px] border border-white/10 shadow-[0_64px_128px_-12px_rgba(0,0,0,0.8)];
@@ -53,8 +54,8 @@
     animation: float 12s ease-in-out infinite;
   }
   @keyframes float {
-    0%, 100% { transform: translateY(0) rotateX(0deg); }
-    50% { transform: translateY(-40px) rotateX(5deg); }
+    0%, 100% { transform: translateY(0) rotateX(15deg) rotateY(-5deg); }
+    50% { transform: translateY(-30px) rotateX(10deg) rotateY(5deg); }
   }
   .custom-scrollbar::-webkit-scrollbar {
     width: 4px;
