@@ -1,12 +1,14 @@
 
 {
-  "name": "AAGO Grid",
+  "name": "AAGO - Smart Mobility Grid",
   "short_name": "AAGO",
-  "description": "High-Tech Mobility Network for Scholars and Operators",
+  "description": "Enterprise-grade urban mobility and scholar shuttle network.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#020617",
   "theme_color": "#020617",
+  "orientation": "portrait",
+  "scope": "/",
   "icons": [
     {
       "src": "https://picsum.photos/seed/aago-icon/192/192",
@@ -17,7 +19,21 @@
     {
       "src": "https://picsum.photos/seed/aago-icon/512/512",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["transportation", "productivity", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Scholar Hub",
+      "url": "/student",
+      "icons": [{ "src": "https://picsum.photos/seed/aago-student/96/96", "sizes": "96x96" }]
+    },
+    {
+      "name": "Operator Console",
+      "url": "/driver",
+      "icons": [{ "src": "https://picsum.photos/seed/aago-driver/96/96", "sizes": "96x96" }]
     }
   ]
 }

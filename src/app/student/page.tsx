@@ -129,11 +129,6 @@ export default function StudentApp() {
     return activeRoutes.find((r: any) => r.routeName === currentBooking.routeName);
   }, [currentBooking, activeRoutes]);
 
-  const etaMinutes = useMemo(() => {
-    if (!driverProfile?.currentLat || !activeRouteData) return 12;
-    return Math.floor(Math.random() * 8) + 4; 
-  }, [driverProfile, activeRouteData]);
-
   useEffect(() => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -149,7 +144,7 @@ export default function StudentApp() {
       type: 'SCHOLAR_SOS',
       userId: user.uid,
       userName: profile.fullName,
-      city: profile.city,
+      city: profile.city || 'Global',
       timestamp: new Date().toISOString(),
       location: currentPosition || 'Regional Hub'
     });
@@ -213,6 +208,8 @@ export default function StudentApp() {
     return { name: "Regional Scholar", color: "text-primary", bg: "bg-primary/10" };
   }, [profile?.loyaltyPoints]);
 
+  const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/auth/login'); };
+
   if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-slate-950"><Loader2 className="animate-spin text-primary h-12 w-12" /></div>;
 
   return (
@@ -224,16 +221,16 @@ export default function StudentApp() {
           </div>
           <div>
             <h1 className="text-lg font-black italic uppercase tracking-tighter leading-none">AAGO APP</h1>
-            <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mt-1">{profile?.city} Hub</p>
+            <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mt-1">{profile?.city || 'Global'} Hub</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-           <Button variant="ghost" size="icon" onClick={triggerSOS} className="text-red-500 hover:bg-red-500/10 h-10 w-10 rounded-xl border border-white/5 shadow-inner"><AlertTriangle className="h-5 w-5" /></Button>
+           <Button variant="ghost" size="icon" onClick={triggerSOS} className="text-red-500 hover:bg-red-500/10 h-10 w-10 rounded-xl border border-white/5 shadow-inner active:scale-95 transition-all"><AlertTriangle className="h-5 w-5" /></Button>
            <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
         </div>
       </header>
 
-      <main className="flex-1 p-5 space-y-6 overflow-x-hidden">
+      <main className="flex-1 p-5 space-y-6 overflow-x-hidden max-w-lg mx-auto w-full">
         {activeTab === 'home' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex justify-between items-start gap-4">
@@ -326,7 +323,7 @@ export default function StudentApp() {
                             {filteredTrips.length === 0 ? (
                                <div className="p-10 text-center text-[10px] font-black uppercase tracking-widest text-slate-700 italic bg-slate-900/50 rounded-2xl border border-dashed border-white/5">No active shuttles</div>
                             ) : filteredTrips.map((trip: any) => (
-                              <div key={trip.id} onClick={() => setSelectedTrip(trip)} className={`p-6 rounded-2xl border-[2px] transition-all cursor-pointer ${selectedTrip?.id === trip.id ? 'bg-primary border-primary text-slate-950 shadow-lg scale-[1.02]' : 'bg-slate-900 border-transparent'}`}>
+                              <div key={trip.id} onClick={() => setSelectedTrip(trip)} className={`p-6 rounded-2xl border-[2px] transition-all cursor-pointer active:scale-95 ${selectedTrip?.id === trip.id ? 'bg-primary border-primary text-slate-950 shadow-lg' : 'bg-slate-900 border-transparent'}`}>
                                 <h4 className="font-black uppercase italic text-xl tracking-tighter leading-none">{trip.routeName}</h4>
                                 <div className="flex justify-between items-center mt-3">
                                    <Badge className={`${selectedTrip?.id === trip.id ? 'bg-slate-950 text-white' : 'bg-primary/20 text-primary'} border-none text-[8px] font-black uppercase px-3 py-1 rounded-full`}>₹{trip.farePerRider}</Badge>
@@ -347,7 +344,7 @@ export default function StudentApp() {
                             <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-2">Discount Code</Label>
                             <div className="flex gap-2">
                                <Input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="ENTER KEY" className="h-14 bg-slate-900 border-white/5 rounded-xl font-black italic text-lg px-6 text-primary" />
-                               <Button onClick={handleApplyVoucher} className="h-14 px-6 bg-white text-slate-950 rounded-xl font-black uppercase italic text-[10px]">Apply</Button>
+                               <Button onClick={handleApplyVoucher} className="h-14 px-6 bg-white text-slate-950 rounded-xl font-black uppercase italic text-[10px] active:scale-95">Apply</Button>
                             </div>
                           </div>
                           <div className="p-8 bg-primary/10 rounded-[2.5rem] border-[4px] border-primary/20 text-center shadow-inner">
@@ -358,22 +355,22 @@ export default function StudentApp() {
                       )}
                     </div>
                     <div className="pt-6 shrink-0">
-                      {bookingStep === 1 && <Button onClick={() => setBookingStep(2)} disabled={!selectedTrip} className="w-full h-16 bg-primary text-slate-950 rounded-2xl font-black uppercase italic text-lg shadow-lg">Confirm Selection</Button>}
-                      {bookingStep === 2 && <Button onClick={handleConfirmPayment} disabled={isBooking} className="w-full h-16 bg-green-500 text-slate-950 rounded-2xl font-black uppercase italic text-lg shadow-lg">{isBooking ? <Loader2 className="animate-spin h-6 w-6" /> : "Pay & Verify"}</Button>}
-                      {bookingStep === 3 && <Button onClick={() => { setBookingStep(1); setSelectedTrip(null); }} className="w-full h-16 bg-white text-slate-950 rounded-2xl font-black uppercase italic text-lg">Finish</Button>}
+                      {bookingStep === 1 && <Button onClick={() => setBookingStep(2)} disabled={!selectedTrip} className="w-full h-16 bg-primary text-slate-950 rounded-2xl font-black uppercase italic text-lg shadow-lg active:scale-95 transition-all">Confirm Selection</Button>}
+                      {bookingStep === 2 && <Button onClick={handleConfirmPayment} disabled={isBooking} className="w-full h-16 bg-green-500 text-slate-950 rounded-2xl font-black uppercase italic text-lg shadow-lg active:scale-95 transition-all">{isBooking ? <Loader2 className="animate-spin h-6 w-6" /> : "Pay & Verify"}</Button>}
+                      {bookingStep === 3 && <Button onClick={() => { setBookingStep(1); setSelectedTrip(null); }} className="w-full h-16 bg-white text-slate-950 rounded-2xl font-black uppercase italic text-lg active:scale-95 transition-all">Finish</Button>}
                     </div>
                   </DialogContent>
                 </Dialog>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <Card className="p-6 bg-slate-900 border border-white/5 shadow-xl rounded-2xl space-y-2">
+                  <Card className="p-6 bg-slate-900 border border-white/5 shadow-xl rounded-2xl space-y-2 active:scale-95 transition-all">
                     <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Life Missions</p>
                     <div className="flex items-center gap-2">
                       <Bus className="h-5 w-5 text-primary" />
                       <span className="text-2xl font-black text-white italic leading-none">{pastTrips?.length || 0}</span>
                     </div>
                   </Card>
-                  <Card className="p-6 bg-accent border-none shadow-xl rounded-2xl space-y-2">
+                  <Card className="p-6 bg-accent border-none shadow-xl rounded-2xl space-y-2 active:scale-95 transition-all">
                     <p className="text-[9px] font-black uppercase text-slate-900/60 tracking-widest">Eco Savings</p>
                     <div className="flex items-center gap-2 text-slate-900">
                       <Leaf className="h-5 w-5" />
@@ -388,16 +385,12 @@ export default function StudentApp() {
 
         {activeTab === 'map' && (
           <div className="h-full flex flex-col space-y-4 animate-in fade-in duration-500">
-            <h2 className="text-2xl font-black italic uppercase text-white tracking-tighter">Live Grid</h2>
+            <h2 className="text-2xl font-black italic uppercase text-white tracking-tighter pl-1">Live Grid</h2>
             <div className="flex-1 rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl bg-slate-900 relative">
                {isLoaded ? (
                  <GoogleMap mapContainerStyle={mapContainerStyle} center={currentPosition || DEFAULT_CENTER} zoom={13} options={mapOptions}>
                    {currentPosition && <Marker position={currentPosition} />}
-                   {activeTrips?.map((trip: any) => {
-                     const driver = activeTrips.find(t => t.id === trip.id);
-                     // Logic to show other active shuttles on map if needed
-                     return null;
-                   })}
+                   {activeTrips?.map((trip: any) => null)}
                  </GoogleMap>
                ) : <div className="h-full flex items-center justify-center text-slate-700 font-black italic animate-pulse">Scanning Satellite...</div>}
             </div>
@@ -406,7 +399,7 @@ export default function StudentApp() {
 
         {activeTab === 'history' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
-             <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter text-glow">Ride Ledger</h2>
+             <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter text-glow pl-1">Ride Ledger</h2>
              <div className="space-y-3">
                 {!pastTrips || pastTrips.length === 0 ? (
                   <div className="p-12 text-center bg-slate-900/50 rounded-[2rem] border border-dashed border-white/5 shadow-inner">
@@ -415,7 +408,7 @@ export default function StudentApp() {
                   </div>
                 ) : (
                   [...pastTrips].sort((a,b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime()).map((trip: any) => (
-                    <Card key={trip.id} className="bg-slate-900 border border-white/5 rounded-2xl p-6 flex justify-between items-center shadow-lg active:scale-98 transition-all">
+                    <Card key={trip.id} className="bg-slate-900 border border-white/5 rounded-2xl p-6 flex justify-between items-center shadow-lg active:scale-95 transition-all">
                       <div className="space-y-1">
                         <h4 className="font-black text-white uppercase italic text-lg leading-none tracking-tighter">{trip.routeName}</h4>
                         <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{new Date(trip.endTime).toLocaleDateString()}</p>
@@ -449,10 +442,10 @@ export default function StudentApp() {
              <div className="grid grid-cols-1 gap-3 text-left">
                 {[
                   { label: "Identity Check", value: profile?.studentId, icon: ShieldCheck },
-                  { label: "Hub Location", value: profile?.city, icon: MapPin },
+                  { label: "Hub Location", value: profile?.city || 'Not Set', icon: MapPin },
                   { label: "Protocol Tier", value: scholarTier.name, icon: Zap }
                 ].map((item, i) => (
-                  <div key={i} className="bg-slate-900/50 backdrop-blur-md p-6 rounded-2xl flex items-center gap-4 border border-white/5 active:bg-white/5 transition-all">
+                  <div key={i} className="bg-slate-900/50 backdrop-blur-md p-6 rounded-2xl flex items-center gap-4 border border-white/5 active:scale-98 transition-all">
                     <div className="h-10 w-10 bg-slate-950 border border-white/5 rounded-xl flex items-center justify-center text-primary shadow-lg"><item.icon className="h-5 w-5" /></div>
                     <div>
                        <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">{item.label}</p>
@@ -462,7 +455,7 @@ export default function StudentApp() {
                 ))}
              </div>
              
-             <Button variant="ghost" onClick={handleSignOut} className="w-full h-16 bg-red-500/5 text-red-500 rounded-2xl font-black uppercase italic mt-6 border border-red-500/10 active:bg-red-500 active:text-white transition-all">
+             <Button variant="ghost" onClick={handleSignOut} className="w-full h-16 bg-red-500/5 text-red-500 rounded-2xl font-black uppercase italic mt-6 border border-red-500/10 active:scale-95 active:bg-red-500 active:text-white transition-all">
                 <LogOut className="mr-3 h-5 w-5" /> End Session
              </Button>
           </div>
@@ -470,19 +463,19 @@ export default function StudentApp() {
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 p-4 bg-slate-950/80 backdrop-blur-2xl border-t border-white/5 z-50 flex justify-around items-center safe-area-inset-bottom">
-        <Button variant="ghost" onClick={() => setActiveTab('home')} className={`flex-col h-auto py-2 px-4 gap-1 rounded-xl transition-all ${activeTab === 'home' ? 'text-primary' : 'text-slate-600'}`}>
+        <Button variant="ghost" onClick={() => setActiveTab('home')} className={`flex-col h-auto py-2 px-4 gap-1 rounded-xl transition-all active:scale-90 ${activeTab === 'home' ? 'text-primary bg-primary/10' : 'text-slate-600'}`}>
           <LayoutGrid className="h-6 w-6" />
           <span className="text-[8px] font-black uppercase tracking-widest">Home</span>
         </Button>
-        <Button variant="ghost" onClick={() => setActiveTab('map')} className={`flex-col h-auto py-2 px-4 gap-1 rounded-xl transition-all ${activeTab === 'map' ? 'text-primary' : 'text-slate-600'}`}>
+        <Button variant="ghost" onClick={() => setActiveTab('map')} className={`flex-col h-auto py-2 px-4 gap-1 rounded-xl transition-all active:scale-90 ${activeTab === 'map' ? 'text-primary bg-primary/10' : 'text-slate-600'}`}>
           <MapIcon className="h-6 w-6" />
           <span className="text-[8px] font-black uppercase tracking-widest">Radar</span>
         </Button>
-        <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-2 px-4 gap-1 rounded-xl transition-all ${activeTab === 'history' ? 'text-primary' : 'text-slate-600'}`}>
+        <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-2 px-4 gap-1 rounded-xl transition-all active:scale-90 ${activeTab === 'history' ? 'text-primary bg-primary/10' : 'text-slate-600'}`}>
           <History className="h-6 w-6" />
           <span className="text-[8px] font-black uppercase tracking-widest">Ledger</span>
         </Button>
-        <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-2 px-4 gap-1 rounded-xl transition-all ${activeTab === 'profile' ? 'text-primary' : 'text-slate-600'}`}>
+        <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-2 px-4 gap-1 rounded-xl transition-all active:scale-90 ${activeTab === 'profile' ? 'text-primary bg-primary/10' : 'text-slate-600'}`}>
           <UserIcon className="h-6 w-6" />
           <span className="text-[8px] font-black uppercase tracking-widest">Me</span>
         </Button>
@@ -495,11 +488,11 @@ export default function StudentApp() {
             <p className="text-sm font-bold text-slate-500 italic">How was your commute hub?</p>
             <div className="flex justify-center gap-2">
               {[1, 2, 3, 4, 5].map((star) => (
-                <button key={star} onClick={() => setRating(star)} className={`p-4 rounded-xl transition-all ${rating >= star ? 'bg-accent text-slate-950 shadow-lg scale-110' : 'bg-slate-900 text-slate-700'}`}><Star className="h-8 w-8 fill-current" /></button>
+                <button key={star} onClick={() => setRating(star)} className={`p-4 rounded-xl transition-all active:scale-90 ${rating >= star ? 'bg-accent text-slate-950 shadow-lg scale-110' : 'bg-slate-900 text-slate-700'}`}><Star className="h-8 w-8 fill-current" /></button>
               ))}
             </div>
           </div>
-          <Button onClick={submitRating} disabled={!rating} className="h-16 w-full bg-primary text-slate-950 font-black uppercase italic text-lg rounded-2xl shadow-xl">Sync Feedback</Button>
+          <Button onClick={submitRating} disabled={!rating} className="h-16 w-full bg-primary text-slate-950 font-black uppercase italic text-lg rounded-2xl shadow-xl active:scale-95 transition-all">Sync Feedback</Button>
         </DialogContent>
       </Dialog>
     </div>
