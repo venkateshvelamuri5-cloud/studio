@@ -55,9 +55,9 @@ export default {
         sm: 'calc(var(--radius) - 2rem)',
       },
       fontSize: {
-        '10xl': ['10rem', { lineHeight: '0.8' }],
-        '11xl': ['12rem', { lineHeight: '0.8' }],
-        '12xl': ['14rem', { lineHeight: '0.8' }],
+        '10xl': ['5rem', { lineHeight: '1' }],
+        '11xl': ['6rem', { lineHeight: '1' }],
+        '12xl': ['7.5rem', { lineHeight: '1' }],
       }
     },
   },
