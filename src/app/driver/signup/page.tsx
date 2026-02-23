@@ -82,7 +82,7 @@ export default function DriverSignupPage() {
       toast({
         variant: 'destructive',
         title: 'Camera Blocked',
-        description: 'Please allow camera access to take your ID photo.',
+        description: 'Please allow camera access to take your profile photo.',
       });
     }
   };
@@ -114,9 +114,9 @@ export default function DriverSignupPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaRef.current);
       setConfirmationResult(result);
       setStep(5);
-      toast({ title: "Code Sent", description: "Identity check code sent to your phone." });
+      toast({ title: "Code Sent", description: "Verification code sent to your phone." });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: "Could not send code. Check signal." });
+      toast({ variant: "destructive", title: "Error", description: "Failed to send code." });
     } finally {
       setLoading(false);
     }
@@ -143,7 +143,7 @@ export default function DriverSignupPage() {
       });
       router.push('/driver');
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Wrong Code", description: "The verification code is incorrect." });
+      toast({ variant: "destructive", title: "Invalid Code", description: "Verification failed." });
     } finally {
       setLoading(false);
     }
@@ -157,7 +157,7 @@ export default function DriverSignupPage() {
         <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/30">
           <ConnectingDotsLogo className="h-6 w-6 text-black" />
         </div>
-        <h1 className="text-xl font-black italic uppercase tracking-tighter text-foreground">DRIVER JOIN GRID</h1>
+        <h1 className="text-xl font-black italic uppercase tracking-tighter text-foreground">OPERATOR JOIN FLEET</h1>
       </div>
 
       <Card className="w-full max-w-md glass-card border-none rounded-[2.5rem] overflow-hidden shadow-2xl">
@@ -170,44 +170,44 @@ export default function DriverSignupPage() {
           {step === 1 && (
             <div className="space-y-4 animate-in slide-in-from-right-8 duration-500 max-h-[50vh] overflow-y-auto px-1 custom-scrollbar">
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Your Full Name</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Full Name" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Enter Name" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Driving License No.</Label>
-                <Input value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} placeholder="DL-XXXXXXX" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">License Number</Label>
+                <Input value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} placeholder="DL-XXXX" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Aadhaar Card No.</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Gov ID (Aadhaar)</Label>
                 <Input value={aadhaarNumber} onChange={(e) => setAadhaarNumber(e.target.value)} placeholder="XXXX XXXX XXXX" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
               </div>
-              <Button onClick={() => setStep(2)} disabled={!fullName || !licenseNumber || !aadhaarNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4">Next Step</Button>
+              <Button onClick={() => setStep(2)} disabled={!fullName || !licenseNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4">Next Step</Button>
             </div>
           )}
 
           {step === 2 && (
             <div className="space-y-4 animate-in slide-in-from-right-8 duration-500 max-h-[50vh] overflow-y-auto px-1 custom-scrollbar">
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Vehicle Plate No.</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Plate Number</Label>
                 <Input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="AP-31-XX-0000" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Type of Vehicle</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Vehicle Type</Label>
                 <Select value={vehicleType} onValueChange={setVehicleType}>
                   <SelectTrigger className="h-12 bg-white/5 border-white/10 text-foreground font-black italic rounded-xl"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-background border-white/10">
-                    <SelectItem value="Bus">Big Bus</SelectItem>
+                    <SelectItem value="Bus">Large Bus</SelectItem>
                     <SelectItem value="Mini-Bus">Mini Bus</SelectItem>
                     <SelectItem value="Van">Small Van</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Total Seats</Label>
-                <Input type="number" value={seatingCapacity} onChange={(e) => setSeatingCapacity(e.target.value)} placeholder="e.g. 40" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Seats</Label>
+                <Input type="number" value={seatingCapacity} onChange={(e) => setSeatingCapacity(e.target.value)} placeholder="40" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Select Your City</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">City Hub</Label>
                 <Select value={city} onValueChange={setCity}>
                   <SelectTrigger className="h-12 bg-white/5 border-white/10 text-foreground font-black italic rounded-xl"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-background border-white/10">
@@ -216,8 +216,7 @@ export default function DriverSignupPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={() => { setStep(3); getCameraPermission(); }} disabled={!vehicleNumber || !seatingCapacity} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4">Take Photo</Button>
-              <Button variant="ghost" onClick={() => setStep(1)} className="w-full text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Back</Button>
+              <Button onClick={() => { setStep(3); getCameraPermission(); }} disabled={!vehicleNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4">Take Photo</Button>
             </div>
           )}
 
@@ -229,7 +228,7 @@ export default function DriverSignupPage() {
                     <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
                     {!hasCameraPermission && (
                       <div className="absolute inset-0 flex items-center justify-center p-4">
-                        <p className="text-[10px] font-black text-white uppercase tracking-widest">Camera access required</p>
+                        <p className="text-[10px] font-black text-white uppercase tracking-widest">Camera required</p>
                       </div>
                     )}
                   </>
@@ -241,29 +240,35 @@ export default function DriverSignupPage() {
               
               {!photoUrl ? (
                 <Button onClick={capturePhoto} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-lg">
-                  <Camera className="mr-2 h-6 w-6" /> Take ID Photo
+                  <Camera className="mr-2 h-6 w-6" /> Take Photo
                 </Button>
               ) : (
                 <Button onClick={() => { setPhotoUrl(null); getCameraPermission(); }} variant="ghost" className="text-primary font-black uppercase text-[10px] tracking-widest italic flex items-center justify-center gap-2">
-                  <RefreshCcw className="h-4 w-4" /> Retake Photo
+                  <RefreshCcw className="h-4 w-4" /> Retake
                 </Button>
               )}
               
-              <Button onClick={() => setStep(4)} disabled={!photoUrl} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4">Link Phone No.</Button>
-              <Button variant="ghost" onClick={() => setStep(2)} className="w-full text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Back</Button>
+              <Button onClick={() => setStep(4)} disabled={!photoUrl} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4">Link Phone</Button>
             </div>
           )}
 
           {step === 4 && (
             <form onSubmit={handleSendOtp} className="space-y-6 animate-in zoom-in-95">
               <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Your Phone Number</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number</Label>
                 <div className="relative">
-                  <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-primary text-lg">+91</span>
-                  <Input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="0000000000" className="h-16 pl-16 rounded-xl bg-white/5 border-white/10 font-black italic text-xl" required />
+                  <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary text-lg z-10">+91</span>
+                  <Input 
+                    type="tel" 
+                    value={phoneNumber} 
+                    onChange={(e) => setPhoneNumber(e.target.value)} 
+                    placeholder="0000000000" 
+                    className="h-16 pl-16 rounded-xl bg-white/5 border-white/10 font-black italic text-xl relative" 
+                    required 
+                  />
                 </div>
               </div>
-              <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-18 rounded-2xl font-black uppercase italic shadow-xl">Send Code</Button>
+              <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl">Send Code</Button>
             </form>
           )}
 
@@ -273,13 +278,13 @@ export default function DriverSignupPage() {
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Enter Code</Label>
                 <Input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" className="h-20 text-center text-4xl tracking-[0.6em] rounded-2xl bg-white/5 border-white/10 font-black text-primary" maxLength={6} required />
               </div>
-              <Button type="submit" disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-18 rounded-2xl font-black uppercase italic shadow-xl">Start Work</Button>
+              <Button type="submit" disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-18 rounded-2xl font-black uppercase italic shadow-xl">Finish</Button>
             </form>
           )}
         </CardContent>
 
         <CardFooter className="bg-white/5 p-8 flex flex-col gap-4 border-t border-white/5">
-          <Link href="/driver/login" className="text-[10px] font-black uppercase italic text-primary hover:underline tracking-widest">Login Instead</Link>
+          <Link href="/driver/login" className="text-[10px] font-black uppercase italic text-primary hover:underline tracking-widest">Sign In</Link>
         </CardFooter>
       </Card>
     </div>

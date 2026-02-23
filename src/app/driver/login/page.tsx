@@ -63,9 +63,9 @@ export default function DriverLoginPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaRef.current);
       setConfirmationResult(result);
       setStep(2);
-      toast({ title: "Terminal Synced", description: "Auth code sent to operator handset." });
+      toast({ title: "Code Sent", description: "Verification code sent to your phone." });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Protocol Failed", description: "Check network signal." });
+      toast({ variant: "destructive", title: "Error", description: "Check your signal." });
     } finally {
       setLoading(false);
     }
@@ -82,7 +82,7 @@ export default function DriverLoginPage() {
       const userSnap = await getDoc(doc(db, 'users', user.uid));
 
       if (!userSnap.exists()) {
-        toast({ title: "Identity Required", description: "Profile not detected. Redirecting to onboarding..." });
+        toast({ title: "Join Fleet", description: "Profile not found. Please join the fleet." });
         router.push('/driver/signup');
         return;
       }
@@ -90,13 +90,13 @@ export default function DriverLoginPage() {
       const profile = userSnap.data();
       if (profile.role !== 'driver') {
         await signOut(auth!);
-        toast({ variant: "destructive", title: "Restricted Access", description: "Authorized operators only." });
-        setStep(1);
+        toast({ variant: "destructive", title: "Wrong Portal", description: "Please use the Scholar login." });
+        router.push('/auth/login');
       } else {
         router.push('/driver');
       }
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Invalid Protocol", description: "Verification sequence denied." });
+      toast({ variant: "destructive", title: "Invalid Code", description: "Verification failed." });
     } finally {
       setLoading(false);
     }
@@ -111,8 +111,8 @@ export default function DriverLoginPage() {
           <ConnectingDotsLogo className="h-14 w-14 text-black" />
         </div>
         <div className="text-center">
-          <h1 className="text-4xl font-black font-headline italic uppercase tracking-tighter text-foreground leading-none">OPERATOR</h1>
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mt-2">Grid Terminal Access</p>
+          <h1 className="text-4xl font-black font-headline italic uppercase tracking-tighter text-foreground leading-none">DRIVER</h1>
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mt-2">Operator Login</p>
         </div>
       </div>
 
@@ -127,15 +127,15 @@ export default function DriverLoginPage() {
           {step === 1 ? (
             <form onSubmit={handleSendOtp} className="space-y-8">
               <div className="space-y-3">
-                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Operator ID (Phone)</Label>
+                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Phone Number</Label>
                 <div className="relative">
-                  <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary italic">+91</span>
+                  <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary italic z-10">+91</span>
                   <Input 
                     type="tel" 
                     value={phoneNumber} 
                     onChange={(e) => setPhoneNumber(e.target.value)} 
                     placeholder="0000000000" 
-                    className="h-18 w-full pl-18 rounded-2xl bg-white/5 border-white/10 font-black text-foreground text-xl italic outline-none" 
+                    className="h-16 w-full pl-16 rounded-2xl bg-white/5 border-white/10 font-black text-foreground text-xl italic outline-none relative" 
                     required
                   />
                 </div>
@@ -143,15 +143,15 @@ export default function DriverLoginPage() {
               <Button 
                 type="submit" 
                 disabled={loading || phoneNumber.length < 10}
-                className="w-full bg-primary hover:bg-primary/90 text-black h-20 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all active:scale-95"
+                className="w-full bg-primary hover:bg-primary/90 text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all active:scale-95"
               >
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Request Access"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Request Code"}
               </Button>
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-8">
               <div className="space-y-3">
-                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Sequence Code</Label>
+                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Verification Code</Label>
                 <Input 
                   type="text" 
                   value={otp} 
@@ -167,9 +167,9 @@ export default function DriverLoginPage() {
                 disabled={loading || otp.length < 6}
                 className="w-full bg-accent hover:bg-accent/90 text-black h-20 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all active:scale-95"
               >
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Confirm Clearance"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Me"}
               </Button>
-              <Button variant="ghost" onClick={() => setStep(1)} className="w-full font-black text-muted-foreground uppercase italic text-[10px] tracking-widest">Abort Sequence</Button>
+              <Button variant="ghost" onClick={() => setStep(1)} className="w-full font-black text-muted-foreground uppercase italic text-[10px] tracking-widest">Change Phone</Button>
             </form>
           )}
         </CardContent>

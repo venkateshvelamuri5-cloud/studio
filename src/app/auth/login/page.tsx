@@ -66,7 +66,7 @@ export default function LoginPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaRef.current);
       setConfirmationResult(result);
       setStep(2);
-      toast({ title: "OTP Sent", description: "Verification code sent to your handset." });
+      toast({ title: "Code Sent", description: "Verification code sent to your phone." });
     } catch (error: any) {
       console.error(error);
       setHostnameError(true);
@@ -86,7 +86,7 @@ export default function LoginPage() {
       const userSnap = await getDoc(doc(db, 'users', user.uid));
 
       if (!userSnap.exists()) {
-        toast({ title: "Profile Missing", description: "Identity not found. Initializing registration..." });
+        toast({ title: "New Member", description: "Please complete your profile registration." });
         router.push('/auth/signup');
         return;
       }
@@ -94,13 +94,13 @@ export default function LoginPage() {
       const profile = userSnap.data();
       if (profile.role === 'driver') {
         await signOut(auth!);
-        toast({ variant: "destructive", title: "Access Denied", description: "Use Driver Terminal." });
+        toast({ variant: "destructive", title: "Wrong Portal", description: "Drivers must use the Driver App login." });
         router.push('/driver/login');
       } else {
         router.push('/student');
       }
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Invalid Code", description: "The verification sequence is incorrect." });
+      toast({ variant: "destructive", title: "Invalid Code", description: "The code you entered is wrong." });
     } finally {
       setLoading(false);
     }
@@ -116,15 +116,15 @@ export default function LoginPage() {
         </div>
         <div className="text-center">
           <h1 className="text-3xl font-black font-headline italic uppercase tracking-tighter text-primary text-glow">AAGO HUB</h1>
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground mt-2">Scholar Onboarding</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground mt-2">Scholar Login</p>
         </div>
       </div>
 
       <Card className="w-full max-w-md glass-card border-none rounded-[3rem] overflow-hidden shadow-2xl">
         <CardHeader className="space-y-3 pt-12 pb-8 text-center">
-          <CardTitle className="text-2xl font-black uppercase italic tracking-tighter text-foreground leading-none">Access Portal</CardTitle>
+          <CardTitle className="text-2xl font-black uppercase italic tracking-tighter text-foreground leading-none">Enter Portal</CardTitle>
           <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic">
-            Enter the mobility grid
+            Access your mobility grid
           </CardDescription>
         </CardHeader>
         <CardContent className="px-10 pb-8">
@@ -139,15 +139,15 @@ export default function LoginPage() {
           {step === 1 ? (
             <form onSubmit={handleSendOtp} className="space-y-8">
               <div className="space-y-3">
-                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Phone Signal</Label>
+                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Phone Number</Label>
                 <div className="relative">
-                  <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary italic">+91</span>
+                  <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary italic z-10">+91</span>
                   <Input 
                     type="tel" 
                     value={phoneNumber} 
                     onChange={(e) => setPhoneNumber(e.target.value)} 
                     placeholder="0000000000" 
-                    className="h-18 pl-18 rounded-2xl bg-white/5 border-white/10 font-black italic text-xl focus:ring-2 focus:ring-primary" 
+                    className="h-16 pl-16 rounded-2xl bg-white/5 border-white/10 font-black italic text-xl focus:ring-2 focus:ring-primary relative" 
                     required
                   />
                 </div>
@@ -155,15 +155,15 @@ export default function LoginPage() {
               <Button 
                 type="submit" 
                 disabled={loading || phoneNumber.length < 10}
-                className="w-full bg-primary hover:bg-primary/90 text-black h-18 rounded-2xl text-lg font-black uppercase italic shadow-2xl shadow-primary/20 transition-all active:scale-95"
+                className="w-full bg-primary hover:bg-primary/90 text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl shadow-primary/20 transition-all active:scale-95"
               >
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Request OTP"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Request Code"}
               </Button>
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-8">
               <div className="space-y-3">
-                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Auth Sequence</Label>
+                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Verification Code</Label>
                 <Input 
                   type="text" 
                   value={otp} 
@@ -177,17 +177,17 @@ export default function LoginPage() {
               <Button 
                 type="submit" 
                 disabled={loading || otp.length < 6}
-                className="w-full bg-accent hover:bg-accent/90 text-black h-18 rounded-2xl text-lg font-black uppercase italic shadow-2xl shadow-accent/20 transition-all active:scale-95"
+                className="w-full bg-accent hover:bg-accent/90 text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl shadow-accent/20 transition-all active:scale-95"
               >
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Identity"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Me"}
               </Button>
-              <Button variant="ghost" onClick={() => setStep(1)} className="w-full font-black text-muted-foreground uppercase italic text-[10px] tracking-widest">Abort Sequence</Button>
+              <Button variant="ghost" onClick={() => setStep(1)} className="w-full font-black text-muted-foreground uppercase italic text-[10px] tracking-widest">Change Phone</Button>
             </form>
           )}
         </CardContent>
         <CardFooter className="flex flex-col space-y-4 bg-white/5 p-10">
           <p className="text-xs text-center font-bold text-muted-foreground uppercase tracking-widest">
-            New Grid Node?{' '}
+            New here?{' '}
             <Link href="/auth/signup" className="text-primary font-black hover:underline italic">Create Profile</Link>
           </p>
         </CardFooter>
