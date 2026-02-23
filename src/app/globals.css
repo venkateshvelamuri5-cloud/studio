@@ -10,20 +10,20 @@
     --card-foreground: 210 40% 98%;
     --popover: 222 47% 4%;
     --popover-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;
+    --primary: 199 89% 48%;
     --primary-foreground: 222.2 47% 11.2%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 199 89% 48%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --accent: 180 100% 50%;
+    --accent-foreground: 222.2 47% 11.2%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
-    --radius: 2rem;
+    --ring: 199 89% 48%;
+    --radius: 3rem;
   }
 }
 
@@ -35,25 +35,34 @@
     @apply bg-background text-foreground font-body antialiased selection:bg-primary selection:text-white;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-headline tracking-tighter leading-none uppercase italic;
+    @apply font-headline tracking-tighter leading-none uppercase italic font-black;
   }
 }
 
 @layer utilities {
   .text-glow {
-    text-shadow: 0 0 30px rgba(59, 130, 246, 0.5);
+    text-shadow: 0 0 40px rgba(0, 255, 255, 0.4);
   }
   .glass-card {
-    @apply bg-white/5 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)];
+    @apply bg-white/5 backdrop-blur-3xl border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.5)];
   }
   .perspective-1000 {
     perspective: 1000px;
   }
   .animate-float {
-    animation: float 6s ease-in-out infinite;
+    animation: float 8s ease-in-out infinite;
   }
   @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-20px); }
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-30px) rotate(2deg); }
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
   }
 }

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -40,7 +39,10 @@ import {
   Tag,
   Ticket,
   Percent,
-  Settings
+  Settings,
+  ShieldCheck,
+  Cpu,
+  Globe
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
 import { collection, query, doc, setDoc, orderBy, limit, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
@@ -79,7 +81,7 @@ export default function AdminDashboard() {
   // AI Architect State
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiInput, setAiInput] = useState<AdminGenerateShuttleRoutesInput>({
-    studentDemandPatterns: "High demand from South Campus to Beach Road during 4-6 PM.",
+    studentDemandPatterns: "High demand from South Campus hub between 4-6 PM.",
     historicalTrafficData: "Heavy congestion on NH-16 during peak morning hours.",
     preferredServiceHours: "6 AM to 11 PM",
   });
@@ -134,7 +136,7 @@ export default function AdminDashboard() {
         vzmUpiId: vzmUpi,
         updatedAt: new Date().toISOString()
       }, { merge: true });
-      toast({ title: "Network Config Saved", description: "Payment IDs updated." });
+      toast({ title: "Grid Config Synced", description: "Payment IDs updated globally." });
     } catch {
       toast({ variant: "destructive", title: "Update Failed" });
     } finally {
@@ -150,7 +152,7 @@ export default function AdminDashboard() {
         ...newRoute,
         createdAt: new Date().toISOString()
       });
-      toast({ title: "Corridor Deployed", description: `${newRoute.routeName} is now live.` });
+      toast({ title: "Corridor Engaged", description: `${newRoute.routeName} is now live.` });
       setIsRouteModalOpen(false);
       setNewRoute({ routeName: '', city: 'Vizag', baseFare: 20, status: 'active', stops: [{ name: '', lat: 0, lng: 0 }] });
     } catch {
@@ -164,7 +166,7 @@ export default function AdminDashboard() {
     if (!db) return;
     try {
       await updateDoc(doc(db, 'routes', id), { baseFare: fare });
-      toast({ title: "Price Updated", description: "New fare is now active." });
+      toast({ title: "Market Price Updated", description: "New corridor fare is active." });
       setEditingRouteId(null);
     } catch {
       toast({ variant: "destructive", title: "Update Failed" });
@@ -180,7 +182,7 @@ export default function AdminDashboard() {
         isActive: true,
         createdAt: new Date().toISOString()
       });
-      toast({ title: "Voucher Generated", description: `${newVoucherCode.toUpperCase()} is ready for scholars.` });
+      toast({ title: "Voucher Deployed", description: `${newVoucherCode.toUpperCase()} ready for use.` });
       setNewVoucherCode('');
     } catch {
       toast({ variant: "destructive", title: "Creation Failed" });
@@ -191,7 +193,7 @@ export default function AdminDashboard() {
     if (!db) return;
     try {
       await deleteDoc(doc(db, 'vouchers', id));
-      toast({ title: "Voucher Revoked" });
+      toast({ title: "Voucher Terminated" });
     } catch {
       toast({ variant: "destructive", title: "Action Failed" });
     }
@@ -201,7 +203,7 @@ export default function AdminDashboard() {
     if (!db) return;
     try {
       await deleteDoc(doc(db, 'routes', id));
-      toast({ title: "Route Removed", description: "Shuttle corridor decommissioned." });
+      toast({ title: "Route Scuttled", description: "Corridor removed from regional grid." });
     } catch {
       toast({ variant: "destructive", title: "Delete Failed" });
     }
@@ -211,7 +213,7 @@ export default function AdminDashboard() {
     if (!db) return;
     try {
       await deleteDoc(doc(db, 'alerts', id));
-      toast({ title: "Signal Resolved", description: "Emergency protocol concluded." });
+      toast({ title: "SOS Resolved", description: "Emergency protocol concluded." });
     } catch {
       toast({ variant: "destructive", title: "Resolution Failed" });
     }
@@ -222,7 +224,7 @@ export default function AdminDashboard() {
     try {
       const result = await generateShuttleRoutes(aiInput);
       setAiResult(result);
-      toast({ title: "AI Synthesis Complete", description: "New corridors generated." });
+      toast({ title: "AI Synthesis Optimized", description: "New corridors identified." });
     } catch (e: any) {
       toast({ variant: "destructive", title: "AI Generation Failed", description: e.message });
     } finally {
@@ -232,99 +234,101 @@ export default function AdminDashboard() {
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/admin/login'); };
 
-  if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin h-10 w-10 text-primary" /></div>;
+  if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-slate-950"><Loader2 className="animate-spin h-16 w-16 text-primary" /></div>;
 
   return (
-    <div className="flex h-screen bg-slate-50 font-body text-slate-900">
-      <aside className="w-72 bg-white flex flex-col shrink-0 border-r border-slate-200 shadow-2xl z-20">
-        <div className="p-8 h-24 flex items-center border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-primary/10 rounded-xl"><Bus className="h-5 w-5 text-primary" /></div>
-            <span className="text-2xl font-black font-headline italic tracking-tighter uppercase text-primary leading-none">AAGO OPS</span>
+    <div className="flex h-screen bg-slate-950 text-white font-body overflow-hidden">
+      <aside className="w-80 bg-slate-900 flex flex-col shrink-0 border-r border-white/5 shadow-2xl z-20">
+        <div className="p-10 h-32 flex items-center border-b border-white/5">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-primary/20 rounded-2xl"><Bus className="h-6 w-6 text-primary" /></div>
+            <span className="text-3xl font-black font-headline italic tracking-[calc(-0.05em)] uppercase text-primary leading-none">AAGO OPS</span>
           </div>
         </div>
-        <nav className="flex-1 p-6 space-y-2 overflow-y-auto custom-scrollbar">
+        <nav className="flex-1 p-8 space-y-4 overflow-y-auto custom-scrollbar">
           {[
-            { id: 'dashboard', label: 'Overview', icon: LayoutDashboard },
-            { id: 'routes', label: 'Fleet Grid', icon: RouteIcon },
+            { id: 'dashboard', label: 'Grid Stats', icon: LayoutDashboard },
+            { id: 'routes', label: 'Corridors', icon: RouteIcon },
             { id: 'vouchers', label: 'Voucher Hub', icon: Ticket },
             { id: 'users', label: 'Identity Vault', icon: Users },
-            { id: 'payments', label: 'Payment Hub', icon: QrCode },
+            { id: 'payments', label: 'Payment Grid', icon: QrCode },
             { id: 'alerts', label: 'SOS Radar', icon: AlertTriangle },
             { id: 'ai-architect', label: 'AI Architect', icon: Sparkles },
           ].map((item) => (
             <Button 
               key={item.id} variant="ghost" 
               onClick={() => setActiveTab(item.id as any)} 
-              className={`w-full justify-start rounded-xl font-black uppercase italic h-12 px-5 transition-all ${activeTab === item.id ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'text-slate-500 hover:text-primary hover:bg-slate-50'}`}
+              className={`w-full justify-start rounded-2xl font-black uppercase italic h-16 px-6 transition-all border-none ${activeTab === item.id ? 'bg-primary text-slate-950 shadow-[0_0_40px_rgba(0,255,255,0.2)]' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
             >
-              <item.icon className="mr-4 h-5 w-5" /> {item.label}
+              <item.icon className="mr-5 h-6 w-6" /> {item.label}
             </Button>
           ))}
-          <div className="pt-8 mt-8 border-t border-slate-100">
-            <Button variant="ghost" className="w-full justify-start text-red-500 hover:bg-red-50 font-black uppercase italic h-12" onClick={handleSignOut}>
-              <LogOut className="mr-4 h-5 w-5" /> Sign Out
+          <div className="pt-10 mt-10 border-t border-white/5">
+            <Button variant="ghost" className="w-full justify-start text-red-500 hover:bg-red-500/10 font-black uppercase italic h-16 px-6" onClick={handleSignOut}>
+              <LogOut className="mr-5 h-6 w-6" /> Terminate
             </Button>
           </div>
         </nav>
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-24 bg-white border-b border-slate-100 px-10 flex items-center justify-between shadow-sm">
+        <header className="h-32 bg-slate-900/40 border-b border-white/5 px-12 flex items-center justify-between backdrop-blur-3xl">
           <div>
-            <h2 className="text-3xl font-black font-headline text-slate-900 italic uppercase tracking-tighter leading-none">{activeTab.replace('-', ' ')}</h2>
-            <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.4em] mt-2">Regional Hub Management Terminal</p>
+            <h2 className="text-5xl font-black font-headline text-white italic uppercase tracking-tighter leading-none text-glow">{activeTab.replace('-', ' ')}</h2>
+            <p className="text-[11px] font-black uppercase text-slate-500 tracking-[0.5em] mt-3">Regional Network Command Terminal</p>
           </div>
-          <Badge className="bg-green-500/10 text-green-600 border-none font-black uppercase text-[10px] tracking-widest px-6 py-2 rounded-full">Network Pulse: 100%</Badge>
+          <div className="flex items-center gap-6">
+            <Badge className="bg-cyan-500/10 text-cyan-400 border-none font-black uppercase text-[10px] tracking-widest px-8 py-3 rounded-full shadow-inner">Hub Pulse: 100%</Badge>
+          </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-12 space-y-12 custom-scrollbar">
           {activeTab === 'dashboard' && (
-            <div className="space-y-10 animate-in fade-in">
+            <div className="space-y-12 animate-in fade-in duration-700">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                 {[
-                  { label: 'Network Revenue', value: `₹${stats.revenue.toFixed(0)}`, icon: IndianRupee, color: 'text-green-500', bg: 'bg-green-50' },
-                  { label: 'Driver Payouts (90%)', value: `₹${stats.payouts.toFixed(0)}`, icon: IndianRupee, color: 'text-blue-500', bg: 'bg-blue-50' },
-                  { label: 'Hub Commission (10%)', value: `₹${stats.commissions.toFixed(0)}`, icon: TrendingUp, color: 'text-orange-500', bg: 'bg-orange-50' },
-                  { label: 'Active Missions', value: allTrips?.filter(t => t.status === 'active').length || 0, icon: Navigation, color: 'text-primary', bg: 'bg-primary/10' },
+                  { label: 'Grid Revenue', value: `₹${stats.revenue.toFixed(0)}`, icon: IndianRupee, color: 'text-green-400', bg: 'bg-green-500/10' },
+                  { label: 'Captain Payouts (90%)', value: `₹${stats.payouts.toFixed(0)}`, icon: IndianRupee, color: 'text-primary', bg: 'bg-primary/10' },
+                  { label: 'Hub Earnings (10%)', value: `₹${stats.commissions.toFixed(0)}`, icon: TrendingUp, color: 'text-accent', bg: 'bg-accent/10' },
+                  { label: 'Active Missions', value: allTrips?.filter(t => t.status === 'active').length || 0, icon: Navigation, color: 'text-orange-400', bg: 'bg-orange-500/10' },
                 ].map((metric, i) => (
-                  <Card key={i} className="border-none bg-white rounded-[2.5rem] shadow-sm hover:shadow-md transition-all">
-                    <CardContent className="p-8">
-                      <div className={`p-4 ${metric.bg} rounded-2xl w-fit mb-6`}><metric.icon className={`h-6 w-6 ${metric.color}`} /></div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{metric.label}</p>
-                      <h3 className="text-3xl font-black text-slate-900 font-headline italic leading-none">{metric.value}</h3>
+                  <Card key={i} className="bg-slate-900 border border-white/5 rounded-[4rem] shadow-2xl group hover:scale-[1.02] transition-transform">
+                    <CardContent className="p-10">
+                      <div className={`p-5 ${metric.bg} rounded-[2rem] w-fit mb-8 shadow-inner`}><metric.icon className={`h-8 w-8 ${metric.color}`} /></div>
+                      <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3">{metric.label}</p>
+                      <h3 className="text-5xl font-black text-white font-headline italic leading-none tracking-tighter text-glow">{metric.value}</h3>
                     </CardContent>
                   </Card>
                 ))}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                <Card className="border-none bg-white rounded-[3rem] shadow-sm overflow-hidden">
-                  <CardHeader className="p-10 border-b border-slate-50"><CardTitle className="text-xl font-black italic uppercase text-slate-900 flex items-center gap-3"><Activity className="h-6 w-6 text-primary" /> Active Missions</CardTitle></CardHeader>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                <Card className="bg-slate-900 border border-white/5 rounded-[4.5rem] shadow-2xl overflow-hidden">
+                  <CardHeader className="p-12 border-b border-white/5 bg-white/5"><CardTitle className="text-2xl font-black italic uppercase text-white flex items-center gap-4"><Activity className="h-7 w-7 text-primary" /> Active Missions</CardTitle></CardHeader>
                   <CardContent className="p-0">
                     <table className="w-full text-left">
                       <thead>
-                        <tr className="bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">
-                          <th className="py-6 px-10">Corridor</th>
-                          <th className="py-6">Operator</th>
-                          <th className="py-6">Status</th>
-                          <th className="py-6 px-10 text-right">Yield</th>
+                        <tr className="bg-slate-950 text-[10px] font-black uppercase text-slate-500 tracking-widest border-b border-white/5">
+                          <th className="py-8 px-12">Corridor</th>
+                          <th className="py-8">Captain</th>
+                          <th className="py-8">Status</th>
+                          <th className="py-8 px-12 text-right">Yield</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-50">
+                      <tbody className="divide-y divide-white/5">
                         {!allTrips || allTrips.length === 0 ? (
-                          <tr><td colSpan={4} className="py-20 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">No mission data detected</td></tr>
+                          <tr><td colSpan={4} className="py-24 text-center text-sm font-black text-slate-700 uppercase italic">No active telemetry</td></tr>
                         ) : (
                           allTrips.map((trip: any) => (
-                            <tr key={trip.id} className="hover:bg-slate-50 transition-all">
-                              <td className="py-8 px-10"><span className="font-black text-slate-900 uppercase italic text-xs">{trip.routeName}</span></td>
-                              <td className="py-8 text-xs font-bold text-slate-500 italic uppercase">{trip.driverName}</td>
-                              <td className="py-8">
-                                <Badge className={`${trip.status === 'completed' ? 'bg-green-100 text-green-600' : 'bg-primary/10 text-primary'} border-none text-[8px] font-black uppercase`}>
+                            <tr key={trip.id} className="hover:bg-white/5 transition-all">
+                              <td className="py-10 px-12"><span className="font-black text-white uppercase italic text-sm">{trip.routeName}</span></td>
+                              <td className="py-10 text-xs font-bold text-slate-400 italic uppercase">{trip.driverName}</td>
+                              <td className="py-10">
+                                <Badge className={`${trip.status === 'completed' ? 'bg-green-500/10 text-green-400' : 'bg-primary/10 text-primary'} border-none text-[9px] font-black uppercase tracking-widest px-4 py-1.5`}>
                                   {trip.status}
                                 </Badge>
                               </td>
-                              <td className="py-8 px-10 text-right font-black text-slate-900 italic text-base">₹{(trip.totalYield || 0).toFixed(0)}</td>
+                              <td className="py-10 px-12 text-right font-black text-white italic text-xl">₹{(trip.totalYield || 0).toFixed(0)}</td>
                             </tr>
                           ))
                         )}
@@ -333,24 +337,24 @@ export default function AdminDashboard() {
                   </CardContent>
                 </Card>
 
-                <Card className="border-none bg-white rounded-[3rem] shadow-sm overflow-hidden">
-                  <CardHeader className="p-10 border-b border-slate-50"><CardTitle className="text-xl font-black italic uppercase text-slate-900 flex items-center gap-3"><Users className="h-6 w-6 text-primary" /> Workforce Summary</CardTitle></CardHeader>
+                <Card className="bg-slate-900 border border-white/5 rounded-[4.5rem] shadow-2xl overflow-hidden">
+                  <CardHeader className="p-12 border-b border-white/5 bg-white/5"><CardTitle className="text-2xl font-black italic uppercase text-white flex items-center gap-4"><Users className="h-7 w-7 text-primary" /> Captain Hub</CardTitle></CardHeader>
                   <CardContent className="p-0">
-                    <div className="divide-y divide-slate-50">
+                    <div className="divide-y divide-white/5">
                       {allUsers?.filter(u => u.role === 'driver').map((driver: any) => (
-                        <div key={driver.uid} className="p-8 flex items-center justify-between hover:bg-slate-50 transition-all">
-                          <div className="flex items-center gap-6">
-                             <div className="h-14 w-14 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-slate-400 overflow-hidden">
-                               {driver.photoUrl ? <img src={driver.photoUrl} className="h-full w-full object-cover" /> : driver.fullName?.[0]}
+                        <div key={driver.uid} className="p-10 flex items-center justify-between hover:bg-white/5 transition-all">
+                          <div className="flex items-center gap-8">
+                             <div className="h-16 w-16 rounded-[2rem] bg-slate-950 border border-white/5 flex items-center justify-center font-black text-slate-700 overflow-hidden shadow-inner">
+                               {driver.photoUrl ? <img src={driver.photoUrl} className="h-full w-full object-cover" /> : <span className="text-2xl italic">{driver.fullName?.[0]}</span>}
                              </div>
                              <div>
-                               <p className="font-black text-slate-900 uppercase italic text-sm">{driver.fullName}</p>
-                               <p className="text-[10px] font-bold text-slate-400 uppercase italic">{driver.vehicleNumber} • {driver.city}</p>
+                               <p className="font-black text-white uppercase italic text-base leading-none tracking-tight">{driver.fullName}</p>
+                               <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">{driver.vehicleNumber} • {driver.city}</p>
                              </div>
                           </div>
                           <div className="text-right">
-                             <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Lifetime Earnings</p>
-                             <p className="text-lg font-black text-primary italic">₹{(driver.totalEarnings || 0).toFixed(0)}</p>
+                             <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2">Lifetime Payout</p>
+                             <p className="text-2xl font-black text-primary italic leading-none">₹{(driver.totalEarnings || 0).toFixed(0)}</p>
                           </div>
                         </div>
                       ))}
@@ -362,96 +366,98 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === 'routes' && (
-            <div className="space-y-10 animate-in fade-in">
+            <div className="space-y-12 animate-in fade-in duration-700">
               <div className="flex justify-between items-center">
-                 <h3 className="text-3xl font-black italic uppercase text-slate-900">Corridor Management</h3>
+                 <h3 className="text-5xl font-black italic uppercase text-white tracking-tighter text-glow">Corridor Grid</h3>
                  <Dialog open={isRouteModalOpen} onOpenChange={setIsRouteModalOpen}>
                     <DialogTrigger asChild>
-                       <Button className="bg-primary text-white rounded-2xl font-black uppercase italic h-14 px-8 shadow-xl shadow-primary/20"><Plus className="mr-2 h-5 w-5" /> Deploy New Corridor</Button>
+                       <Button className="bg-primary text-slate-950 rounded-[2.5rem] font-black uppercase italic h-20 px-12 shadow-[0_0_40px_rgba(0,255,255,0.2)] hover:scale-105 transition-all text-xl"><Plus className="mr-3 h-7 w-7" /> Deploy Corridor</Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-2xl bg-white border-none rounded-[3rem] p-10 overflow-hidden">
-                       <DialogHeader><DialogTitle className="text-3xl font-black italic uppercase text-primary">Deploy Corridor</DialogTitle></DialogHeader>
-                       <div className="space-y-6 py-6 max-h-[60vh] overflow-y-auto px-2 custom-scrollbar">
-                          <div className="grid grid-cols-2 gap-6">
-                             <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase text-slate-400">Route Name</Label>
-                                <Input value={newRoute.routeName} onChange={e => setNewRoute({...newRoute, routeName: e.target.value})} placeholder="e.g. Coastal Express" className="h-14 rounded-xl bg-slate-50 border-none font-bold italic" />
+                    <DialogContent className="max-w-3xl bg-slate-950 border border-white/10 rounded-[5rem] p-16 shadow-[0_0_150px_rgba(0,0,0,1)] text-white">
+                       <DialogHeader><DialogTitle className="text-6xl font-black italic uppercase text-primary leading-none tracking-tighter text-glow">New Corridor</DialogTitle></DialogHeader>
+                       <div className="space-y-10 py-10 max-h-[60vh] overflow-y-auto px-4 custom-scrollbar">
+                          <div className="grid grid-cols-2 gap-10">
+                             <div className="space-y-4">
+                                <Label className="text-[12px] font-black uppercase text-slate-500 tracking-[0.4em] ml-4">Corridor Name</Label>
+                                <Input value={newRoute.routeName} onChange={e => setNewRoute({...newRoute, routeName: e.target.value})} placeholder="e.g. Coastline Express" className="h-20 rounded-[2.5rem] bg-white/5 border-white/5 font-black italic text-2xl px-10 text-white" />
                              </div>
-                             <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase text-slate-400">Hub City</Label>
-                                <select value={newRoute.city} onChange={e => setNewRoute({...newRoute, city: e.target.value})} className="w-full h-14 rounded-xl bg-slate-50 border-none font-bold italic px-4">
-                                   <option value="Vizag">Vizag</option>
-                                   <option value="Vizianagaram">Vizianagaram</option>
+                             <div className="space-y-4">
+                                <Label className="text-[12px] font-black uppercase text-slate-500 tracking-[0.4em] ml-4">Regional Hub</Label>
+                                <select value={newRoute.city} onChange={e => setNewRoute({...newRoute, city: e.target.value})} className="w-full h-20 rounded-[2.5rem] bg-white/5 border border-white/5 font-black italic text-2xl px-10 text-white appearance-none">
+                                   <option value="Vizag" className="bg-slate-950">Vizag</option>
+                                   <option value="Vizianagaram" className="bg-slate-950">Vizianagaram</option>
                                 </select>
                              </div>
                           </div>
-                          <div className="space-y-2">
-                             <Label className="text-[10px] font-black uppercase text-slate-400">Base Fare (₹)</Label>
-                             <Input type="number" value={newRoute.baseFare} onChange={e => setNewRoute({...newRoute, baseFare: parseInt(e.target.value)})} className="h-14 rounded-xl bg-slate-50 border-none font-bold italic" />
+                          <div className="space-y-4">
+                             <Label className="text-[12px] font-black uppercase text-slate-500 tracking-[0.4em] ml-4">Base Fare (₹)</Label>
+                             <Input type="number" value={newRoute.baseFare} onChange={e => setNewRoute({...newRoute, baseFare: parseInt(e.target.value)})} className="h-20 rounded-[2.5rem] bg-white/5 border-white/5 font-black italic text-2xl px-10 text-white" />
                           </div>
                           
-                          <div className="space-y-4">
-                             <div className="flex justify-between items-center">
-                                <Label className="text-[10px] font-black uppercase text-slate-400">Stops & Coordinates</Label>
-                                <Button variant="ghost" size="sm" onClick={() => setNewRoute({...newRoute, stops: [...newRoute.stops, {name: '', lat: 0, lng: 0}]})} className="text-primary font-black uppercase italic text-[10px]"><Plus className="mr-1 h-3 w-3" /> Add Stop</Button>
+                          <div className="space-y-6">
+                             <div className="flex justify-between items-center px-4">
+                                <Label className="text-[12px] font-black uppercase text-slate-500 tracking-[0.4em]">Station Telemetry</Label>
+                                <Button variant="ghost" size="sm" onClick={() => setNewRoute({...newRoute, stops: [...newRoute.stops, {name: '', lat: 0, lng: 0}]})} className="text-primary font-black uppercase italic text-[11px] tracking-widest"><Plus className="mr-2 h-4 w-4" /> Add Station</Button>
                              </div>
-                             {newRoute.stops.map((stop, i) => (
-                                <div key={i} className="grid grid-cols-3 gap-3">
-                                   <Input placeholder="Stop Name" value={stop.name} onChange={e => {
-                                      const s = [...newRoute.stops]; s[i].name = e.target.value; setNewRoute({...newRoute, stops: s});
-                                   }} className="h-12 rounded-xl bg-slate-50 border-none font-bold italic text-xs" />
-                                   <Input placeholder="Lat" type="number" value={stop.lat} onChange={e => {
-                                      const s = [...newRoute.stops]; s[i].lat = parseFloat(e.target.value); setNewRoute({...newRoute, stops: s});
-                                   }} className="h-12 rounded-xl bg-slate-50 border-none font-bold italic text-xs" />
-                                   <Input placeholder="Lng" type="number" value={stop.lng} onChange={e => {
-                                      const s = [...newRoute.stops]; s[i].lng = parseFloat(e.target.value); setNewRoute({...newRoute, stops: s});
-                                   }} className="h-12 rounded-xl bg-slate-50 border-none font-bold italic text-xs" />
-                                </div>
-                             ))}
+                             <div className="space-y-4">
+                                {newRoute.stops.map((stop, i) => (
+                                   <div key={i} className="grid grid-cols-3 gap-4 p-4 bg-white/5 rounded-[2rem] border border-white/5">
+                                      <Input placeholder="Hub Name" value={stop.name} onChange={e => {
+                                         const s = [...newRoute.stops]; s[i].name = e.target.value; setNewRoute({...newRoute, stops: s});
+                                      }} className="h-16 rounded-2xl bg-slate-950 border-white/5 font-black italic text-sm px-6" />
+                                      <Input placeholder="Lat" type="number" value={stop.lat} onChange={e => {
+                                         const s = [...newRoute.stops]; s[i].lat = parseFloat(e.target.value); setNewRoute({...newRoute, stops: s});
+                                      }} className="h-16 rounded-2xl bg-slate-950 border-white/5 font-black italic text-sm px-6" />
+                                      <Input placeholder="Lng" type="number" value={stop.lng} onChange={e => {
+                                         const s = [...newRoute.stops]; s[i].lng = parseFloat(e.target.value); setNewRoute({...newRoute, stops: s});
+                                      }} className="h-16 rounded-2xl bg-slate-950 border-white/5 font-black italic text-sm px-6" />
+                                   </div>
+                                ))}
+                             </div>
                           </div>
                        </div>
-                       <DialogFooter>
-                          <Button onClick={handleCreateRoute} disabled={isSaving} className="w-full h-16 bg-primary text-white rounded-2xl font-black uppercase italic text-lg shadow-xl shadow-primary/20">
-                             {isSaving ? <Loader2 className="animate-spin h-6 w-6" /> : "Deploy to Network"}
+                       <DialogFooter className="pt-8">
+                          <Button onClick={handleCreateRoute} disabled={isSaving} className="w-full h-24 bg-primary text-slate-950 rounded-[3rem] font-black uppercase italic text-2xl shadow-2xl">
+                             {isSaving ? <Loader2 className="animate-spin h-10 w-10" /> : "Deploy to Grid"}
                           </Button>
                        </DialogFooter>
                     </DialogContent>
                  </Dialog>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
                  {allRoutes?.map((route: any) => (
-                    <Card key={route.id} className="border-none bg-white rounded-[2.5rem] p-8 shadow-sm hover:shadow-md transition-all group overflow-hidden relative">
-                       <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><RouteIcon className="h-20 w-20" /></div>
-                       <div className="flex justify-between items-start mb-6">
+                    <Card key={route.id} className="bg-slate-900 border border-white/5 rounded-[4rem] p-12 shadow-2xl hover:shadow-[0_0_80px_rgba(0,255,255,0.1)] transition-all group overflow-hidden relative">
+                       <div className="absolute top-0 right-0 p-10 opacity-5 group-hover:opacity-10 transition-all duration-1000 rotate-12 scale-150"><RouteIcon className="h-32 w-32" /></div>
+                       <div className="flex justify-between items-start mb-10 relative z-10">
                           <div>
-                             <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">{route.city}</p>
-                             <h4 className="text-xl font-black italic uppercase text-slate-900">{route.routeName}</h4>
+                             <p className="text-[11px] font-black uppercase text-primary tracking-[0.5em] mb-2">{route.city} Hub</p>
+                             <h4 className="text-3xl font-black italic uppercase text-white tracking-tighter leading-none">{route.routeName}</h4>
                           </div>
-                          <Badge className={`${route.status === 'active' ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-400'} border-none text-[8px] font-black uppercase`}>{route.status}</Badge>
+                          <Badge className={`${route.status === 'active' ? 'bg-green-500/10 text-green-400' : 'bg-slate-950 text-slate-700'} border-none text-[9px] font-black uppercase tracking-widest px-6 py-2 rounded-full shadow-inner`}>{route.status}</Badge>
                        </div>
-                       <div className="space-y-4 mb-8">
-                          <div className="flex items-center gap-3 text-slate-500">
-                             <MapPin className="h-4 w-4" />
-                             <span className="text-xs font-bold italic">{route.stops?.length || 0} Stations Mapped</span>
+                       <div className="space-y-6 mb-12 relative z-10">
+                          <div className="flex items-center gap-5 text-slate-500">
+                             <MapPin className="h-6 w-6" />
+                             <span className="text-sm font-black italic uppercase tracking-widest">{route.stops?.length || 0} Stations Mapped</span>
                           </div>
-                          <div className="flex items-center gap-3 text-primary font-black italic">
-                             <IndianRupee className="h-4 w-4" />
+                          <div className="flex items-center gap-5 text-primary font-black italic">
+                             <IndianRupee className="h-6 w-6" />
                              {editingRouteId === route.id ? (
-                               <div className="flex gap-2 items-center">
-                                 <Input type="number" value={newFareValue} onChange={e => setNewFareValue(parseInt(e.target.value))} className="h-8 w-20 text-xs font-black" />
-                                 <Button size="sm" onClick={() => handleUpdateFare(route.id, newFareValue)} className="h-8 px-2">Save</Button>
+                               <div className="flex gap-4 items-center">
+                                 <Input type="number" value={newFareValue} onChange={e => setNewFareValue(parseInt(e.target.value))} className="h-12 w-28 bg-slate-950 border-white/5 rounded-xl text-lg font-black" />
+                                 <Button size="sm" onClick={() => handleUpdateFare(route.id, newFareValue)} className="h-12 px-6 bg-white text-slate-950 font-black">Sync</Button>
                                </div>
                              ) : (
-                               <div className="flex items-center gap-2">
-                                 <span>Base Fare: ₹{route.baseFare}</span>
-                                 <Button variant="ghost" size="sm" onClick={() => { setEditingRouteId(route.id); setNewFareValue(route.baseFare); }} className="h-6 w-6 p-0 text-slate-300 hover:text-primary"><Settings className="h-3 w-3" /></Button>
+                               <div className="flex items-center gap-4">
+                                 <span className="text-2xl font-black tracking-tighter">Fare: ₹{route.baseFare}</span>
+                                 <Button variant="ghost" size="icon" onClick={() => { setEditingRouteId(route.id); setNewFareValue(route.baseFare); }} className="h-10 w-10 p-0 text-slate-700 hover:text-primary transition-colors"><Settings className="h-5 w-5" /></Button>
                                </div>
                              )}
                           </div>
                        </div>
-                       <div className="flex gap-4">
-                          <Button variant="ghost" onClick={() => handleDeleteRoute(route.id)} className="flex-1 bg-red-50 text-red-500 h-12 rounded-xl font-black uppercase italic text-[10px]"><Trash2 className="mr-2 h-4 w-4" /> Decommission</Button>
+                       <div className="flex gap-4 relative z-10">
+                          <Button variant="ghost" onClick={() => handleDeleteRoute(route.id)} className="flex-1 bg-red-500/5 text-red-500 h-16 rounded-[2rem] font-black uppercase italic text-xs border border-red-500/10 hover:bg-red-500 hover:text-white transition-all"><Trash2 className="mr-3 h-5 w-5" /> Terminate</Button>
                        </div>
                     </Card>
                  ))}
@@ -460,41 +466,42 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === 'vouchers' && (
-            <div className="space-y-10 animate-in fade-in">
-               <div className="max-w-2xl bg-white rounded-[3rem] p-12 shadow-sm space-y-10">
-                  <div className="flex items-center gap-4">
-                     <div className="p-4 bg-orange-50 rounded-2xl text-orange-500"><Tag className="h-8 w-8" /></div>
+            <div className="space-y-12 animate-in fade-in duration-700">
+               <div className="max-w-3xl bg-slate-900 border border-white/5 rounded-[5rem] p-16 shadow-2xl space-y-12 relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_right,rgba(0,255,255,0.05),transparent_70%)]" />
+                  <div className="flex items-center gap-6 relative z-10">
+                     <div className="p-5 bg-primary/10 rounded-[2rem] text-primary shadow-inner"><Tag className="h-10 w-10" /></div>
                      <div>
-                        <h3 className="text-3xl font-black italic uppercase text-slate-900 leading-none">Voucher Management</h3>
-                        <p className="text-sm font-bold text-slate-400 italic mt-2">Create regional discount codes for scholars.</p>
+                        <h3 className="text-4xl font-black italic uppercase text-white leading-none tracking-tighter">Savings Hub</h3>
+                        <p className="text-sm font-bold text-slate-500 italic mt-3">Deploy regional discount keys for scholars.</p>
                      </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-6">
-                     <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-slate-400">Voucher Code</Label>
-                        <Input value={newVoucherCode} onChange={e => setNewVoucherCode(e.target.value)} placeholder="e.g. AAGO5" className="h-16 rounded-2xl bg-slate-50 border-none font-black italic text-lg" />
+                  <div className="grid grid-cols-2 gap-10 relative z-10">
+                     <div className="space-y-4">
+                        <Label className="text-[12px] font-black uppercase text-slate-500 tracking-[0.4em] ml-4">Voucher Key</Label>
+                        <Input value={newVoucherCode} onChange={e => setNewVoucherCode(e.target.value)} placeholder="e.g. AAGO10" className="h-20 rounded-[2.5rem] bg-slate-950 border-white/5 font-black italic text-3xl px-10 text-primary uppercase placeholder:text-slate-800" />
                      </div>
-                     <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-slate-400">Discount (₹)</Label>
-                        <Input type="number" value={newVoucherDiscount} onChange={e => setNewVoucherDiscount(parseInt(e.target.value))} className="h-16 rounded-2xl bg-slate-50 border-none font-black italic text-lg" />
+                     <div className="space-y-4">
+                        <Label className="text-[12px] font-black uppercase text-slate-500 tracking-[0.4em] ml-4">Savings Value (₹)</Label>
+                        <Input type="number" value={newVoucherDiscount} onChange={e => setNewVoucherDiscount(parseInt(e.target.value))} className="h-20 rounded-[2.5rem] bg-slate-950 border-white/5 font-black italic text-3xl px-10 text-white" />
                      </div>
                   </div>
 
-                  <Button onClick={handleCreateVoucher} className="w-full h-18 bg-primary text-white font-black uppercase italic text-lg rounded-2xl shadow-xl shadow-primary/20">
-                     Generate Voucher
+                  <Button onClick={handleCreateVoucher} className="w-full h-24 bg-primary text-slate-950 font-black uppercase italic text-2xl rounded-[3rem] shadow-[0_0_40px_rgba(0,255,255,0.2)] hover:scale-[1.02] transition-all relative z-10">
+                     Engage Key
                   </Button>
                </div>
 
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
                   {allVouchers?.map((v: any) => (
-                    <Card key={v.id} className="bg-white border-none rounded-[2.5rem] p-8 shadow-sm flex items-center justify-between relative overflow-hidden group">
-                       <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><Percent className="h-16 w-16" /></div>
-                       <div className="space-y-1">
-                          <h4 className="text-2xl font-black italic text-slate-900 uppercase">{v.code}</h4>
-                          <p className="text-sm font-bold text-orange-500 italic">₹{v.discountAmount} Discount</p>
+                    <Card key={v.id} className="bg-slate-900 border border-white/5 rounded-[4rem] p-12 shadow-2xl flex items-center justify-between relative overflow-hidden group hover:shadow-[0_0_60px_rgba(0,255,255,0.1)] transition-all">
+                       <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-all duration-1000 rotate-12 scale-150"><Percent className="h-20 w-20" /></div>
+                       <div className="space-y-2 relative z-10">
+                          <h4 className="text-4xl font-black italic text-white uppercase tracking-tighter text-glow">{v.code}</h4>
+                          <p className="text-sm font-bold text-primary italic uppercase tracking-widest">₹{v.discountAmount} Reduction</p>
                        </div>
-                       <Button variant="ghost" size="icon" onClick={() => handleDeleteVoucher(v.id)} className="text-red-400 hover:text-red-500"><Trash2 className="h-5 w-5" /></Button>
+                       <Button variant="ghost" size="icon" onClick={() => handleDeleteVoucher(v.id)} className="text-red-500 hover:bg-red-500/10 rounded-2xl h-14 w-14 border border-white/5 relative z-10"><Trash2 className="h-6 w-6" /></Button>
                     </Card>
                   ))}
                </div>
@@ -502,50 +509,50 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === 'users' && (
-            <div className="space-y-10 animate-in fade-in">
+            <div className="space-y-12 animate-in fade-in duration-700">
                <div className="flex justify-between items-center">
-                  <h3 className="text-3xl font-black italic uppercase text-slate-900">Identity Vault</h3>
-                  <div className="relative w-72">
-                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                     <Input placeholder="Search Scholar or Driver..." className="h-12 pl-12 rounded-xl bg-white border-none shadow-sm font-bold italic" />
+                  <h3 className="text-5xl font-black italic uppercase text-white tracking-tighter text-glow">Identity Vault</h3>
+                  <div className="relative w-96">
+                     <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-6 w-6 text-slate-600" />
+                     <Input placeholder="Search Scholar or Captain..." className="h-16 pl-16 rounded-[2rem] bg-slate-900 border-white/5 shadow-2xl font-black italic text-lg text-white" />
                   </div>
                </div>
                
-               <Card className="border-none bg-white rounded-[3rem] shadow-sm overflow-hidden">
+               <Card className="bg-slate-900 border border-white/5 rounded-[5rem] shadow-2xl overflow-hidden">
                   <CardContent className="p-0">
                     <table className="w-full text-left">
                       <thead>
-                        <tr className="bg-slate-50 text-[9px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">
-                          <th className="py-6 px-10">User Identity</th>
-                          <th className="py-6">Role</th>
-                          <th className="py-6">Regional Hub</th>
-                          <th className="py-6">Joined Date</th>
-                          <th className="py-6 px-10 text-right">Activity</th>
+                        <tr className="bg-slate-950 text-[10px] font-black uppercase text-slate-500 tracking-widest border-b border-white/5">
+                          <th className="py-8 px-12">User Identity</th>
+                          <th className="py-8">Protocol Role</th>
+                          <th className="py-8">Regional Hub</th>
+                          <th className="py-8">Sync Date</th>
+                          <th className="py-8 px-12 text-right">Telemetry</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-50">
+                      <tbody className="divide-y divide-white/5">
                         {allUsers?.map((u: any) => (
-                          <tr key={u.uid} className="hover:bg-slate-50 transition-all">
-                             <td className="py-6 px-10">
-                                <div className="flex items-center gap-4">
-                                   <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 font-black overflow-hidden italic">
-                                      {u.photoUrl ? <img src={u.photoUrl} className="h-full w-full object-cover" /> : u.fullName?.[0]}
+                          <tr key={u.uid} className="hover:bg-white/5 transition-all">
+                             <td className="py-8 px-12">
+                                <div className="flex items-center gap-6">
+                                   <div className="h-14 w-14 rounded-[1.75rem] bg-slate-950 border border-white/5 flex items-center justify-center text-slate-700 font-black overflow-hidden italic shadow-inner">
+                                      {u.photoUrl ? <img src={u.photoUrl} className="h-full w-full object-cover" /> : <span className="text-xl italic">{u.fullName?.[0]}</span>}
                                    </div>
                                    <div>
-                                      <p className="font-black text-slate-900 uppercase italic text-xs">{u.fullName}</p>
-                                      <p className="text-[9px] font-bold text-slate-400 uppercase">{u.phoneNumber}</p>
+                                      <p className="font-black text-white uppercase italic text-base leading-none tracking-tight">{u.fullName}</p>
+                                      <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mt-2">{u.phoneNumber}</p>
                                    </div>
                                 </div>
                              </td>
-                             <td className="py-6">
-                                <Badge className={`${u.role === 'admin' ? 'bg-orange-50 text-orange-600' : u.role === 'driver' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'} border-none text-[8px] font-black uppercase tracking-widest`}>
+                             <td className="py-8">
+                                <Badge className={`${u.role === 'admin' ? 'bg-orange-500/10 text-orange-400' : u.role === 'driver' ? 'bg-primary/10 text-primary' : 'bg-green-500/10 text-green-400'} border-none text-[9px] font-black uppercase tracking-[0.3em] px-6 py-2 rounded-full`}>
                                    {u.role}
                                 </Badge>
                              </td>
-                             <td className="py-6 font-bold italic text-slate-500 text-xs">{u.city} Hub</td>
-                             <td className="py-6 font-bold italic text-slate-400 text-[10px]">{new Date(u.createdAt).toLocaleDateString()}</td>
-                             <td className="py-6 px-10 text-right">
-                                <Button variant="ghost" size="sm" className="text-primary hover:bg-primary/5 rounded-lg"><ArrowUpRight className="h-4 w-4" /></Button>
+                             <td className="py-8 font-black italic text-slate-400 text-sm uppercase">{u.city} Hub</td>
+                             <td className="py-8 font-black italic text-slate-600 text-[11px]">{new Date(u.createdAt).toLocaleDateString()}</td>
+                             <td className="py-8 px-12 text-right">
+                                <Button variant="ghost" size="sm" className="text-primary hover:bg-primary/10 rounded-2xl h-12 w-12 border border-white/5"><ArrowUpRight className="h-6 w-6" /></Button>
                              </td>
                           </tr>
                         ))}
@@ -557,35 +564,35 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === 'alerts' && (
-            <div className="space-y-10 animate-in fade-in max-w-4xl">
-              <Card className="border-none bg-white rounded-[3rem] p-12 shadow-sm space-y-10">
-                <div className="flex items-center gap-4">
-                  <div className="p-4 bg-red-50 rounded-2xl"><AlertTriangle className="h-8 w-8 text-red-500" /></div>
+            <div className="space-y-12 animate-in fade-in duration-700 max-w-5xl mx-auto">
+              <Card className="bg-slate-900 border border-white/5 rounded-[5rem] p-16 shadow-2xl space-y-12">
+                <div className="flex items-center gap-6">
+                  <div className="p-5 bg-red-500/10 rounded-[2rem] shadow-inner"><AlertTriangle className="h-10 w-10 text-red-500" /></div>
                   <div>
-                    <h3 className="text-3xl font-black italic uppercase text-slate-900 leading-none">Emergency SOS Radar</h3>
-                    <p className="text-sm font-bold text-slate-400 italic mt-2">Live feed of regional safety alerts from scholars and operators.</p>
+                    <h3 className="text-5xl font-black italic uppercase text-white leading-none tracking-tighter text-glow">Emergency Radar</h3>
+                    <p className="text-sm font-bold text-slate-500 italic mt-3">Live feed of regional safety signals from scholars and captains.</p>
                   </div>
                 </div>
                 
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {!allAlerts || allAlerts.length === 0 ? (
-                    <div className="p-20 text-center bg-slate-50 rounded-[2.5rem] border border-dashed border-slate-100">
-                       <Activity className="h-10 w-10 text-slate-200 mx-auto mb-4" />
-                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 italic">No emergency signals detected.</p>
+                    <div className="p-32 text-center bg-slate-950 rounded-[4rem] border border-dashed border-white/5 shadow-inner">
+                       <Activity className="h-20 w-20 text-slate-900 mx-auto mb-8 animate-pulse" />
+                       <p className="text-sm font-black uppercase tracking-[0.5em] text-slate-800 italic">No emergency signals detected on grid.</p>
                     </div>
                   ) : (
                     allAlerts.map((alert: any) => (
-                      <Card key={alert.id} className="p-8 bg-red-50 border-red-100 rounded-[2.5rem] flex items-center justify-between">
-                         <div className="flex items-center gap-6">
-                            <div className="p-3 bg-red-500 rounded-xl text-white animate-pulse"><AlertTriangle className="h-6 w-6" /></div>
+                      <Card key={alert.id} className="p-12 bg-red-500/5 border border-red-500/20 rounded-[4rem] flex items-center justify-between shadow-2xl hover:bg-red-500/10 transition-all">
+                         <div className="flex items-center gap-10">
+                            <div className="p-5 bg-red-500 rounded-[2rem] text-white animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.5)]"><AlertTriangle className="h-10 w-10" /></div>
                             <div>
-                               <h4 className="font-black text-red-900 uppercase italic text-base leading-none mb-1">{alert.type} - {alert.userName}</h4>
-                               <p className="text-[10px] font-bold text-red-700 uppercase italic">{alert.city} • {new Date(alert.timestamp).toLocaleTimeString()}</p>
+                               <h4 className="font-black text-white uppercase italic text-3xl leading-none tracking-tighter mb-2">{alert.type} - {alert.userName}</h4>
+                               <p className="text-[12px] font-black text-red-500/60 uppercase tracking-[0.4em] italic">{alert.city} Hub • {new Date(alert.timestamp).toLocaleTimeString()}</p>
                             </div>
                          </div>
-                         <div className="flex gap-4">
-                            <Button onClick={() => resolveAlert(alert.id)} className="bg-red-500 text-white rounded-xl h-12 px-8 font-black uppercase italic shadow-lg shadow-red-200">Dispatch Response</Button>
-                            <Button variant="ghost" onClick={() => resolveAlert(alert.id)} className="text-red-900 font-black uppercase italic text-[10px]">Mark as Resolved</Button>
+                         <div className="flex gap-6">
+                            <Button onClick={() => resolveAlert(alert.id)} className="bg-red-500 text-white rounded-[2.5rem] h-20 px-12 font-black uppercase italic text-xl shadow-2xl hover:scale-105 transition-all">Dispatch Ops</Button>
+                            <Button variant="ghost" onClick={() => resolveAlert(alert.id)} className="text-red-500/60 font-black uppercase italic text-[11px] tracking-widest hover:text-red-500">Mark Clear</Button>
                          </div>
                       </Card>
                     ))
@@ -596,32 +603,33 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === 'payments' && (
-            <div className="max-w-2xl space-y-10 animate-in fade-in">
-              <Card className="border-none bg-white rounded-[3rem] p-12 shadow-sm space-y-10">
-                <div className="space-y-3">
-                  <h3 className="text-3xl font-black italic uppercase text-slate-900 leading-none">Regional Payment Config</h3>
-                  <p className="text-sm font-bold text-slate-400 italic">Set official UPI IDs for regional hubs.</p>
+            <div className="max-w-3xl space-y-12 animate-in fade-in duration-700">
+              <Card className="bg-slate-900 border border-white/5 rounded-[5rem] p-16 shadow-2xl space-y-12 relative overflow-hidden group">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_left,rgba(0,255,255,0.05),transparent_70%)]" />
+                <div className="space-y-4 relative z-10">
+                  <h3 className="text-5xl font-black italic uppercase text-white leading-none tracking-tighter text-glow">Regional Payout Config</h3>
+                  <p className="text-sm font-bold text-slate-500 italic mt-2">Set official UPI endpoints for the regional hubs.</p>
                 </div>
                 
-                <div className="space-y-8">
+                <div className="space-y-10 relative z-10">
                   <div className="space-y-4">
-                    <Label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Vizag Hub Payment ID</Label>
+                    <Label className="text-[12px] font-black uppercase tracking-[0.5em] text-slate-600 ml-4">Vizag Hub Payment Terminal</Label>
                     <div className="relative">
-                      <IndianRupee className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
-                      <Input value={vizagUpi} onChange={e => setVizagUpi(e.target.value)} placeholder="vizag.aago@upi" className="h-16 pl-14 rounded-2xl bg-slate-50 border-none font-black italic text-lg outline-none" />
+                      <IndianRupee className="absolute left-8 top-1/2 -translate-y-1/2 h-7 w-7 text-primary" />
+                      <Input value={vizagUpi} onChange={e => setVizagUpi(e.target.value)} placeholder="vizag.aago@upi" className="h-24 pl-20 rounded-[3rem] bg-slate-950 border-white/5 font-black italic text-3xl text-white outline-none shadow-inner" />
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                    <Label className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Vizianagaram Hub Payment ID</Label>
+                    <Label className="text-[12px] font-black uppercase tracking-[0.5em] text-slate-600 ml-4">VZM Hub Payment Terminal</Label>
                     <div className="relative">
-                      <IndianRupee className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
-                      <Input value={vzmUpi} onChange={e => setVzmUpi(e.target.value)} placeholder="vzm.aago@upi" className="h-16 pl-14 rounded-2xl bg-slate-50 border-none font-black italic text-lg outline-none" />
+                      <IndianRupee className="absolute left-8 top-1/2 -translate-y-1/2 h-7 w-7 text-primary" />
+                      <Input value={vzmUpi} onChange={e => setVzmUpi(e.target.value)} placeholder="vzm.aago@upi" className="h-24 pl-20 rounded-[3rem] bg-slate-950 border-white/5 font-black italic text-3xl text-white outline-none shadow-inner" />
                     </div>
                   </div>
 
-                  <Button onClick={saveConfig} disabled={isSaving} className="w-full h-18 bg-primary text-white font-black uppercase italic text-lg rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">
-                    {isSaving ? <Loader2 className="animate-spin h-6 w-6" /> : "Deploy Regional Endpoints"}
+                  <Button onClick={saveConfig} disabled={isSaving} className="w-full h-28 bg-primary text-slate-950 font-black uppercase italic text-2xl rounded-[3.5rem] shadow-[0_0_50px_rgba(0,255,255,0.2)] hover:scale-[1.02] transition-all">
+                    {isSaving ? <Loader2 className="animate-spin h-10 w-10" /> : "Deploy Grid Endpoints"}
                   </Button>
                 </div>
               </Card>
@@ -629,53 +637,54 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === 'ai-architect' && (
-            <div className="space-y-10 animate-in fade-in max-w-4xl">
-              <Card className="border-none bg-white rounded-[3rem] p-12 shadow-sm space-y-10">
-                <div className="flex items-center gap-4">
-                   <div className="p-4 bg-primary/10 rounded-2xl"><Sparkles className="h-8 w-8 text-primary" /></div>
+            <div className="space-y-12 animate-in fade-in duration-700 max-w-5xl mx-auto">
+              <Card className="bg-slate-900 border border-white/5 rounded-[5rem] p-16 shadow-2xl space-y-12 relative overflow-hidden group">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_right,rgba(0,255,255,0.05),transparent_70%)]" />
+                <div className="flex items-center gap-6 relative z-10">
+                   <div className="p-5 bg-primary/10 rounded-[2rem] shadow-inner"><Sparkles className="h-10 w-10 text-primary" /></div>
                    <div>
-                     <h3 className="text-3xl font-black italic uppercase text-slate-900 leading-none">AI Route Architect</h3>
-                     <p className="text-sm font-bold text-slate-400 italic mt-2">Generate optimized shuttle corridors using regional demand patterns.</p>
+                     <h3 className="text-5xl font-black italic uppercase text-white leading-none tracking-tighter text-glow">AI Grid Architect</h3>
+                     <p className="text-sm font-bold text-slate-500 italic mt-3">Synthesize optimized regional shuttle corridors using AI-driven demand patterns.</p>
                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-8">
-                  <div className="space-y-3">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Regional Demand Patterns</Label>
+                <div className="grid grid-cols-1 gap-10 relative z-10">
+                  <div className="space-y-4">
+                    <Label className="text-[12px] font-black uppercase tracking-[0.4em] text-slate-600 ml-4">Regional Demand Telemetry</Label>
                     <Textarea 
                       value={aiInput.studentDemandPatterns} 
                       onChange={e => setAiInput({...aiInput, studentDemandPatterns: e.target.value})}
-                      placeholder="e.g. High volume from South Campus between 4-6 PM..."
-                      className="min-h-[120px] rounded-2xl bg-slate-50 border-none font-bold italic p-6 focus:ring-2 focus:ring-primary outline-none"
+                      placeholder="e.g. High volume detected from South Hub between 16:00 and 18:00..."
+                      className="min-h-[180px] rounded-[3rem] bg-slate-950 border-white/5 font-black italic p-10 focus:ring-4 focus:ring-primary/20 outline-none text-xl text-white custom-scrollbar"
                     />
                   </div>
-                  <Button onClick={handleAiGeneration} disabled={isAiLoading} className="h-18 bg-primary text-white font-black uppercase italic text-lg rounded-2xl shadow-xl hover:scale-[1.02] transition-all">
-                    {isAiLoading ? <Loader2 className="animate-spin h-6 w-6" /> : "Initiate AI Synthesis"}
+                  <Button onClick={handleAiGeneration} disabled={isAiLoading} className="h-28 bg-primary text-slate-950 font-black uppercase italic text-3xl rounded-[3.5rem] shadow-2xl hover:scale-[1.02] transition-all">
+                    {isAiLoading ? <Loader2 className="animate-spin h-10 w-10" /> : "Initiate Grid Synthesis"}
                   </Button>
                 </div>
               </Card>
 
               {aiResult && (
-                <Card className="border-none bg-white rounded-[3rem] p-12 shadow-xl space-y-8 animate-in zoom-in-95">
-                  <h4 className="text-2xl font-black italic uppercase text-primary border-b border-slate-50 pb-6 flex items-center gap-3"><ClipboardList className="h-6 w-6" /> Optimized Corridor Schematics</h4>
-                  <div className="space-y-8">
+                <Card className="bg-slate-900 border border-white/5 rounded-[5rem] p-16 shadow-2xl space-y-12 animate-in zoom-in-95 duration-700">
+                  <h4 className="text-4xl font-black italic uppercase text-primary border-b border-white/5 pb-10 flex items-center gap-5 text-glow"><ClipboardList className="h-8 w-8" /> Corridor Synthesis Output</h4>
+                  <div className="space-y-10">
                     {aiResult.optimizedRoutes.map((route: any, i: number) => (
-                      <div key={i} className="p-8 bg-slate-50 rounded-[2.5rem] space-y-4">
+                      <div key={i} className="p-12 bg-slate-950 rounded-[4rem] space-y-6 border border-white/5 group hover:bg-white/5 transition-all">
                         <div className="flex justify-between items-start">
-                          <h5 className="text-xl font-black uppercase italic text-slate-900">{route.routeName}</h5>
-                          <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase">{route.estimatedDurationMinutes} MINS</Badge>
+                          <h5 className="text-3xl font-black uppercase italic text-white tracking-tighter">{route.routeName}</h5>
+                          <Badge className="bg-primary/20 text-primary border-none text-[10px] font-black uppercase px-6 py-2 rounded-full tracking-widest">{route.estimatedDurationMinutes} MINS</Badge>
                         </div>
-                        <p className="text-xs font-bold text-slate-500 italic leading-relaxed">{route.description}</p>
-                        <div className="flex flex-wrap gap-2">
+                        <p className="text-sm font-black italic text-slate-500 leading-relaxed uppercase tracking-wider">{route.description}</p>
+                        <div className="flex flex-wrap gap-3">
                            {route.stops.map((stop: string, idx: number) => (
-                              <Badge key={idx} variant="outline" className="border-slate-200 text-slate-400 text-[8px] font-bold">{stop}</Badge>
+                              <Badge key={idx} variant="outline" className="border-white/10 text-slate-600 text-[10px] font-black uppercase italic px-5 py-2 rounded-xl">{stop}</Badge>
                            ))}
                         </div>
                       </div>
                     ))}
-                    <div className="p-8 bg-blue-50 rounded-[2.5rem] border border-blue-100">
-                      <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest mb-3">AI Synthesis Summary</p>
-                      <p className="text-sm font-bold text-blue-900 italic leading-relaxed">{aiResult.optimizationSummary}</p>
+                    <div className="p-12 bg-primary/5 rounded-[4rem] border border-primary/20 shadow-inner">
+                      <p className="text-[11px] font-black uppercase text-primary tracking-[0.5em] mb-4 italic">Architect Summary</p>
+                      <p className="text-base font-bold text-white italic leading-relaxed">{aiResult.optimizationSummary}</p>
                     </div>
                   </div>
                 </Card>
