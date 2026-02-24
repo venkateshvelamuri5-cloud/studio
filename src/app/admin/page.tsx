@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -101,10 +102,13 @@ export default function AdminDashboard() {
   }, [globalConfig]);
 
   useEffect(() => {
-    if (profile && profile.role !== 'admin' && !authLoading) {
+    if (!authLoading && profile && profile.role !== 'admin') {
       router.push('/admin/login');
     }
-  }, [profile, authLoading, router]);
+    if (!authLoading && !user) {
+        router.push('/admin/login');
+    }
+  }, [profile, authLoading, user, router]);
 
   const tripsQuery = useMemo(() => db ? query(collection(db, 'trips'), orderBy('startTime', 'desc'), limit(100)) : null, [db]);
   const { data: allTrips } = useCollection(tripsQuery);
