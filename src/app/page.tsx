@@ -61,9 +61,9 @@ export default function GlobalLandingPage() {
           <span className="text-xl font-black italic tracking-tighter uppercase text-primary text-glow">AAGO</span>
         </Link>
         <nav className="hidden lg:flex items-center gap-10">
-          <Link href="/auth/login" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Sign In</Link>
+          <Link href="/auth/login" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Scholar Hub</Link>
           <Link href="/auth/signup">
-            <Button className="h-10 bg-primary text-black px-6 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">Join Now</Button>
+            <Button className="h-10 bg-primary text-black px-6 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">Join Grid</Button>
           </Link>
         </nav>
         <Button variant="ghost" className="lg:hidden h-10 w-10 rounded-xl bg-white/5" onClick={() => setIsMenuOpen(!isMenuOpen)}>
@@ -74,9 +74,9 @@ export default function GlobalLandingPage() {
       {/* Mobile Menu */}
       {isMenuOpen && (
         <div className="fixed inset-0 z-40 bg-background pt-32 px-10 flex flex-col gap-8 animate-in fade-in slide-in-from-top-10 duration-500">
-          <Link href="/auth/login" onClick={() => setIsMenuOpen(false)} className="text-2xl font-black uppercase italic text-foreground border-b border-white/5 pb-4">Sign In</Link>
-          <Link href="/auth/signup" onClick={() => setIsMenuOpen(false)} className="text-2xl font-black uppercase italic text-primary">Sign Up</Link>
-          <Link href="/driver/signup" onClick={() => setIsMenuOpen(false)} className="text-2xl font-black uppercase italic text-muted-foreground">Driver App</Link>
+          <Link href="/auth/login" onClick={() => setIsMenuOpen(false)} className="text-2xl font-black uppercase italic text-foreground border-b border-white/5 pb-4">Scholar Hub</Link>
+          <Link href="/auth/signup" onClick={() => setIsMenuOpen(false)} className="text-2xl font-black uppercase italic text-primary">Join Grid</Link>
+          <Link href="/driver/signup" onClick={() => setIsMenuOpen(false)} className="text-2xl font-black uppercase italic text-muted-foreground">Driver Login</Link>
         </div>
       )}
 
@@ -87,19 +87,19 @@ export default function GlobalLandingPage() {
           <div className="container mx-auto px-6 lg:px-20 relative z-10">
             <div className="grid lg:grid-cols-2 gap-16 items-center">
               <div className="max-w-2xl space-y-8 animate-in fade-in slide-in-from-left-10 duration-1000">
-                <Badge className="bg-primary/10 text-primary border-primary/20 px-6 py-2 text-[10px] font-black uppercase tracking-[0.3em]">Easy Bus Travel</Badge>
+                <Badge className="bg-primary/10 text-primary border-primary/20 px-6 py-2 text-[10px] font-black uppercase tracking-[0.3em]">Built for Scholars</Badge>
                 <h1 className="text-5xl lg:text-7xl font-black leading-tight italic tracking-tighter text-foreground">
-                  Better Travel. <br /> <span className="text-primary text-glow">On Time.</span>
+                  The Smartest <br /> <span className="text-primary text-glow">Way to Class.</span>
                 </h1>
                 <p className="text-lg font-bold text-muted-foreground leading-relaxed italic border-l-4 border-primary/20 pl-6">
-                  Simple and safe bus rides for students. Fast booking, live tracking, and fixed prices.
+                  Stop waiting for autos. Aago gives students fast, safe, and cheap bus rides to campus. Never miss a lecture again.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-6">
                   <Link href="/auth/signup">
-                    <Button className="h-16 px-10 bg-primary hover:bg-primary/90 text-black rounded-2xl font-black uppercase italic text-lg shadow-2xl shadow-primary/20 transition-all hover:scale-105">Join Aago</Button>
+                    <Button className="h-16 px-10 bg-primary hover:bg-primary/90 text-black rounded-2xl font-black uppercase italic text-lg shadow-2xl shadow-primary/20 transition-all hover:scale-105">Join Grid</Button>
                   </Link>
                   <Link href="/driver/signup">
-                    <Button variant="ghost" className="h-16 px-10 rounded-2xl font-black uppercase italic text-lg border border-white/5 bg-white/5 hover:bg-white/10 shadow-xl transition-all text-primary">Driver App</Button>
+                    <Button variant="ghost" className="h-16 px-10 rounded-2xl font-black uppercase italic text-lg border border-white/5 bg-white/5 hover:bg-white/10 shadow-xl transition-all text-primary">Driver Hub</Button>
                   </Link>
                 </div>
               </div>
@@ -114,7 +114,7 @@ export default function GlobalLandingPage() {
                       <div className="flex justify-between items-center px-2">
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
-                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">System: Online</span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Grid: Active</span>
                         </div>
                         <ConnectingDotsLogo className="h-5 w-5 text-primary opacity-50" />
                       </div>
@@ -144,7 +144,7 @@ export default function GlobalLandingPage() {
                                  <div className="h-2 w-12 bg-primary/10 rounded-full" />
                               </div>
                            </div>
-                           <Badge className="bg-primary text-black border-none text-[8px] font-black uppercase">₹20 Base</Badge>
+                           <Badge className="bg-primary text-black border-none text-[8px] font-black uppercase">Low Fare</Badge>
                         </div>
                         <div className="p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-between">
                            <div className="flex items-center gap-4">
@@ -165,18 +165,18 @@ export default function GlobalLandingPage() {
           </div>
         </section>
 
-        {/* Travel Problems Section */}
+        {/* Campus Crisis Section */}
         <section className="py-24 bg-white/[0.02] border-y border-white/5">
            <div className="container mx-auto px-6 lg:px-20">
               <div className="grid lg:grid-cols-2 gap-20 items-center">
                  <div className="space-y-10">
-                    <Badge className="bg-destructive/10 text-destructive border-destructive/20 px-6 py-2 text-[10px] font-black uppercase tracking-[0.3em]">Travel Problems</Badge>
-                    <h2 className="text-4xl lg:text-5xl font-black uppercase italic tracking-tighter text-foreground leading-none">Buses today are hard to use.</h2>
+                    <Badge className="bg-destructive/10 text-destructive border-destructive/20 px-6 py-2 text-[10px] font-black uppercase tracking-[0.3em]">Campus Travel Problem</Badge>
+                    <h2 className="text-4xl lg:text-5xl font-black uppercase italic tracking-tighter text-foreground leading-none">Autos are too costly. <br/> Buses are too late.</h2>
                     <div className="space-y-6">
                        {[
-                         { title: "Unfair Prices", desc: "Private taxis charge too much when you need them most.", icon: IndianRupee },
-                         { title: "Waiting Long", desc: "Old buses have no tracking. You waste hours waiting.", icon: Clock },
-                         { title: "Not Safe", desc: "Unknown drivers and old buses can be risky.", icon: ShieldAlert }
+                         { title: "Pocket Money Crisis", desc: "Private taxis charge too much for a short ride to class.", icon: IndianRupee },
+                         { title: "Waiting in Heat", desc: "Old buses have no tracking. You waste hours at the stop.", icon: Clock },
+                         { title: "Safety Risks", desc: "Walking long distances or riding with unknown drivers is risky.", icon: ShieldAlert }
                        ].map((item, i) => (
                          <div key={i} className="flex gap-6 group">
                             <div className="shrink-0 h-12 w-12 rounded-xl bg-destructive/10 flex items-center justify-center text-destructive group-hover:scale-110 transition-transform">
@@ -193,18 +193,18 @@ export default function GlobalLandingPage() {
                  <div className="relative">
                     <div className="absolute inset-0 bg-primary/10 blur-[100px] rounded-full" />
                     <Card className="glass-card p-12 rounded-[3rem] relative z-10 space-y-8 border-primary/20">
-                       <h3 className="text-2xl font-black italic uppercase text-primary text-glow">The Aago Way</h3>
+                       <h3 className="text-2xl font-black italic uppercase text-primary text-glow">The Student Grid</h3>
                        <p className="text-lg font-bold text-muted-foreground italic leading-relaxed">
-                          We don't just give rides. We built a system that makes city travel fast, safe, and cheap for every student.
+                          Aago is built for scholars. We fix the campus travel problem by giving you fixed prices and live bus radar.
                        </p>
                        <div className="grid grid-cols-2 gap-6">
                           <div className="p-6 bg-white/5 rounded-2xl border border-white/10">
-                             <h5 className="text-3xl font-black text-primary leading-none tracking-tighter italic">90%</h5>
-                             <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-2">Driver Pay</p>
+                             <h5 className="text-3xl font-black text-primary leading-none tracking-tighter italic">Fixed</h5>
+                             <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-2">Student Fare</p>
                           </div>
                           <div className="p-6 bg-white/5 rounded-2xl border border-white/10">
-                             <h5 className="text-3xl font-black text-primary leading-none tracking-tighter italic">Fixed</h5>
-                             <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-2">Ticket Price</p>
+                             <h5 className="text-3xl font-black text-primary leading-none tracking-tighter italic">Live</h5>
+                             <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-2">Bus Radar</p>
                           </div>
                        </div>
                     </Card>
@@ -213,15 +213,15 @@ export default function GlobalLandingPage() {
            </div>
         </section>
 
-        {/* What we do */}
+        {/* Scholar Benefits */}
         <section className="py-32">
           <div className="container mx-auto px-6 lg:px-20 text-center space-y-20">
-            <h2 className="text-3xl lg:text-4xl font-black uppercase italic tracking-tighter text-foreground">What we do.</h2>
+            <h2 className="text-3xl lg:text-4xl font-black uppercase italic tracking-tighter text-foreground">Scholar Benefits.</h2>
             <div className="grid md:grid-cols-3 gap-10">
                {[
-                 { title: "Live Tracking", desc: "See exactly where your bus is at all times.", icon: Navigation, color: "text-primary" },
-                 { title: "Safe Booking", desc: "Get a secure code to board your bus safely.", icon: QrCode, color: "text-primary/80" },
-                 { title: "Earn Points", desc: "Get rewards every time you take a ride.", icon: TrendingUp, color: "text-primary/60" }
+                 { title: "Campus Radar", desc: "See exactly where your shuttle is on the campus map.", icon: Navigation, color: "text-primary" },
+                 { title: "Safe Boarding", desc: "Get a private code to board your bus safely every day.", icon: QrCode, color: "text-primary/80" },
+                 { title: "Points for Rides", desc: "Earn loyalty points every time you go to class.", icon: TrendingUp, color: "text-primary/60" }
                ].map((item, i) => (
                  <Card key={i} className="glass-card p-10 rounded-[2.5rem] text-left space-y-6 group hover:-translate-y-2 transition-all duration-500">
                     <div className={`h-16 w-16 rounded-2xl bg-white/5 flex items-center justify-center ${item.color} shadow-sm group-hover:scale-110 transition-transform`}><item.icon className="h-8 w-8" /></div>
@@ -239,16 +239,16 @@ export default function GlobalLandingPage() {
         <section className="py-24 bg-white/[0.01] border-y border-white/5 overflow-hidden">
            <div className="container mx-auto px-6 lg:px-20">
               <div className="text-center space-y-6 mb-20">
-                 <h2 className="text-3xl lg:text-4xl font-black uppercase italic tracking-tighter text-foreground">How it works.</h2>
-                 <p className="text-lg font-bold text-muted-foreground italic">Start riding in seconds.</p>
+                 <h2 className="text-3xl lg:text-4xl font-black uppercase italic tracking-tighter text-foreground">Get to Class.</h2>
+                 <p className="text-lg font-bold text-muted-foreground italic">3 Steps to start your ride.</p>
               </div>
               <div className="grid md:grid-cols-3 gap-12 relative">
                  <div className="hidden md:block absolute top-1/2 left-0 w-full h-px bg-white/10 -translate-y-1/2 z-0" />
                  
                  {[
-                   { step: "01", title: "Find Bus", desc: "Look for your bus route and nearest stop.", icon: Radar },
-                   { step: "02", title: "Book Seat", desc: "Confirm your seat and get your ticket code.", icon: Lock },
-                   { step: "03", title: "Start Ride", desc: "Show your code to the driver and enjoy.", icon: CheckCircle2 }
+                   { step: "01", title: "Search Route", desc: "Find your campus bus and the nearest stop.", icon: Radar },
+                   { step: "02", title: "Secure Seat", desc: "Confirm your seat and get your boarding code.", icon: Lock },
+                   { step: "03", title: "Ride to Class", desc: "Show your code to the driver and enjoy the ride.", icon: CheckCircle2 }
                  ].map((item, i) => (
                    <div key={i} className="relative z-10 flex flex-col items-center text-center space-y-8 bg-background p-10 border border-white/5 rounded-[3rem] shadow-xl group hover:border-primary transition-all">
                       <div className="absolute -top-6 h-12 w-12 rounded-full bg-primary text-black flex items-center justify-center font-black italic shadow-lg">{item.step}</div>
@@ -265,39 +265,19 @@ export default function GlobalLandingPage() {
            </div>
         </section>
 
-        {/* Reliable Service Grid */}
-        <section className="py-32">
-           <div className="container mx-auto px-6 lg:px-20 text-center space-y-16">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
-                 {[
-                    { label: "Speed", value: "99.8%", icon: Activity },
-                    { label: "Reliable", value: "Always", icon: Globe },
-                    { label: "Green", value: "+40%", icon: Leaf },
-                    { label: "Safe", value: "Verified", icon: ShieldCheck }
-                 ].map((stat, i) => (
-                   <div key={i} className="space-y-4 group">
-                      <div className="h-20 w-20 mx-auto rounded-full bg-white/5 flex items-center justify-center text-primary group-hover:scale-110 transition-all border border-white/10"><stat.icon className="h-8 w-8" /></div>
-                      <h4 className="text-4xl font-black italic uppercase text-foreground leading-none tracking-tighter">{stat.value}</h4>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</p>
-                   </div>
-                 ))}
-              </div>
-           </div>
-        </section>
-
-        {/* Active Routes Section */}
+        {/* Active Grid Routes */}
         <section className="py-24 border-t border-white/5">
           <div className="container mx-auto px-6 lg:px-20 space-y-16">
             <div className="flex flex-col lg:flex-row justify-between items-end gap-8">
               <h2 className="text-3xl lg:text-4xl font-black uppercase italic tracking-tighter text-foreground">Active Routes.</h2>
-              <p className="text-lg font-bold text-muted-foreground italic">Real-time bus information.</p>
+              <p className="text-lg font-bold text-muted-foreground italic">Real-time campus shuttle data.</p>
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                {!activeRoutes || activeRoutes.length === 0 ? (
                  <div className="col-span-full p-20 text-center bg-white/5 rounded-[3rem] border border-dashed border-white/10">
                     <Globe className="h-10 w-10 text-white/10 mx-auto mb-6" />
-                    <p className="text-[10px] font-black uppercase tracking-widest text-white/20 italic">Loading routes...</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-white/20 italic">Scanning grid for buses...</p>
                  </div>
                ) : (
                  activeRoutes.map((route: any) => (
@@ -319,7 +299,7 @@ export default function GlobalLandingPage() {
                             ))}
                          </div>
                          <Link href="/auth/signup" className="pt-8 border-t border-white/5 flex justify-between items-center group-hover:translate-x-2 transition-transform duration-500">
-                            <span className="text-[10px] font-black uppercase text-primary tracking-widest">Sign Up</span>
+                            <span className="text-[10px] font-black uppercase text-primary tracking-widest">Join Hub</span>
                             <ArrowRight className="h-5 w-5 text-primary" />
                          </Link>
                       </div>
@@ -333,14 +313,14 @@ export default function GlobalLandingPage() {
         {/* Final CTA */}
         <section className="py-32 bg-[radial-gradient(circle_at_center,rgba(0,255,255,0.05),transparent_70%)]">
            <div className="container mx-auto px-6 lg:px-20 text-center space-y-12 relative z-10">
-              <h2 className="text-4xl lg:text-6xl font-black uppercase italic tracking-tighter text-foreground leading-none">Start Now.</h2>
-              <p className="text-xl font-bold text-muted-foreground italic max-w-2xl mx-auto">Join the grid today. Create your account and start riding.</p>
+              <h2 className="text-4xl lg:text-6xl font-black uppercase italic tracking-tighter text-foreground leading-none">Join the Grid.</h2>
+              <p className="text-xl font-bold text-muted-foreground italic max-w-2xl mx-auto">Create your scholar account and get to class the smart way.</p>
               <div className="flex flex-col sm:flex-row justify-center gap-6 pt-6">
                  <Link href="/auth/signup">
                     <Button className="h-16 px-12 bg-primary text-black rounded-2xl font-black uppercase italic text-xl shadow-2xl shadow-primary/20 hover:scale-105 transition-all">Join Now</Button>
                  </Link>
                  <Link href="/driver/signup">
-                    <Button variant="outline" className="h-16 px-12 border-primary text-primary rounded-2xl font-black uppercase italic text-xl bg-white/5 hover:bg-white/10 transition-all">Driver App</Button>
+                    <Button variant="outline" className="h-16 px-12 border-primary text-primary rounded-2xl font-black uppercase italic text-xl bg-white/5 hover:bg-white/10 transition-all">Driver Hub</Button>
                  </Link>
               </div>
            </div>
@@ -355,9 +335,9 @@ export default function GlobalLandingPage() {
               {[1, 2, 3, 4, 5].map((i) => (
                 <div key={i} className="flex items-center gap-12">
                   <span className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-muted-foreground"><Wifi className="h-3 w-3 text-primary" /> Connected: 100%</span>
-                  <span className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-muted-foreground"><Cpu className="h-3 w-3 text-primary" /> System: Nominal</span>
-                  <span className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-muted-foreground"><Lock className="h-3 w-3 text-primary" /> Secure: Active</span>
-                  <span className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-muted-foreground"><Zap className="h-3 w-3 text-primary" /> Speed: High</span>
+                  <span className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-muted-foreground"><Cpu className="h-3 w-3 text-primary" /> Grid: Nominal</span>
+                  <span className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-muted-foreground"><Lock className="h-3 w-3 text-primary" /> Identity: Secure</span>
+                  <span className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-muted-foreground"><Zap className="h-3 w-3 text-primary" /> Signal: High</span>
                 </div>
               ))}
            </div>
@@ -371,23 +351,23 @@ export default function GlobalLandingPage() {
                 <span className="text-4xl font-black italic uppercase tracking-tighter text-primary">AAGO</span>
               </div>
               <p className="max-w-md text-lg font-bold text-muted-foreground italic leading-relaxed uppercase tracking-tight">
-                Making city travel fast and safe for everyone. Aago is a smart bus network built for students.
+                Making campus travel fast and safe for every student. Aago is the smart bus network built for scholars.
               </p>
             </div>
 
             <div className="space-y-10">
-              <p className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">App Access</p>
+              <p className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">Terminals</p>
               <nav className="flex flex-col gap-6 text-sm font-black uppercase italic text-muted-foreground">
                 <Link href="/auth/login" className="hover:text-primary transition-all">Scholar Hub</Link>
-                <Link href="/driver/login" className="hover:text-primary transition-all">Driver Console</Link>
+                <Link href="/driver/login" className="hover:text-primary transition-all">Fleet Console</Link>
                 <Link href="/admin/login" className="hover:text-primary transition-all">Ops Center</Link>
               </nav>
             </div>
             
             <div className="space-y-10">
-              <p className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">Our Goal</p>
+              <p className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">Mission</p>
               <div className="space-y-4">
-                 <p className="text-sm font-bold italic text-muted-foreground leading-relaxed">Solving travel problems with smart bus routes and real-time tracking.</p>
+                 <p className="text-sm font-bold italic text-muted-foreground leading-relaxed">Solving campus travel with smart bus routes and real-time tracking.</p>
                  <div className="flex gap-4">
                     <div className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 text-muted-foreground hover:text-primary transition-all cursor-pointer"><Globe className="h-5 w-5" /></div>
                     <div className="h-10 w-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 text-muted-foreground hover:text-primary transition-all cursor-pointer"><Target className="h-5 w-5" /></div>
@@ -397,7 +377,7 @@ export default function GlobalLandingPage() {
           </div>
 
           <div className="mt-24 pt-12 border-t border-white/5 flex flex-col lg:flex-row justify-between items-center gap-8 text-[10px] font-black uppercase tracking-[0.5em] text-white/20 italic">
-            <p>© 2024 AAGO. RELIABLE BUS TRAVEL.</p>
+            <p>© 2024 AAGO. STUDENT GRID OPS.</p>
             <div className="flex gap-10">
                <span className="text-primary/40 flex items-center gap-2"><Zap className="h-3 w-3" /> Status: Online</span>
             </div>
