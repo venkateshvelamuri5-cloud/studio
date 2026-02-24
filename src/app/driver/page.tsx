@@ -68,17 +68,33 @@ export default function DriverApp() {
     return { earnings, count: pastTrips.length, scholars: totalScholars, carbon: (totalScholars * 0.4).toFixed(1) };
   }, [pastTrips]);
 
+  // Live Location Sync
   useEffect(() => {
-    if (!profile || profile.status === 'offline' || !userRef) return;
-    const interval = setInterval(() => {
+    if (!profile || profile.status === 'offline' || !userRef || !db) return;
+    
+    const updateLocation = () => {
       if (typeof window !== 'undefined' && navigator.geolocation) {
         navigator.geolocation.getCurrentPosition((pos) => {
-          updateDoc(userRef, { currentLat: pos.coords.latitude, currentLng: pos.coords.longitude });
-        });
+          const coords = { 
+            currentLat: pos.coords.latitude, 
+            currentLng: pos.coords.longitude 
+          };
+          
+          // Update User Profile
+          updateDoc(userRef, coords);
+          
+          // Sync to Active Trip for Scholar tracking
+          if (profile.status === 'on-trip' && profile.activeTripId) {
+            updateDoc(doc(db, 'trips', profile.activeTripId), coords);
+          }
+        }, (err) => console.error("Location error:", err), { enableHighAccuracy: true });
       }
-    }, 20000);
+    };
+
+    updateLocation(); // Initial update
+    const interval = setInterval(updateLocation, 10000); // 10 second sync
     return () => clearInterval(interval);
-  }, [profile?.status, userRef]);
+  }, [profile?.status, profile?.activeTripId, userRef, db]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -102,7 +118,7 @@ export default function DriverApp() {
     if (!userRef || !profile) return;
     const newStatus = profile.status === 'offline' ? 'available' : 'offline';
     await updateDoc(userRef, { status: newStatus });
-    toast({ title: newStatus === 'available' ? "Online" : "Offline" });
+    toast({ title: newStatus === 'available' ? "Ready" : "Offline" });
   };
 
   const startTrip = async (route: any) => {
@@ -118,10 +134,12 @@ export default function DriverApp() {
         riderCount: 0, 
         passengers: [], 
         verifiedPassengers: [], 
-        startTime: new Date().toISOString()
+        startTime: new Date().toISOString(),
+        currentLat: profile.currentLat || null,
+        currentLng: profile.currentLng || null
       });
       await updateDoc(userRef!, { status: 'on-trip', activeTripId: tripRef.id });
-      toast({ title: "Started" });
+      toast({ title: "Job Started" });
     } finally { setIsUpdating(false); }
   };
 
@@ -130,12 +148,12 @@ export default function DriverApp() {
     setIsVerifying(true);
     const snap = await getDocs(query(collection(db, 'users'), where('activeOtp', '==', verificationOtp.trim())));
     if (snap.empty) {
-      toast({ variant: "destructive", title: "Invalid" });
+      toast({ variant: "destructive", title: "Invalid Code" });
     } else {
       const riderId = snap.docs[0].id;
       await updateDoc(doc(db, 'trips', activeTrip.id), { verifiedPassengers: arrayUnion(riderId), riderCount: increment(1) });
       await updateDoc(doc(db, 'users', riderId), { activeOtp: null });
-      toast({ title: "Boarded" });
+      toast({ title: "Scholar Boarded" });
       setVerificationOtp("");
     }
     setIsVerifying(false);
@@ -150,7 +168,7 @@ export default function DriverApp() {
       const driverPayout = totalYield * 0.9; 
       await updateDoc(doc(db, 'trips', activeTrip.id), { status: 'completed', endTime: new Date().toISOString(), totalYield, driverShare: driverPayout, finalRiderCount: riderCount });
       await updateDoc(userRef, { status: 'available', activeTripId: null, totalEarnings: increment(driverPayout) });
-      toast({ title: "Done", description: `Earned ₹${driverPayout.toFixed(0)}` });
+      toast({ title: "Job Done", description: `Earned ₹${driverPayout.toFixed(0)}` });
     } finally { setIsUpdating(false); }
   };
 
@@ -199,7 +217,7 @@ export default function DriverApp() {
                   <CardContent className="p-8 flex justify-between items-center">
                     <div className="space-y-1">
                       <h3 className="font-black text-2xl text-foreground uppercase italic leading-none tracking-tighter">{route.routeName}</h3>
-                      <p className="text-[10px] font-black text-primary uppercase tracking-widest">₹{route.baseFare} Per Ride</p>
+                      <p className="text-[10px] font-black text-primary uppercase tracking-widest">₹{route.baseFare} Per Scholar</p>
                     </div>
                     <Button onClick={() => startTrip(route)} disabled={profile?.status === 'offline' || isUpdating} className="rounded-2xl h-16 px-8 bg-primary text-black font-black uppercase italic text-sm shadow-2xl shadow-primary/20 active:scale-95 transition-all">Start</Button>
                   </CardContent>
@@ -213,9 +231,9 @@ export default function DriverApp() {
               <div className="flex justify-between items-start relative z-10">
                 <div className="space-y-1">
                   <h2 className="text-4xl font-black italic uppercase leading-none tracking-tighter text-primary text-glow">{activeTrip.routeName}</h2>
-                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.4em] mt-2 italic">Active Mission</p>
+                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.4em] mt-2 italic">Active Job</p>
                 </div>
-                <Badge className="bg-primary/20 text-primary border-none text-[10px] font-black uppercase px-5 py-2.5 rounded-full shadow-lg">{activeTrip.verifiedPassengers?.length || 0} Boarded</Badge>
+                <Badge className="bg-primary/20 text-primary border-none text-[10px] font-black uppercase px-5 py-2.5 rounded-full shadow-lg">{activeTrip.verifiedPassengers?.length || 0} In Bus</Badge>
               </div>
 
               <div className="bg-black/60 p-8 rounded-[2rem] space-y-4 border border-white/10 shadow-inner">
@@ -253,8 +271,8 @@ export default function DriverApp() {
              <h3 className="text-4xl font-black italic uppercase text-foreground tracking-tighter pl-2">Stats</h3>
              <div className="grid grid-cols-1 gap-6">
                 {[
-                  { label: "Tyre Health", value: "98%", icon: Activity, progress: 98 },
-                  { label: "GPS Signal", value: "100%", icon: CheckCircle2, progress: 100 },
+                  { label: "Signal Strength", value: "100%", icon: Zap, progress: 100 },
+                  { label: "Fleet Health", value: "98%", icon: ShieldCheck, progress: 98 },
                 ].map((item, i) => (
                   <Card key={i} className="bg-white/5 border border-white/10 rounded-[2rem] p-8 shadow-xl space-y-5 backdrop-blur-3xl">
                      <div className="flex justify-between items-center">

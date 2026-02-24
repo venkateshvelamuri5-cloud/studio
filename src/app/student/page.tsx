@@ -49,8 +49,17 @@ const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) =
   </svg>
 );
 
-const mapContainerStyle = { width: '100%', height: '100%', borderRadius: '1.5rem' };
-const mapOptions = { mapId: "da87e9c90896eba04be76dde", disableDefaultUI: true };
+const mapContainerStyle = { width: '100%', height: '100%', borderRadius: '2.5rem' };
+const mapOptions = { 
+  disableDefaultUI: true,
+  styles: [
+    { elementType: "geometry", stylers: [{ color: "#020617" }] },
+    { elementType: "labels.text.stroke", stylers: [{ color: "#020617" }] },
+    { elementType: "labels.text.fill", stylers: [{ color: "#00FFFF" }] },
+    { featureType: "road", elementType: "geometry", stylers: [{ color: "#1e293b" }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: "#0f172a" }] }
+  ]
+};
 const DEFAULT_CENTER = { lat: 17.6868, lng: 83.2185 };
 
 export default function StudentApp() {
@@ -105,11 +114,21 @@ export default function StudentApp() {
     return trips;
   }, [activeTrips, activeRoutes, pickupStop, destinationStop]);
 
+  const mapCenter = useMemo(() => {
+    if (currentPosition) return currentPosition;
+    if (activeTrips && activeTrips.length > 0) {
+      const first = activeTrips.find(t => t.currentLat && t.currentLng);
+      if (first) return { lat: first.currentLat, lng: first.currentLng };
+    }
+    return DEFAULT_CENTER;
+  }, [currentPosition, activeTrips]);
+
   useEffect(() => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
       const watchId = navigator.geolocation.watchPosition(
         (pos) => setCurrentPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => {}
+        () => {},
+        { enableHighAccuracy: true }
       );
       return () => navigator.geolocation.clearWatch(watchId);
     }
@@ -131,7 +150,7 @@ export default function StudentApp() {
       timestamp: new Date().toISOString(),
       location: currentPosition || 'Regional Hub'
     });
-    toast({ variant: "destructive", title: "SOS Sent", description: "Our team has your location." });
+    toast({ variant: "destructive", title: "SOS Sent", description: "Team has your location." });
   };
 
   const handleCallContact = (phone: string) => {
@@ -145,14 +164,13 @@ export default function StudentApp() {
       if (navigator.share) {
         await navigator.share({
           title: 'Join Aago!',
-          text: `Use my code ${profile.referralCode} to join Aago and start riding!`,
+          text: `Use my code ${profile.referralCode} to ride with Aago!`,
           url: window.location.origin
         });
       } else {
         await navigator.clipboard.writeText(profile.referralCode);
-        toast({ title: "Code Copied", description: "Share it with a friend!" });
+        toast({ title: "Copied", description: "Share it with a friend!" });
       }
-      // Points are only added now when someone else signs up using the code.
     } catch (e) {}
   };
 
@@ -229,7 +247,7 @@ export default function StudentApp() {
                   <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground mb-4 relative z-10 italic">Your Code</p>
                   <h3 className="text-7xl font-black tracking-tighter italic font-headline leading-none mb-8 relative z-10 text-primary text-glow">{profile.activeOtp}</h3>
                   <div className="bg-white/5 p-5 rounded-2xl text-left border border-white/10 relative z-10">
-                    <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Destnation</p>
+                    <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Destination</p>
                     <p className="text-sm font-black italic uppercase text-foreground">{profile.destinationStopName}</p>
                   </div>
                 </Card>
@@ -256,7 +274,7 @@ export default function StudentApp() {
                       {bookingStep === 1 && (
                         <>
                           <div className="space-y-4">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-3">Pick Nodes</Label>
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-3">Pick Stops</Label>
                             <div className="space-y-3">
                                <select value={pickupStop} onChange={e => setPickupStop(e.target.value)} className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 font-black italic text-lg outline-none text-foreground appearance-none shadow-sm">
                                  <option value="" className="bg-background">Start Point?</option>
@@ -269,9 +287,9 @@ export default function StudentApp() {
                             </div>
                           </div>
                           <div className="space-y-4 pb-4">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-3">Active Buses</Label>
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-3">Active Shuttles</Label>
                             {filteredTrips.length === 0 ? (
-                               <div className="p-16 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground italic bg-white/5 rounded-3xl border border-dashed border-white/10">Scanning Hub...</div>
+                               <div className="p-16 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground italic bg-white/5 rounded-3xl border border-dashed border-white/10">Scanning...</div>
                             ) : filteredTrips.map((trip: any) => (
                               <div key={trip.id} onClick={() => setSelectedTrip(trip)} className={`p-8 rounded-3xl border-[3px] transition-all cursor-pointer ${selectedTrip?.id === trip.id ? 'bg-primary/10 border-primary text-primary shadow-xl scale-[1.02]' : 'bg-white/5 border-white/10'}`}>
                                 <h4 className="font-black uppercase italic text-2xl tracking-tighter leading-none">{trip.routeName}</h4>
@@ -345,30 +363,33 @@ export default function StudentApp() {
         {activeTab === 'radar' && (
           <div className="flex-1 flex flex-col space-y-6 animate-in fade-in duration-500 overflow-hidden">
             <h2 className="text-3xl font-black italic uppercase text-foreground tracking-tighter pl-2">Radar</h2>
-            <div className="flex-1 rounded-[3rem] overflow-hidden border border-white/10 shadow-2xl bg-black/40 relative min-h-[300px]">
+            <div className="flex-1 rounded-[3rem] overflow-hidden border border-white/10 shadow-2xl bg-black/40 relative min-h-[350px]">
                {isLoaded ? (
-                 <GoogleMap mapContainerStyle={mapContainerStyle} center={currentPosition || DEFAULT_CENTER} zoom={14} options={mapOptions}>
+                 <GoogleMap 
+                    mapContainerStyle={mapContainerStyle} 
+                    center={mapCenter} 
+                    zoom={15} 
+                    options={mapOptions}
+                 >
                    {currentPosition && <Marker position={currentPosition} title="Me" />}
                    {activeTrips?.map((trip: any) => (
-                     <Marker 
-                        key={trip.id} 
-                        position={{ lat: trip.currentLat || 17.68, lng: trip.currentLng || 83.21 }} 
-                        title={trip.routeName}
-                        icon={{
-                          path: 'M 10 10 L 30 10 L 30 30 L 10 30 Z',
-                          fillColor: '#00FFFF',
-                          fillOpacity: 1,
-                          strokeWeight: 1,
-                          scale: 0.5
-                        } as any}
-                      />
+                     trip.currentLat && trip.currentLng && (
+                       <Marker 
+                          key={trip.id} 
+                          position={{ lat: trip.currentLat, lng: trip.currentLng }} 
+                          title={trip.routeName}
+                          icon={{
+                            url: "https://maps.google.com/mapfiles/ms/icons/bus.png",
+                          }}
+                        />
+                     )
                    ))}
                  </GoogleMap>
                ) : <div className="h-full flex items-center justify-center text-muted-foreground font-black italic text-xs tracking-widest uppercase">Syncing...</div>}
             </div>
 
             <div className="space-y-4 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-               <h3 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-3">Live Map</h3>
+               <h3 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-3">Live Signal</h3>
                {!activeTrips || activeTrips.length === 0 ? (
                  <div className="p-8 text-center bg-white/5 rounded-2xl border border-dashed border-white/10 text-[10px] font-black uppercase tracking-widest text-white/20">Empty...</div>
                ) : (
@@ -378,7 +399,7 @@ export default function StudentApp() {
                         <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm"><Bus className="h-5 w-5" /></div>
                         <div>
                            <p className="font-black italic uppercase text-foreground text-sm leading-none">{trip.routeName}</p>
-                           <p className="text-[8px] font-black text-primary uppercase tracking-widest mt-1">On Path</p>
+                           <p className="text-[8px] font-black text-primary uppercase tracking-widest mt-1">Live Tracking</p>
                         </div>
                       </div>
                       <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase">{trip.riderCount} Seats</Badge>
