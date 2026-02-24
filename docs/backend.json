@@ -20,7 +20,7 @@
         "status": { "type": "string", "enum": ["available", "on-trip", "offline"] },
         "photoUrl": { "type": "string" },
         "vehicleNumber": { "type": "string" },
-        "vehicleType": { "type": "string", "enum": ["Bus", "Mini-Bus", "Van"] },
+        "vehicleType": { "type": "string", "enum": ["5 Seater", "7 Seater", "Mini-Bus"] },
         "seatingCapacity": { "type": "number" },
         "aadhaarNumber": { "type": "string" },
         "yearsOfExperience": { "type": "number" },

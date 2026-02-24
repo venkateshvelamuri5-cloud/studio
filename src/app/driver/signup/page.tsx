@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -35,8 +36,8 @@ export default function DriverSignupPage() {
   
   // Vehicle
   const [vehicleNumber, setVehicleNumber] = useState('');
-  const [vehicleType, setVehicleType] = useState('Bus');
-  const [seatingCapacity, setSeatingCapacity] = useState('40');
+  const [vehicleType, setVehicleType] = useState('7 Seater');
+  const [seatingCapacity, setSeatingCapacity] = useState('7');
 
   // Photo
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -123,7 +124,6 @@ export default function DriverSignupPage() {
     try {
       const result = await confirmationResult.confirm(otp);
       
-      // Generate Unique Fleet ID (Referral Code)
       const referralCode = `FLEET-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
       await setDoc(doc(db, 'users', result.user.uid), {
@@ -155,7 +155,7 @@ export default function DriverSignupPage() {
         <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/30">
           <ConnectingDotsLogo className="h-6 w-6 text-black" />
         </div>
-        <h1 className="text-xl font-black italic uppercase tracking-tighter text-foreground">JOIN FLEET</h1>
+        <h1 className="text-xl font-black italic uppercase tracking-tighter text-foreground text-center">JOIN FLEET</h1>
       </div>
 
       <Card className="w-full max-w-md glass-card border-none rounded-[2.5rem] overflow-hidden shadow-2xl">
@@ -169,15 +169,15 @@ export default function DriverSignupPage() {
             <div className="space-y-4 animate-in slide-in-from-right-8 duration-500">
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Name" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Full Name" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">License No.</Label>
-                <Input value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} placeholder="DL-XXXX" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
+                <Input value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} placeholder="License ID" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Gov ID (Aadhaar)</Label>
-                <Input value={aadhaarNumber} onChange={(e) => setAadhaarNumber(e.target.value)} placeholder="0000" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
+                <Input value={aadhaarNumber} onChange={(e) => setAadhaarNumber(e.target.value)} placeholder="Aadhaar ID" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
               </div>
               <Button onClick={() => setStep(2)} disabled={!fullName || !licenseNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4 active:scale-95 transition-all">Next</Button>
             </div>
@@ -187,16 +187,20 @@ export default function DriverSignupPage() {
             <div className="space-y-4 animate-in slide-in-from-right-8 duration-500">
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Plate No.</Label>
-                <Input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="AP-31" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
+                <Input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="Plate Number" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Bus Type</Label>
-                <Select value={vehicleType} onValueChange={setVehicleType}>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Vehicle Type</Label>
+                <Select value={vehicleType} onValueChange={(val) => {
+                  setVehicleType(val);
+                  if (val === '5 Seater') setSeatingCapacity('5');
+                  else if (val === '7 Seater') setSeatingCapacity('7');
+                }}>
                   <SelectTrigger className="h-12 bg-white/5 border-white/10 text-foreground font-black italic rounded-xl"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-background border-white/10">
-                    <SelectItem value="Bus">Big Bus</SelectItem>
+                    <SelectItem value="5 Seater">5 Seater</SelectItem>
+                    <SelectItem value="7 Seater">7 Seater</SelectItem>
                     <SelectItem value="Mini-Bus">Mini Bus</SelectItem>
-                    <SelectItem value="Van">Van</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -259,7 +263,7 @@ export default function DriverSignupPage() {
         </CardContent>
 
         <CardFooter className="bg-white/5 p-8 flex flex-col gap-4 border-t border-white/5">
-          <Link href="/driver/login" className="text-[10px] font-black uppercase italic text-primary hover:underline tracking-widest">Sign In</Link>
+          <Link href="/driver/login" className="text-[10px] font-black uppercase italic text-primary hover:underline tracking-widest text-center w-full">Sign In</Link>
         </CardFooter>
       </Card>
     </div>
