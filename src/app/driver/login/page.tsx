@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import Link from 'next/navigation';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,7 +93,7 @@ export default function DriverLoginPage() {
       const userSnap = await getDoc(doc(db, 'users', user.uid));
 
       if (!userSnap.exists()) {
-        toast({ title: "Join Fleet", description: "Profile not found. Please join the fleet." });
+        toast({ title: "Join Fleet", description: "Profile not found. Please join the team." });
         router.push('/driver/signup');
         return;
       }
@@ -131,7 +131,7 @@ export default function DriverLoginPage() {
         <CardHeader className="pt-14 pb-8 text-center">
           <CardTitle className="text-2xl font-black uppercase italic tracking-tighter text-foreground leading-none">Secure Login</CardTitle>
           <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic mt-2">
-            Verify Mission Clearance
+            Verify Identity
           </CardDescription>
         </CardHeader>
         <CardContent className="px-12 pb-10">
@@ -185,7 +185,7 @@ export default function DriverLoginPage() {
           )}
         </CardContent>
         <CardFooter className="bg-white/5 p-10 flex flex-col gap-6">
-          <Link href="/driver/signup" className="text-xs font-black uppercase italic text-primary hover:underline">New Operator? Join Fleet</Link>
+          <Link href="/driver/signup" className="text-xs font-black uppercase italic text-primary hover:underline">New Driver? Join Team</Link>
         </CardFooter>
       </Card>
     </div>
