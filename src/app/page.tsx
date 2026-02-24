@@ -93,7 +93,7 @@ export default function GlobalLandingPage() {
                   The Smartest <br /> <span className="text-primary text-glow">Way to Class.</span>
                 </h1>
                 <p className="text-lg font-bold text-muted-foreground leading-relaxed italic border-l-4 border-primary/20 pl-6">
-                  Stop wasting your pocket money on expensive autos. Get fast, safe, and cheap bus rides to campus. Never miss a 1st hour lecture again.
+                  Stop wasting your pocket money on expensive private transport. Get fast, safe, and reliable bus rides to campus. Never miss a 1st hour lecture again.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-6">
                   <Link href="/auth/signup">
@@ -151,27 +151,27 @@ export default function GlobalLandingPage() {
            <div className="container mx-auto px-6 lg:px-20">
               <div className="text-center max-w-3xl mx-auto mb-20 space-y-6">
                  <Badge className="bg-destructive/10 text-destructive border-destructive/20 px-6 py-2 text-[10px] font-black uppercase tracking-[0.3em]">The Commute Crisis</Badge>
-                 <h2 className="text-4xl lg:text-5xl font-black uppercase italic tracking-tighter text-foreground leading-none">Why Students Hate Local Travel.</h2>
+                 <h2 className="text-4xl lg:text-5xl font-black uppercase italic tracking-tighter text-foreground leading-none">Why Students Hate Travel.</h2>
                  <p className="text-lg font-bold text-muted-foreground italic leading-relaxed">
-                    Local transport shouldn't be a daily struggle for scholars. We identified the top 3 reasons students are frustrated.
+                    Campus transport shouldn't be a daily struggle for scholars. We identified the top 3 reasons students are frustrated.
                  </p>
               </div>
 
               <div className="grid lg:grid-cols-3 gap-10">
                  {[
                    { 
-                     title: "Auto Drivers Overcharge", 
-                     desc: "Local autos and private taxis charge 3x the fair price just because you're a student. It kills your monthly pocket money.", 
+                     title: "Unfair Pricing", 
+                     desc: "Local transport often charges high prices just because you're a student. It kills your monthly pocket money.", 
                      icon: IndianRupee 
                    },
                    { 
-                     title: "Buses Are Unpredictable", 
-                     desc: "Old public buses have no tracking. You stand in the heat for 40 minutes not knowing if the bus is coming or full.", 
+                     title: "Unpredictable Rides", 
+                     desc: "Regular buses have no tracking. You stand in the heat for a long time not knowing if the ride is coming or full.", 
                      icon: Clock 
                    },
                    { 
                      title: "Safety is a Gamble", 
-                     desc: "Walking long distances or taking unofficial rides is risky. Every scholar deserves a verified and secure journey.", 
+                     desc: "Walking long distances or taking unverified rides is risky. Every scholar deserves a secure journey.", 
                      icon: ShieldAlert 
                    }
                  ].map((item, i) => (
@@ -199,7 +199,7 @@ export default function GlobalLandingPage() {
                           <div className="space-y-4">
                              <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><IndianRupee className="h-6 w-6" /></div>
                              <h5 className="text-xl font-black uppercase italic text-foreground tracking-tighter">Fixed Fare</h5>
-                             <p className="text-xs font-bold text-muted-foreground italic leading-relaxed">No more bargaining. Pay the same low price every single day.</p>
+                             <p className="text-xs font-bold text-muted-foreground italic leading-relaxed">No more bargaining. Pay the same student price every single day.</p>
                           </div>
                           <div className="space-y-4">
                              <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Radar className="h-6 w-6" /></div>
@@ -227,8 +227,8 @@ export default function GlobalLandingPage() {
                     </p>
                     <div className="flex gap-10">
                        <div className="space-y-1">
-                          <h4 className="text-3xl font-black text-primary italic leading-none tracking-tighter">₹20-50</h4>
-                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Typical Fare</p>
+                          <h4 className="text-3xl font-black text-primary italic leading-none tracking-tighter">Scholar</h4>
+                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Rates</p>
                        </div>
                        <div className="space-y-1">
                           <h4 className="text-3xl font-black text-primary italic leading-none tracking-tighter">100%</h4>
@@ -254,7 +254,7 @@ export default function GlobalLandingPage() {
               <div className="grid md:grid-cols-3 gap-12">
                  {[
                    { step: "01", title: "Find Ride", desc: "Open the app and search your campus route. See the nearest pickup node.", icon: Radar },
-                   { step: "02", title: "Secure Seat", desc: "Book your seat for a low fixed price. Get your unique boarding code instantly.", icon: Lock },
+                   { step: "02", title: "Secure Seat", desc: "Book your seat for a student price. Get your unique boarding code instantly.", icon: Lock },
                    { step: "03", title: "Show & Go", desc: "Board your shuttle, show your code to the driver, and ride to class comfortably.", icon: CheckCircle2 }
                  ].map((item, i) => (
                    <div key={i} className="relative flex flex-col items-center text-center space-y-8 bg-white/5 p-12 border border-white/10 rounded-[3rem] shadow-xl group hover:border-primary transition-all">
@@ -281,7 +281,7 @@ export default function GlobalLandingPage() {
                     <Badge className="bg-primary/10 text-primary border-primary/20 px-6 py-2 text-[10px] font-black uppercase tracking-[0.3em]">The Referral Loop</Badge>
                     <h2 className="text-4xl lg:text-6xl font-black uppercase italic tracking-tighter text-foreground leading-none">Invite Scholars. <br/> Earn Points.</h2>
                     <p className="text-xl font-bold text-muted-foreground italic leading-relaxed">
-                       Help your campus community. Every friend who joins using your unique code earns you **50 Scholar Points**. Use points for discounts and exclusive rewards.
+                       Help your campus community. Every friend who joins using your unique code earns you **Scholar Points**. Use points for discounts and exclusive rewards.
                     </p>
                     <div className="flex justify-center">
                        <Link href="/auth/signup">
