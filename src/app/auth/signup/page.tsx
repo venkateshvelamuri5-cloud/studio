@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2 } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDocs, collection, query, where, updateDoc, increment } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
@@ -34,6 +34,7 @@ export default function SignupPage() {
   const [emergencyName, setEmergencyName] = useState('');
   const [emergencyPhone, setEmergencyPhone] = useState('');
   const [city, setCity] = useState('Vizag');
+  const [referredByCode, setReferredByCode] = useState('');
   
   // Auth
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -70,7 +71,7 @@ export default function SignupPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaRef.current);
       setConfirmationResult(result);
       setStep(4);
-      toast({ title: "Code Sent", description: "Check your phone messages." });
+      toast({ title: "Code Sent" });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: "Try again later." });
       if (recaptchaRef.current) {
@@ -91,8 +92,19 @@ export default function SignupPage() {
       const result = await confirmationResult.confirm(otp);
       const user = result.user;
       
-      // Generate Unique Referral Code
       const referralCode = `AAGO-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
+      // Logic to reward the referrer
+      if (referredByCode.trim()) {
+        const q = query(collection(db, 'users'), where('referralCode', '==', referredByCode.trim().toUpperCase()));
+        const referrerSnap = await getDocs(q);
+        if (!referrerSnap.empty) {
+          const referrerDoc = referrerSnap.docs[0];
+          await updateDoc(doc(db, 'users', referrerDoc.id), {
+            loyaltyPoints: increment(50)
+          });
+        }
+      }
 
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
@@ -105,13 +117,13 @@ export default function SignupPage() {
         city,
         referralCode,
         role: 'rider',
-        loyaltyPoints: 100,
+        loyaltyPoints: 0, // Starts at 0, action-based points now.
         createdAt: new Date().toISOString(),
       });
 
       router.push('/student');
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Invalid Code", description: "Please check your code." });
+      toast({ variant: "destructive", title: "Invalid Code" });
     } finally {
       setLoading(false);
     }
@@ -157,6 +169,10 @@ export default function SignupPage() {
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Student ID No.</Label>
                 <Input value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="12345" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Referral Code (Optional)</Label>
+                <Input value={referredByCode} onChange={(e) => setReferredByCode(e.target.value)} placeholder="AAGO-XXXX" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base uppercase" />
               </div>
               <Button onClick={() => setStep(2)} disabled={!fullName || !studentId} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl mt-2 active:scale-95 transition-all">Next</Button>
             </div>

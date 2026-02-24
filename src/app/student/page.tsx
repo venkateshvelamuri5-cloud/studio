@@ -145,14 +145,14 @@ export default function StudentApp() {
       if (navigator.share) {
         await navigator.share({
           title: 'Join Aago!',
-          text: `Use my code ${profile.referralCode} to join Aago and get a free ride!`,
+          text: `Use my code ${profile.referralCode} to join Aago and start riding!`,
           url: window.location.origin
         });
       } else {
         await navigator.clipboard.writeText(profile.referralCode);
         toast({ title: "Code Copied", description: "Share it with a friend!" });
       }
-      if (userRef) await updateDoc(userRef, { loyaltyPoints: increment(50) });
+      // Points are only added now when someone else signs up using the code.
     } catch (e) {}
   };
 
