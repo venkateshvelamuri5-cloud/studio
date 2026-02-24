@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -68,7 +69,7 @@ export default function DriverApp() {
     return { earnings, count: pastTrips.length, scholars: totalScholars, carbon: (totalScholars * 0.4).toFixed(1) };
   }, [pastTrips]);
 
-  // Live Location Sync
+  // High-Frequency Location Sync
   useEffect(() => {
     if (!profile || profile.status === 'offline' || !userRef || !db) return;
     
@@ -87,12 +88,12 @@ export default function DriverApp() {
           if (profile.status === 'on-trip' && profile.activeTripId) {
             updateDoc(doc(db, 'trips', profile.activeTripId), coords);
           }
-        }, (err) => console.error("Location error:", err), { enableHighAccuracy: true });
+        }, (err) => {}, { enableHighAccuracy: true });
       }
     };
 
     updateLocation(); // Initial update
-    const interval = setInterval(updateLocation, 10000); // 10 second sync
+    const interval = setInterval(updateLocation, 5000); // 5 second high-fidelity sync
     return () => clearInterval(interval);
   }, [profile?.status, profile?.activeTripId, userRef, db]);
 

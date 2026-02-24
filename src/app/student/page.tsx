@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,7 +31,8 @@ import {
   ShieldAlert,
   Phone,
   Zap,
-  Copy
+  Copy,
+  RefreshCw
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc } from 'firebase/firestore';
@@ -49,7 +51,7 @@ const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) =
   </svg>
 );
 
-const mapContainerStyle = { width: '100%', height: '100%', borderRadius: '2.5rem' };
+const mapContainerStyle = { width: '100%', height: '100%' };
 const mapOptions = { 
   disableDefaultUI: true,
   styles: [
@@ -78,15 +80,19 @@ export default function StudentApp() {
   const [currentPosition, setCurrentPosition] = useState<{lat: number, lng: number} | null>(null);
   const [voucherCode, setVoucherCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState(0);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
 
-  const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: googleMapsApiKey });
+  const { isLoaded } = useJsApiLoader({ 
+    id: 'google-map-script', 
+    googleMapsApiKey: googleMapsApiKey 
+  });
 
   const userRef = useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
   const { data: globalConfig } = useDoc(useMemo(() => db ? doc(db, 'config', 'global') : null, [db]));
 
-  const { data: activeTrips } = useCollection(useMemo(() => (db && profile?.city) ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db, profile?.city]));
-  const { data: activeRoutes } = useCollection(useMemo(() => (db && profile?.city) ? query(collection(db, 'routes'), where('status', '==', 'active')) : null, [db, profile?.city]));
+  const { data: activeTrips } = useCollection(useMemo(() => (db) ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db]));
+  const { data: activeRoutes } = useCollection(useMemo(() => (db) ? query(collection(db, 'routes'), where('status', '==', 'active')) : null, [db]));
   
   const currentBooking = useMemo(() => (activeTrips && user?.uid) ? activeTrips.find(t => t.verifiedPassengers?.includes(user.uid) || t.passengers?.includes(user.uid)) : null, [activeTrips, user?.uid]);
   const { data: pastTrips } = useCollection(useMemo(() => {
@@ -133,6 +139,21 @@ export default function StudentApp() {
       return () => navigator.geolocation.clearWatch(watchId);
     }
   }, []);
+
+  const onMapLoad = useCallback((map: google.maps.Map) => {
+    setMap(map);
+  }, []);
+
+  const onMapUnmount = useCallback(() => {
+    setMap(null);
+  }, []);
+
+  const refreshRadar = () => {
+    if (map && mapCenter) {
+      map.panTo(mapCenter);
+      toast({ title: "Signal Synced", description: "Grid scan complete." });
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -362,7 +383,11 @@ export default function StudentApp() {
 
         {activeTab === 'radar' && (
           <div className="flex-1 flex flex-col space-y-6 animate-in fade-in duration-500 overflow-hidden">
-            <h2 className="text-3xl font-black italic uppercase text-foreground tracking-tighter pl-2">Radar</h2>
+            <div className="flex justify-between items-center px-2">
+              <h2 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Radar</h2>
+              <Button variant="ghost" size="icon" onClick={refreshRadar} className="text-primary h-10 w-10 rounded-xl bg-white/5"><RefreshCw className="h-5 w-5" /></Button>
+            </div>
+            
             <div className="flex-1 rounded-[3rem] overflow-hidden border border-white/10 shadow-2xl bg-black/40 relative min-h-[350px]">
                {isLoaded ? (
                  <GoogleMap 
@@ -370,8 +395,23 @@ export default function StudentApp() {
                     center={mapCenter} 
                     zoom={15} 
                     options={mapOptions}
+                    onLoad={onMapLoad}
+                    onUnmount={onMapUnmount}
                  >
-                   {currentPosition && <Marker position={currentPosition} title="Me" />}
+                   {currentPosition && (
+                     <Marker 
+                        position={currentPosition} 
+                        title="Me"
+                        icon={{
+                          path: google.maps.SymbolPath.CIRCLE,
+                          fillColor: '#00FFFF',
+                          fillOpacity: 1,
+                          strokeColor: '#FFFFFF',
+                          strokeWeight: 2,
+                          scale: 8
+                        }}
+                      />
+                   )}
                    {activeTrips?.map((trip: any) => (
                      trip.currentLat && trip.currentLng && (
                        <Marker 
@@ -380,12 +420,18 @@ export default function StudentApp() {
                           title={trip.routeName}
                           icon={{
                             url: "https://maps.google.com/mapfiles/ms/icons/bus.png",
+                            scaledSize: new google.maps.Size(32, 32)
                           }}
                         />
                      )
                    ))}
                  </GoogleMap>
-               ) : <div className="h-full flex items-center justify-center text-muted-foreground font-black italic text-xs tracking-widest uppercase">Syncing...</div>}
+               ) : (
+                 <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-4">
+                   <Loader2 className="animate-spin h-8 w-8 text-primary" />
+                   <p className="text-[10px] font-black uppercase tracking-widest italic">Syncing Grid...</p>
+                 </div>
+               )}
             </div>
 
             <div className="space-y-4 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
