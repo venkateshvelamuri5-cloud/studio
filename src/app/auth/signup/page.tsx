@@ -24,12 +24,11 @@ const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) =
 );
 
 export default function SignupPage() {
-  const [step, setStep] = useState(1); // 1: Basic Info, 2: Emergency, 3: Phone, 4: OTP
+  const [step, setStep] = useState(1); // 1: Info, 2: Safety, 3: Phone, 4: Code
   const [loading, setLoading] = useState(false);
   
   // Student Details
   const [fullName, setFullName] = useState('');
-  const [collegeName, setCollegeName] = useState('');
   const [studentId, setStudentId] = useState('');
   const [gender, setGender] = useState('Male');
   const [emergencyName, setEmergencyName] = useState('');
@@ -71,19 +70,12 @@ export default function SignupPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaRef.current);
       setConfirmationResult(result);
       setStep(4);
-      toast({ title: "Code Sent", description: "Verification code sent to your phone." });
+      toast({ title: "Code Sent", description: "Check your phone messages." });
     } catch (error: any) {
-      console.error(error);
-      let message = "Failed to send code. Try again.";
-      if (error.code === 'auth/too-many-requests') {
-        message = "Too many attempts. Please wait a few minutes.";
-      }
-      toast({ variant: "destructive", title: "Error", description: message });
+      toast({ variant: "destructive", title: "Error", description: "Try again later." });
       if (recaptchaRef.current) {
-        recaptchaRef.current.render().then(() => {
-          recaptchaRef.current?.clear();
-          recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup', { size: 'invisible' });
-        });
+        recaptchaRef.current.clear();
+        recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup', { size: 'invisible' });
       }
     } finally {
       setLoading(false);
@@ -98,17 +90,20 @@ export default function SignupPage() {
     try {
       const result = await confirmationResult.confirm(otp);
       const user = result.user;
+      
+      // Generate Unique Referral Code
+      const referralCode = `AAGO-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         phoneNumber: user.phoneNumber,
         fullName,
-        collegeName,
         studentId,
         gender,
         emergencyContactName: emergencyName,
         emergencyContactPhone: emergencyPhone,
         city,
+        referralCode,
         role: 'rider',
         loyaltyPoints: 100,
         createdAt: new Date().toISOString(),
@@ -116,7 +111,7 @@ export default function SignupPage() {
 
       router.push('/student');
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Invalid Code", description: "Verification failed." });
+      toast({ variant: "destructive", title: "Invalid Code", description: "Please check your code." });
     } finally {
       setLoading(false);
     }
@@ -126,25 +121,25 @@ export default function SignupPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 sm:p-6 font-body safe-area-inset">
       <div id="recaptcha-container-signup"></div>
       
-      <div className="mb-6 flex flex-col items-center gap-3 animate-in fade-in duration-1000">
+      <div className="mb-6 flex flex-col items-center gap-3">
         <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/20">
-          <ConnectingDotsLogo className="h-6 w-6 text-black" />
+          <ConnectingDotsLogo className="h-8 w-8 text-black" />
         </div>
-        <h1 className="text-xl font-black font-headline italic uppercase tracking-tighter text-primary">SCHOLAR REGISTRATION</h1>
+        <h1 className="text-xl font-black italic uppercase tracking-tighter text-primary">JOIN AAGO</h1>
       </div>
 
       <Card className="w-full max-w-md glass-card border-none rounded-[2.5rem] overflow-hidden shadow-2xl">
         <CardHeader className="pt-8 pb-4 text-center border-b border-white/5 bg-white/5">
-          <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-foreground leading-none">Your Identity</CardTitle>
+          <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-foreground leading-none">Create Account</CardTitle>
           <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Step {step} of 4</CardDescription>
         </CardHeader>
         
         <CardContent className="px-6 py-8 sm:px-10">
           {step === 1 && (
-            <div className="space-y-5 animate-in slide-in-from-right-8 duration-500 max-h-[50vh] overflow-y-auto px-1 custom-scrollbar">
+            <div className="space-y-5 animate-in slide-in-from-right-8 duration-500">
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Rahul Sharma" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Rahul" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Gender</Label>
@@ -160,25 +155,25 @@ export default function SignupPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">College ID Number</Label>
-                <Input value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="ID-12345" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Student ID No.</Label>
+                <Input value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="12345" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
               </div>
-              <Button onClick={() => setStep(2)} disabled={!fullName || !studentId} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl mt-2">Next Step</Button>
+              <Button onClick={() => setStep(2)} disabled={!fullName || !studentId} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl mt-2 active:scale-95 transition-all">Next</Button>
             </div>
           )}
 
           {step === 2 && (
-            <div className="space-y-5 animate-in slide-in-from-right-8 duration-500 max-h-[50vh] overflow-y-auto px-1 custom-scrollbar">
+            <div className="space-y-5 animate-in slide-in-from-right-8 duration-500">
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Emergency Contact Name</Label>
-                <Input value={emergencyName} onChange={(e) => setEmergencyName(e.target.value)} placeholder="Parent or Friend" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Safe Contact Name</Label>
+                <Input value={emergencyName} onChange={(e) => setEmergencyName(e.target.value)} placeholder="Parent Name" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Emergency Phone Number</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Safe Phone Number</Label>
                 <Input value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)} placeholder="0000000000" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">City Hub</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Your City Hub</Label>
                 <Select value={city} onValueChange={setCity}>
                   <SelectTrigger className="h-14 bg-white/5 border-white/10 text-foreground font-black italic rounded-xl">
                     <SelectValue />
@@ -189,13 +184,12 @@ export default function SignupPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={() => setStep(3)} disabled={!emergencyName || !emergencyPhone} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl mt-2">Final Step</Button>
-              <Button variant="ghost" type="button" onClick={() => setStep(1)} className="w-full text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Go Back</Button>
+              <Button onClick={() => setStep(3)} disabled={!emergencyName || !emergencyPhone} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl mt-2 active:scale-95 transition-all">Last Step</Button>
             </div>
           )}
 
           {step === 3 && (
-            <form onSubmit={handleSendOtp} className="space-y-6 animate-in slide-in-from-right-8 duration-500">
+            <form onSubmit={handleSendOtp} className="space-y-6">
               <div className="space-y-3">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number</Label>
                 <div className="relative">
@@ -217,7 +211,7 @@ export default function SignupPage() {
           )}
 
           {step === 4 && (
-            <form onSubmit={handleVerifyOtp} className="space-y-6 animate-in zoom-in-95 duration-500">
+            <form onSubmit={handleVerifyOtp} className="space-y-6">
               <div className="space-y-3 text-center">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Verification Code</Label>
                 <Input 

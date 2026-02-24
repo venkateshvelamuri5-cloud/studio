@@ -24,7 +24,7 @@ const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) =
 );
 
 export default function DriverSignupPage() {
-  const [step, setStep] = useState(1); // 1: Info, 2: Vehicle, 3: Photo, 4: Phone, 5: OTP
+  const [step, setStep] = useState(1); // 1: Profile, 2: Vehicle, 3: Photo, 4: Phone, 5: Code
   const [loading, setLoading] = useState(false);
   
   // Profile
@@ -40,7 +40,6 @@ export default function DriverSignupPage() {
 
   // Photo
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -72,18 +71,11 @@ export default function DriverSignupPage() {
   const getCameraPermission = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-      setHasCameraPermission(true);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
     } catch (error) {
-      console.error('Error accessing camera:', error);
-      setHasCameraPermission(false);
-      toast({
-        variant: 'destructive',
-        title: 'Camera Blocked',
-        description: 'Please allow camera access to take your profile photo.',
-      });
+      toast({ variant: 'destructive', title: 'Camera Blocked', description: 'Enable camera to continue.' });
     }
   };
 
@@ -94,10 +86,7 @@ export default function DriverSignupPage() {
       canvas.height = videoRef.current.videoHeight;
       const ctx = canvas.getContext('2d');
       ctx?.drawImage(videoRef.current, 0, 0);
-      const dataUrl = canvas.toDataURL('image/jpeg');
-      setPhotoUrl(dataUrl);
-      
-      // Stop camera stream
+      setPhotoUrl(canvas.toDataURL('image/jpeg'));
       if (videoRef.current.srcObject) {
         (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
       }
@@ -114,19 +103,12 @@ export default function DriverSignupPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaRef.current);
       setConfirmationResult(result);
       setStep(5);
-      toast({ title: "Code Sent", description: "Verification code sent to your phone." });
+      toast({ title: "Code Sent" });
     } catch (error: any) {
-      console.error(error);
-      let message = "Failed to send code.";
-      if (error.code === 'auth/too-many-requests') {
-        message = "Rate limit hit. Please wait.";
-      }
-      toast({ variant: "destructive", title: "Error", description: message });
+      toast({ variant: "destructive", title: "Error", description: "Try again." });
       if (recaptchaRef.current) {
-        recaptchaRef.current.render().then(() => {
-          recaptchaRef.current?.clear();
-          recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup-driver', { size: 'invisible' });
-        });
+        recaptchaRef.current.clear();
+        recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup-driver', { size: 'invisible' });
       }
     } finally {
       setLoading(false);
@@ -140,6 +122,10 @@ export default function DriverSignupPage() {
 
     try {
       const result = await confirmationResult.confirm(otp);
+      
+      // Generate Unique Fleet ID (Referral Code)
+      const referralCode = `FLEET-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
       await setDoc(doc(db, 'users', result.user.uid), {
         uid: result.user.uid,
         phoneNumber: result.user.phoneNumber,
@@ -147,6 +133,7 @@ export default function DriverSignupPage() {
         seatingCapacity: parseInt(seatingCapacity),
         aadhaarNumber,
         photoUrl: photoUrl,
+        referralCode,
         role: 'driver', 
         status: 'offline', 
         totalEarnings: 0, 
@@ -154,7 +141,7 @@ export default function DriverSignupPage() {
       });
       router.push('/driver');
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Invalid Code", description: "Verification failed." });
+      toast({ variant: "destructive", title: "Invalid Code" });
     } finally {
       setLoading(false);
     }
@@ -164,11 +151,11 @@ export default function DriverSignupPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 sm:p-6 font-body safe-area-inset">
       <div id="recaptcha-container-signup-driver"></div>
       
-      <div className="mb-6 flex flex-col items-center gap-3 animate-in fade-in duration-1000">
+      <div className="mb-6 flex flex-col items-center gap-3">
         <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/30">
           <ConnectingDotsLogo className="h-6 w-6 text-black" />
         </div>
-        <h1 className="text-xl font-black italic uppercase tracking-tighter text-foreground">OPERATOR JOIN FLEET</h1>
+        <h1 className="text-xl font-black italic uppercase tracking-tighter text-foreground">JOIN FLEET</h1>
       </div>
 
       <Card className="w-full max-w-md glass-card border-none rounded-[2.5rem] overflow-hidden shadow-2xl">
@@ -179,92 +166,69 @@ export default function DriverSignupPage() {
         
         <CardContent className="px-6 py-8 sm:px-10">
           {step === 1 && (
-            <div className="space-y-4 animate-in slide-in-from-right-8 duration-500 max-h-[50vh] overflow-y-auto px-1 custom-scrollbar">
+            <div className="space-y-4 animate-in slide-in-from-right-8 duration-500">
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Enter Name" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Name" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">License Number</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">License No.</Label>
                 <Input value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} placeholder="DL-XXXX" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Gov ID (Aadhaar)</Label>
-                <Input value={aadhaarNumber} onChange={(e) => setAadhaarNumber(e.target.value)} placeholder="XXXX XXXX XXXX" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
+                <Input value={aadhaarNumber} onChange={(e) => setAadhaarNumber(e.target.value)} placeholder="0000" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
               </div>
-              <Button onClick={() => setStep(2)} disabled={!fullName || !licenseNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4">Next Step</Button>
+              <Button onClick={() => setStep(2)} disabled={!fullName || !licenseNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4 active:scale-95 transition-all">Next</Button>
             </div>
           )}
 
           {step === 2 && (
-            <div className="space-y-4 animate-in slide-in-from-right-8 duration-500 max-h-[50vh] overflow-y-auto px-1 custom-scrollbar">
+            <div className="space-y-4 animate-in slide-in-from-right-8 duration-500">
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Plate Number</Label>
-                <Input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="AP-31-XX-0000" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Plate No.</Label>
+                <Input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="AP-31" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Vehicle Type</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Bus Type</Label>
                 <Select value={vehicleType} onValueChange={setVehicleType}>
                   <SelectTrigger className="h-12 bg-white/5 border-white/10 text-foreground font-black italic rounded-xl"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-background border-white/10">
-                    <SelectItem value="Bus">Large Bus</SelectItem>
+                    <SelectItem value="Bus">Big Bus</SelectItem>
                     <SelectItem value="Mini-Bus">Mini Bus</SelectItem>
-                    <SelectItem value="Van">Small Van</SelectItem>
+                    <SelectItem value="Van">Van</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Seats</Label>
-                <Input type="number" value={seatingCapacity} onChange={(e) => setSeatingCapacity(e.target.value)} placeholder="40" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Total Seats</Label>
+                <Input type="number" value={seatingCapacity} onChange={(e) => setSeatingCapacity(e.target.value)} className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">City Hub</Label>
-                <Select value={city} onValueChange={setCity}>
-                  <SelectTrigger className="h-12 bg-white/5 border-white/10 text-foreground font-black italic rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-background border-white/10">
-                    <SelectItem value="Vizag">Vizag</SelectItem>
-                    <SelectItem value="Vizianagaram">Vizianagaram</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button onClick={() => { setStep(3); getCameraPermission(); }} disabled={!vehicleNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4">Take Photo</Button>
+              <Button onClick={() => { setStep(3); getCameraPermission(); }} disabled={!vehicleNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4 active:scale-95 transition-all">Go To Photo</Button>
             </div>
           )}
 
           {step === 3 && (
             <div className="space-y-6 text-center animate-in slide-in-from-right-8">
-              <div className="relative aspect-square max-w-[240px] mx-auto bg-black/40 rounded-[2rem] overflow-hidden border-2 border-primary/20 shadow-inner">
+              <div className="relative aspect-square max-w-[200px] mx-auto bg-black rounded-[2rem] overflow-hidden border border-white/10">
                 {!photoUrl ? (
-                  <>
-                    <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
-                    {!hasCameraPermission && (
-                      <div className="absolute inset-0 flex items-center justify-center p-4">
-                        <p className="text-[10px] font-black text-white uppercase tracking-widest">Camera required</p>
-                      </div>
-                    )}
-                  </>
+                  <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
                 ) : (
                   <img src={photoUrl} className="h-full w-full object-cover" />
                 )}
                 <canvas ref={canvasRef} className="hidden" />
               </div>
-              
               {!photoUrl ? (
-                <Button onClick={capturePhoto} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-lg">
-                  <Camera className="mr-2 h-6 w-6" /> Take Photo
-                </Button>
+                <Button onClick={capturePhoto} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-lg active:scale-95 transition-all"><Camera className="mr-2" /> Snap</Button>
               ) : (
-                <Button onClick={() => { setPhotoUrl(null); getCameraPermission(); }} variant="ghost" className="text-primary font-black uppercase text-[10px] tracking-widest italic flex items-center justify-center gap-2">
-                  <RefreshCcw className="h-4 w-4" /> Retake
-                </Button>
+                <Button onClick={() => { setPhotoUrl(null); getCameraPermission(); }} variant="ghost" className="text-primary font-black uppercase text-[10px] tracking-widest"><RefreshCcw className="mr-2 h-4 w-4" /> Retake</Button>
               )}
-              
-              <Button onClick={() => setStep(4)} disabled={!photoUrl} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4">Link Phone</Button>
+              <Button onClick={() => setStep(4)} disabled={!photoUrl} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4 active:scale-95 transition-all">Next</Button>
             </div>
           )}
 
           {step === 4 && (
-            <form onSubmit={handleSendOtp} className="space-y-6 animate-in zoom-in-95">
+            <form onSubmit={handleSendOtp} className="space-y-6">
               <div className="space-y-3">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number</Label>
                 <div className="relative">
@@ -279,17 +243,17 @@ export default function DriverSignupPage() {
                   />
                 </div>
               </div>
-              <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl">Send Code</Button>
+              <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl active:scale-95 transition-all">Send Code</Button>
             </form>
           )}
 
           {step === 5 && (
-            <form onSubmit={handleVerifyOtp} className="space-y-6 animate-in zoom-in-95">
+            <form onSubmit={handleVerifyOtp} className="space-y-6">
               <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Enter Code</Label>
-                <Input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" className="h-20 text-center text-4xl tracking-[0.6em] rounded-2xl bg-white/5 border-white/10 font-black text-primary" maxLength={6} required />
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Verification Code</Label>
+                <Input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" className="h-20 text-center text-4xl tracking-[0.4em] rounded-2xl bg-white/5 border-white/10 font-black text-primary" maxLength={6} required />
               </div>
-              <Button type="submit" disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-18 rounded-2xl font-black uppercase italic shadow-xl">Finish</Button>
+              <Button type="submit" disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-18 rounded-2xl font-black uppercase italic shadow-xl active:scale-95 transition-all">Finish</Button>
             </form>
           )}
         </CardContent>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -19,11 +18,12 @@ import {
   IndianRupee,
   Wallet,
   Car,
-  Leaf,
   LayoutGrid,
   Settings,
-  ShieldAlert,
-  MapPin
+  MapPin,
+  ShieldCheck,
+  Zap,
+  Copy
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
 import { doc, updateDoc, collection, addDoc, onSnapshot, query, where, arrayUnion, getDocs, increment } from 'firebase/firestore';
@@ -102,7 +102,7 @@ export default function DriverApp() {
     if (!userRef || !profile) return;
     const newStatus = profile.status === 'offline' ? 'available' : 'offline';
     await updateDoc(userRef, { status: newStatus });
-    toast({ title: newStatus === 'available' ? "You are Online" : "You are Offline" });
+    toast({ title: newStatus === 'available' ? "Online" : "Offline" });
   };
 
   const startTrip = async (route: any) => {
@@ -121,7 +121,7 @@ export default function DriverApp() {
         startTime: new Date().toISOString()
       });
       await updateDoc(userRef!, { status: 'on-trip', activeTripId: tripRef.id });
-      toast({ title: "Drive Started", description: `Route: ${route.routeName}` });
+      toast({ title: "Started" });
     } finally { setIsUpdating(false); }
   };
 
@@ -130,12 +130,12 @@ export default function DriverApp() {
     setIsVerifying(true);
     const snap = await getDocs(query(collection(db, 'users'), where('activeOtp', '==', verificationOtp.trim())));
     if (snap.empty) {
-      toast({ variant: "destructive", title: "Invalid", description: "This code is wrong." });
+      toast({ variant: "destructive", title: "Invalid" });
     } else {
       const riderId = snap.docs[0].id;
       await updateDoc(doc(db, 'trips', activeTrip.id), { verifiedPassengers: arrayUnion(riderId), riderCount: increment(1) });
       await updateDoc(doc(db, 'users', riderId), { activeOtp: null });
-      toast({ title: "Scholar Boarded" });
+      toast({ title: "Boarded" });
       setVerificationOtp("");
     }
     setIsVerifying(false);
@@ -150,7 +150,7 @@ export default function DriverApp() {
       const driverPayout = totalYield * 0.9; 
       await updateDoc(doc(db, 'trips', activeTrip.id), { status: 'completed', endTime: new Date().toISOString(), totalYield, driverShare: driverPayout, finalRiderCount: riderCount });
       await updateDoc(userRef, { status: 'available', activeTripId: null, totalEarnings: increment(driverPayout) });
-      toast({ title: "Drive Done", description: `Earned ₹${driverPayout.toFixed(0)}` });
+      toast({ title: "Done", description: `Earned ₹${driverPayout.toFixed(0)}` });
     } finally { setIsUpdating(false); }
   };
 
@@ -173,7 +173,7 @@ export default function DriverApp() {
             </Badge>
           </div>
         </div>
-        <Button onClick={handleToggleStatus} className={`rounded-2xl h-11 w-11 p-0 transition-all shadow-xl ${profile?.status === 'offline' ? 'bg-white/5 text-muted-foreground' : 'bg-primary text-black shadow-primary/30'}`}>
+        <Button onClick={handleToggleStatus} className={`rounded-2xl h-11 w-11 p-0 transition-all shadow-xl active:scale-95 ${profile?.status === 'offline' ? 'bg-white/5 text-muted-foreground' : 'bg-primary text-black shadow-primary/30'}`}>
           <Power className="h-6 w-6" />
         </Button>
       </header>
@@ -187,21 +187,21 @@ export default function DriverApp() {
                  <h2 className="text-3xl font-black italic uppercase leading-none text-primary text-glow tracking-tighter">₹{stats.earnings.toFixed(0)}</h2>
               </Card>
               <Card className="bg-white/5 border-white/10 rounded-[2rem] p-6 space-y-2 shadow-xl backdrop-blur-3xl group active:scale-95 transition-all">
-                 <p className="text-[9px] font-black uppercase text-muted-foreground tracking-[0.3em]">Jobs Done</p>
+                 <p className="text-[9px] font-black uppercase text-muted-foreground tracking-[0.3em]">Jobs</p>
                  <h2 className="text-3xl font-black italic text-foreground leading-none tracking-tighter">{stats.count}</h2>
               </Card>
             </div>
 
-            <h2 className="text-2xl font-black italic uppercase text-foreground tracking-tighter pl-2">Next Job</h2>
+            <h2 className="text-2xl font-black italic uppercase text-foreground tracking-tighter pl-2">Available Jobs</h2>
             <div className="space-y-3">
               {availableRoutes.map((route: any) => (
                 <Card key={route.id} className="glass-card rounded-[2rem] shadow-xl overflow-hidden border-white/5 group hover:border-primary/20 transition-all">
                   <CardContent className="p-8 flex justify-between items-center">
                     <div className="space-y-1">
                       <h3 className="font-black text-2xl text-foreground uppercase italic leading-none tracking-tighter">{route.routeName}</h3>
-                      <p className="text-[10px] font-black text-primary uppercase tracking-widest">₹{route.baseFare} / seat</p>
+                      <p className="text-[10px] font-black text-primary uppercase tracking-widest">₹{route.baseFare} Per Ride</p>
                     </div>
-                    <Button onClick={() => startTrip(route)} disabled={profile?.status === 'offline' || isUpdating} className="rounded-2xl h-16 px-8 bg-primary text-black font-black uppercase italic text-sm shadow-2xl shadow-primary/20 active:scale-95 transition-all">Go</Button>
+                    <Button onClick={() => startTrip(route)} disabled={profile?.status === 'offline' || isUpdating} className="rounded-2xl h-16 px-8 bg-primary text-black font-black uppercase italic text-sm shadow-2xl shadow-primary/20 active:scale-95 transition-all">Start</Button>
                   </CardContent>
                 </Card>
               ))}
@@ -213,7 +213,7 @@ export default function DriverApp() {
               <div className="flex justify-between items-start relative z-10">
                 <div className="space-y-1">
                   <h2 className="text-4xl font-black italic uppercase leading-none tracking-tighter text-primary text-glow">{activeTrip.routeName}</h2>
-                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.4em] mt-2 italic">Active Now</p>
+                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.4em] mt-2 italic">Active Mission</p>
                 </div>
                 <Badge className="bg-primary/20 text-primary border-none text-[10px] font-black uppercase px-5 py-2.5 rounded-full shadow-lg">{activeTrip.verifiedPassengers?.length || 0} Boarded</Badge>
               </div>
@@ -233,7 +233,7 @@ export default function DriverApp() {
 
         {activeTab === 'money' && (
           <div className="space-y-6 animate-in fade-in duration-500 pb-12">
-             <h3 className="text-4xl font-black italic uppercase text-foreground tracking-tighter pl-2">Earnings</h3>
+             <h3 className="text-4xl font-black italic uppercase text-foreground tracking-tighter pl-2">Money</h3>
              <div className="space-y-4">
                 {[...pastTrips].sort((a,b) => b.endTime.localeCompare(a.endTime)).map((trip: any) => (
                   <Card key={trip.id} className="bg-white/5 border border-white/10 rounded-[1.5rem] p-8 flex justify-between items-center shadow-lg hover:bg-white/10 transition-all cursor-pointer">
@@ -241,9 +241,7 @@ export default function DriverApp() {
                         <h4 className="font-black text-2xl uppercase italic leading-none tracking-tighter">{trip.routeName}</h4>
                         <p className="text-[10px] font-black text-muted-foreground uppercase italic tracking-[0.2em]">{new Date(trip.endTime).toLocaleDateString()}</p>
                     </div>
-                    <div className="text-right">
-                       <p className="text-2xl font-black italic text-primary">+₹{(trip.driverShare || 0).toFixed(0)}</p>
-                    </div>
+                    <p className="text-2xl font-black italic text-primary">+₹{(trip.driverShare || 0).toFixed(0)}</p>
                   </Card>
                 ))}
              </div>
@@ -252,7 +250,7 @@ export default function DriverApp() {
 
         {activeTab === 'stats' && (
           <div className="space-y-8 animate-in fade-in duration-500">
-             <h3 className="text-4xl font-black italic uppercase text-foreground tracking-tighter pl-2">Performance</h3>
+             <h3 className="text-4xl font-black italic uppercase text-foreground tracking-tighter pl-2">Stats</h3>
              <div className="grid grid-cols-1 gap-6">
                 {[
                   { label: "Tyre Health", value: "98%", icon: Activity, progress: 98 },
@@ -272,7 +270,7 @@ export default function DriverApp() {
                 <Card className="bg-primary/5 border border-primary/20 rounded-[2.5rem] p-10 flex items-center justify-between shadow-2xl relative overflow-hidden">
                    <div className="space-y-2 relative z-10">
                       <p className="text-[10px] font-black uppercase text-primary tracking-[0.4em] italic mb-1">Eco Score</p>
-                      <h3 className="text-5xl font-black italic uppercase text-foreground leading-none tracking-tighter">{stats.carbon} kg <span className="text-sm font-black text-muted-foreground">CO2 Saved</span></h3>
+                      <h3 className="text-5xl font-black italic uppercase text-foreground leading-none tracking-tighter">{stats.carbon} kg <span className="text-sm font-black text-muted-foreground">Saved</span></h3>
                    </div>
                 </Card>
              </div>
@@ -287,15 +285,23 @@ export default function DriverApp() {
               </div>
               <div className="space-y-3">
                 <h2 className="text-5xl font-black italic uppercase text-foreground leading-none tracking-tighter">{profile?.fullName}</h2>
-                <Badge className="bg-primary text-black border-none text-[10px] font-black uppercase px-6 py-2 rounded-full tracking-widest shadow-2xl">{profile?.vehicleType}</Badge>
+                <Badge className="bg-primary text-black border-none text-[10px] font-black uppercase px-6 py-2 rounded-full tracking-widest shadow-2xl">{profile?.vehicleType} Operator</Badge>
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 text-left">
+              <div className="bg-white/5 p-8 rounded-[2rem] flex items-center gap-6 border border-white/10 shadow-xl group active:scale-98 transition-all">
+                   <div className="h-14 w-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20"><Copy className="h-7 w-7" /></div>
+                   <div className="flex-1">
+                      <p className="text-[9px] font-black uppercase text-muted-foreground tracking-[0.4em] mb-1 italic">Fleet ID</p>
+                      <p className="font-black text-foreground italic uppercase text-2xl leading-none tracking-tighter">{profile?.referralCode || 'N/A'}</p>
+                   </div>
+                   <Button variant="ghost" size="icon" onClick={() => { navigator.clipboard.writeText(profile?.referralCode || ''); toast({ title: "Copied" }); }} className="text-primary hover:bg-primary/10"><Copy className="h-5 w-5" /></Button>
+              </div>
               {[
-                { label: "Plate No.", value: profile?.vehicleNumber, icon: Car },
-                { label: "Seats", value: `${profile?.seatingCapacity} Seats`, icon: Settings },
-                { label: "Home Hub", value: profile?.city || 'Vizag', icon: MapPin }
+                { label: "Plate", value: profile?.vehicleNumber, icon: Car },
+                { label: "Seats", value: `${profile?.seatingCapacity} Total`, icon: Settings },
+                { label: "Hub", value: profile?.city || 'Vizag', icon: MapPin }
               ].map((item, i) => (
                 <div key={i} className="bg-white/5 p-8 rounded-[2rem] flex items-center gap-6 border border-white/10 shadow-xl backdrop-blur-3xl active:scale-98 transition-all">
                    <div className="h-14 w-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shadow-lg border border-primary/20"><item.icon className="h-7 w-7" /></div>
