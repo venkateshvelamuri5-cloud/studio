@@ -30,7 +30,8 @@ import {
   CheckCircle2,
   UserCheck,
   ChevronRight,
-  Clock
+  Clock,
+  Target
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc } from 'firebase/firestore';
@@ -90,7 +91,6 @@ export default function StudentApp() {
   
   const currentBooking = useMemo(() => {
     if (!activeTrips || !user?.uid) return null;
-    // Find trip where current user is in the manifest or verified
     return activeTrips.find(t => t.verifiedPassengers?.includes(user.uid) || t.passengerManifest?.some((m: any) => m.uid === user.uid));
   }, [activeTrips, user?.uid]);
 
@@ -295,11 +295,11 @@ export default function StudentApp() {
                           </Button>
                         </div>
                       ) : (
-                        <div className="p-8 bg-black/40 border border-dashed border-white/10 rounded-[2.5rem] text-center flex flex-col items-center gap-4">
+                        <div className="p-8 bg-black/40 border border-dashed border-white/10 rounded-[2.5rem] text-center flex flex-col items-center gap-4 animate-pulse">
                            <Loader2 className="animate-spin h-8 w-8 text-primary opacity-50" />
                            <div className="space-y-1">
-                             <p className="text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Grid Scanning...</p>
-                             <p className="text-[9px] font-bold text-white/20 uppercase">Assigning nearest available operator</p>
+                             <p className="text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Operator Assignment Pending</p>
+                             <p className="text-[9px] font-bold text-white/40 uppercase">Driver details will be shared with you 2 hours before the trip</p>
                            </div>
                         </div>
                       )}
