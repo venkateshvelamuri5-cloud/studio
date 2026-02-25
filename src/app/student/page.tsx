@@ -35,7 +35,8 @@ import {
   CreditCard,
   Gift,
   Copy,
-  Info
+  Info,
+  ShieldCheck
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc, limit } from 'firebase/firestore';
@@ -105,6 +106,10 @@ export default function StudentApp() {
       t.passengerManifest?.some((m: any) => m.uid === user.uid)
     );
   }, [activeTrips, user?.uid]);
+
+  const isVerified = useMemo(() => {
+    return currentBooking?.verifiedPassengers?.includes(user?.uid);
+  }, [currentBooking, user?.uid]);
 
   const { data: allUserTrips } = useCollection(useMemo(() => {
     if (!db || !user?.uid) return null;
@@ -282,14 +287,25 @@ export default function StudentApp() {
               </div>
             </div>
 
-            {profile?.activeOtp && currentBooking ? (
+            {currentBooking ? (
               <div className="space-y-6 animate-in slide-in-from-bottom-8">
                 <Card className="glass-card rounded-[3rem] p-8 shadow-2xl border-primary/30 relative overflow-hidden">
                    <div className="absolute top-0 right-0 p-8 opacity-5 -rotate-12"><Bus className="h-32 w-32 text-primary" /></div>
-                   <div className="flex flex-col items-center gap-4 mb-8 relative z-10">
-                      <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground italic">Boarding Code</p>
-                      <h3 className="text-7xl font-black tracking-tighter italic text-primary text-glow leading-none">{profile.activeOtp}</h3>
-                   </div>
+                   
+                   {!isVerified && profile?.activeOtp ? (
+                     <div className="flex flex-col items-center gap-4 mb-8 relative z-10">
+                        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground italic">Boarding Code</p>
+                        <h3 className="text-7xl font-black tracking-tighter italic text-primary text-glow leading-none">{profile.activeOtp}</h3>
+                     </div>
+                   ) : (
+                     <div className="flex flex-col items-center gap-4 mb-8 relative z-10">
+                        <div className="h-16 w-16 bg-primary/20 rounded-full flex items-center justify-center text-primary mb-2 shadow-xl shadow-primary/10">
+                          <ShieldCheck className="h-10 w-10" />
+                        </div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-primary italic">In Transit</p>
+                        <h3 className="text-2xl font-black tracking-tighter italic text-foreground uppercase leading-none">Boarded Successfully</h3>
+                     </div>
+                   )}
                    
                    <div className="space-y-4 mb-8 relative z-10">
                       <div className="bg-black/40 p-5 rounded-2xl flex items-center gap-4 border border-white/5">
@@ -326,7 +342,7 @@ export default function StudentApp() {
                            <Loader2 className="animate-spin h-8 w-8 text-primary opacity-50" />
                            <div className="space-y-1">
                              <p className="text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Operator Pending</p>
-                             <p className="text-[9px] font-bold text-white/40 uppercase">Details will appear 2 hours before trip</p>
+                             <p className="text-[9px] font-bold text-white/40 uppercase">Details shared 2 hours before trip</p>
                            </div>
                         </div>
                       )}
@@ -464,7 +480,7 @@ export default function StudentApp() {
                          <div className="h-32 w-32 bg-primary text-black rounded-full flex items-center justify-center shadow-2xl shadow-primary/20 animate-bounce"><CheckCircle2 className="h-16 w-16" /></div>
                          <div className="space-y-3">
                             <h3 className="text-5xl font-black italic uppercase text-primary tracking-tighter leading-none">Grid Mission <br/> Confirmed</h3>
-                            <p className="text-sm font-bold text-muted-foreground italic uppercase tracking-widest px-6 mt-4">Seat Secured. Boarding code active on home hub.</p>
+                            <p className="text-sm font-bold text-muted-foreground italic uppercase tracking-widest px-6 mt-4">Seat Secured. Boarding pass active on home hub.</p>
                          </div>
                       </div>
                     )}
@@ -506,10 +522,10 @@ export default function StudentApp() {
             </div>
             
             <div className="bg-white/5 border border-white/10 rounded-3xl p-4 flex items-center gap-4">
-               <ShieldAlert className="h-5 w-5 text-accent animate-pulse" />
+               {isVerified ? <ShieldCheck className="h-5 w-5 text-primary" /> : <ShieldAlert className="h-5 w-5 text-accent animate-pulse" />}
                <div>
-                  <p className="text-[10px] font-black uppercase text-accent tracking-widest leading-none">Safety Protocol Active</p>
-                  <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1 italic">SOS Broadcast Syncing with {profile?.emergencyContactName || 'Safe Hub'}</p>
+                  <p className={`text-[10px] font-black uppercase tracking-widest leading-none ${isVerified ? 'text-primary' : 'text-accent'}`}>{isVerified ? 'Mission In Progress' : 'Safety Protocol Active'}</p>
+                  <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1 italic">{isVerified ? 'You are securely linked to the operator hub' : `SOS Broadcast Syncing with ${profile?.emergencyContactName || 'Safe Hub'}`}</p>
                </div>
             </div>
 
