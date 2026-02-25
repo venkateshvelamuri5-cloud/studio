@@ -34,7 +34,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc } from 'firebase/firestore';
+import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc, limit } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -88,13 +88,20 @@ export default function StudentApp() {
   const userRef = useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
   const { data: activeRoutes } = useCollection(useMemo(() => (db) ? query(collection(db, 'routes'), where('status', '==', 'active')) : null, [db]));
+  
+  // Real-time listener for trips to identify current booking and live locations
   const { data: activeTrips } = useCollection(useMemo(() => (db) ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db]));
+  
   const globalConfigRef = useMemo(() => db ? doc(db, 'config', 'global') : null, [db]);
   const { data: globalConfig } = useDoc(globalConfigRef);
   
+  // Find if user has a booking in any active trip (either manifest or verified)
   const currentBooking = useMemo(() => {
     if (!activeTrips || !user?.uid) return null;
-    return activeTrips.find(t => t.verifiedPassengers?.includes(user.uid) || t.passengerManifest?.some((m: any) => m.uid === user.uid));
+    return activeTrips.find(t => 
+      t.verifiedPassengers?.includes(user.uid) || 
+      t.passengerManifest?.some((m: any) => m.uid === user.uid)
+    );
   }, [activeTrips, user?.uid]);
 
   const { data: pastTrips } = useCollection(useMemo(() => {
@@ -147,14 +154,15 @@ export default function StudentApp() {
 
   const handleApplyVoucher = async () => {
     if (!db || !voucherCode) return;
-    const vQuery = query(collection(db, 'vouchers'), where('code', '==', voucherCode.toUpperCase()), where('isActive', '==', true));
+    const vQuery = query(collection(db, 'vouchers'), where('code', '==', voucherCode.toUpperCase()), where('isActive', '==', true), limit(1));
     const snap = await getDocs(vQuery);
     if (snap.empty) {
-      toast({ variant: "destructive", title: "Invalid Voucher" });
+      toast({ variant: "destructive", title: "Invalid Voucher", description: "This code does not exist or is expired." });
       setAppliedDiscount(0);
     } else {
-      setAppliedDiscount(snap.docs[0].data().discountAmount);
-      toast({ title: "Applied!" });
+      const vData = snap.docs[0].data();
+      setAppliedDiscount(vData.discountAmount);
+      toast({ title: "Voucher Applied", description: `₹${vData.discountAmount} discount activated.` });
     }
   };
 
@@ -175,9 +183,11 @@ export default function StudentApp() {
           destination: destinationStop,
           bookingDate: bookingDate,
           farePaid: finalFare,
-          paymentStatus: 'successful'
+          paymentStatus: 'successful',
+          bookedAt: new Date().toISOString()
         };
 
+        // Find an existing active trip with capacity, or let driver pick up new demand
         const tripQuery = query(collection(db, 'trips'), 
           where('routeName', '==', selectedRoute.routeName), 
           where('scheduledDate', '==', bookingDate), 
@@ -193,10 +203,12 @@ export default function StudentApp() {
         });
 
         if (availableTrip) {
+          // Add to existing trip manifest
           await updateDoc(doc(db, 'trips', availableTrip.id), {
             passengerManifest: arrayUnion(bookingDetails)
           });
         } else {
+          // Create a new Demand Trip for drivers to claim
           await addDoc(collection(db, 'trips'), {
             routeName: selectedRoute.routeName,
             scheduledDate: bookingDate,
@@ -210,6 +222,7 @@ export default function StudentApp() {
           });
         }
 
+        // Sync to scholar profile
         await updateDoc(userRef, { 
           activeOtp: otp, 
           destinationStopName: destinationStop, 
@@ -218,12 +231,12 @@ export default function StudentApp() {
         
         setIsPaying(false);
         setBookingStep(4);
-        toast({ title: "Seat Secured" });
+        toast({ title: "Seat Secured", description: "Your mission is active in the grid." });
       } catch (e) {
         setIsPaying(false);
-        toast({ variant: "destructive", title: "Booking Error" });
+        toast({ variant: "destructive", title: "Booking Error", description: "The grid was unable to finalize payment." });
       }
-    }, 2500);
+    }, 2000);
   };
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/auth/login'); };
@@ -306,7 +319,7 @@ export default function StudentApp() {
                            <Loader2 className="animate-spin h-8 w-8 text-primary opacity-50" />
                            <div className="space-y-1">
                              <p className="text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Operator Assignment Pending</p>
-                             <p className="text-[9px] font-bold text-white/40 uppercase">Driver details shared 2 hours before trip</p>
+                             <p className="text-[9px] font-bold text-white/40 uppercase">Driver details will be shared with you 2 hours before the trip</p>
                            </div>
                         </div>
                       )}
@@ -314,7 +327,7 @@ export default function StudentApp() {
                 </Card>
               </div>
             ) : (
-              <Dialog onOpenChange={(open) => { if (!open) { setBookingStep(1); setSelectedRoute(null); setPickupStop(""); setDestinationStop(""); } }}>
+              <Dialog onOpenChange={(open) => { if (!open) { setBookingStep(1); setSelectedRoute(null); setPickupStop(""); setDestinationStop(""); setAppliedDiscount(0); setVoucherCode(""); } }}>
                 <DialogTrigger asChild>
                   <div className="p-10 bg-primary text-black rounded-[3rem] shadow-2xl flex items-center justify-between cursor-pointer active:scale-95 transition-all group overflow-hidden relative">
                     <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />

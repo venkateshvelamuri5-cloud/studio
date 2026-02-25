@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -56,6 +55,7 @@ export default function DriverApp() {
   const userRef = useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
+  // Pool of unassigned trips (missions)
   const { data: jobPool } = useCollection(useMemo(() => {
     if (!db) return null;
     return query(collection(db, 'trips'), where('status', '==', 'active'));
@@ -66,7 +66,7 @@ export default function DriverApp() {
     return query(collection(db, 'trips'), where('driverId', '==', user.uid), where('status', '==', 'completed'));
   }, [db, user?.uid]));
 
-  // Sync Location to Trip every 5 seconds if on-trip
+  // High-Frequency GPS Synchronization
   useEffect(() => {
     if (!profile || profile.status !== 'on-trip' || !userRef || !db || !profile.activeTripId) return;
     
@@ -74,9 +74,9 @@ export default function DriverApp() {
       if (typeof window !== 'undefined' && navigator.geolocation) {
         navigator.geolocation.getCurrentPosition((pos) => {
           const coords = { currentLat: pos.coords.latitude, currentLng: pos.coords.longitude };
-          // Update driver's global profile
+          // Update driver global profile
           updateDoc(userRef, coords);
-          // Sync directly to the active trip for scholar radar
+          // Update active trip document for scholar tracking
           if (profile.activeTripId) {
             updateDoc(doc(db, 'trips', profile.activeTripId), coords);
           }
@@ -84,6 +84,7 @@ export default function DriverApp() {
       }
     };
     
+    // 5-second telemetry interval for smooth grid movement
     const interval = setInterval(updateLocation, 5000);
     return () => clearInterval(interval);
   }, [profile?.status, profile?.activeTripId, userRef, db]);
@@ -113,6 +114,7 @@ export default function DriverApp() {
     if (!db || !user || !profile) return;
     setIsUpdating(true);
     
+    // Prevent multiple drivers on same trip (Exclusivity Protocol)
     if (trip.driverId && trip.driverId !== user.uid) {
       toast({ variant: "destructive", title: "Mission Locked", description: "Another operator is active on this corridor." });
       setIsUpdating(false);
@@ -139,17 +141,26 @@ export default function DriverApp() {
   const verifyPassenger = async () => {
     if (!db || !activeTrip || !verificationOtp) return;
     setIsVerifying(true);
-    const snap = await getDocs(query(collection(db, 'users'), where('activeOtp', '==', verificationOtp.trim())));
+    
+    // Search for user with this activeOtp
+    const q = query(collection(db, 'users'), where('activeOtp', '==', verificationOtp.trim()));
+    const snap = await getDocs(q);
+    
     if (snap.empty) {
       toast({ variant: "destructive", title: "Invalid Protocol", description: "Scholar code verification failed." });
     } else {
       const riderId = snap.docs[0].id;
       const riderName = snap.docs[0].data().fullName;
+      
+      // Update trip manifest and verified list
       await updateDoc(doc(db, 'trips', activeTrip.id), { 
         verifiedPassengers: arrayUnion(riderId), 
         riderCount: increment(1) 
       });
+      
+      // Clear OTP on scholar side
       await updateDoc(doc(db, 'users', riderId), { activeOtp: null });
+      
       toast({ title: "Boarding Confirmed", description: `${riderName} is on the shuttle.` });
       setVerificationOtp("");
     }
@@ -163,14 +174,21 @@ export default function DriverApp() {
       const riderCount = activeTrip.verifiedPassengers?.length || 0;
       const totalYield = riderCount * (activeTrip.farePerRider || 0);
       const driverPayout = totalYield * 0.9;
+      
       await updateDoc(doc(db, 'trips', activeTrip.id), { 
         status: 'completed', 
         endTime: new Date().toISOString(), 
         totalYield, 
         driverShare: driverPayout 
       });
-      await updateDoc(userRef, { status: 'available', activeTripId: null, totalEarnings: increment(driverPayout) });
-      toast({ title: "Mission Completed" });
+      
+      await updateDoc(userRef, { 
+        status: 'available', 
+        activeTripId: null, 
+        totalEarnings: increment(driverPayout) 
+      });
+      
+      toast({ title: "Mission Completed", description: `Payout ₹${driverPayout.toFixed(0)} added to wallet.` });
     } finally { setIsUpdating(false); }
   };
 

@@ -107,6 +107,7 @@ export default function AdminDashboard() {
     if (!authLoading && !user) {
         router.push('/admin/login');
     }
+    // Allow master admin or anyone with admin role
     if (!authLoading && profile && profile.role !== 'admin' && user?.email !== 'admin@aago.in') {
       router.push('/admin/login');
     }
@@ -139,10 +140,11 @@ export default function AdminDashboard() {
     setIsSaving(true);
     const data = { vizagUpiId: vizagUpi, vzmUpiId: vzmUpi };
     
-    toast({ title: "Grid Config Updated" });
-    
     setDoc(globalConfigRef, data, { merge: true })
-      .then(() => setIsSaving(false))
+      .then(() => {
+        setIsSaving(false);
+        toast({ title: "Grid Config Updated", description: "Payment endpoints synchronized." });
+      })
       .catch(async (err) => {
         setIsSaving(false);
         const permissionError = new FirestorePermissionError({
@@ -167,7 +169,7 @@ export default function AdminDashboard() {
 
     setNewRoute({ name: '', fare: 40, stops: '' });
     setIsRouteDialogOpen(false);
-    toast({ title: "Route Deployed" });
+    toast({ title: "Route Deployed", description: "New corridor added to the grid." });
 
     addDoc(collection(db, 'routes'), routeData)
       .catch(async (err) => {
@@ -204,7 +206,7 @@ export default function AdminDashboard() {
 
     setNewVoucher({ code: '', amount: 50 });
     setIsVoucherDialogOpen(false);
-    toast({ title: "Voucher Issued" });
+    toast({ title: "Voucher Issued", description: "Promo code activated in the grid." });
 
     addDoc(collection(db, 'vouchers'), voucherData)
       .catch(async (err) => {
@@ -236,7 +238,7 @@ export default function AdminDashboard() {
     try {
       const result = await generateShuttleRoutes(aiInput);
       setAiResult(result);
-      toast({ title: "AI Generation Complete" });
+      toast({ title: "AI Generation Complete", description: "The grid has optimized your corridors." });
     } catch (e) {
       toast({ variant: "destructive", title: "AI Error", description: "The grid brain is recalibrating." });
     } finally {

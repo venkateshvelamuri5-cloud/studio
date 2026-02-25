@@ -1,4 +1,3 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -24,7 +23,6 @@ service cloud.firestore {
     // User profiles: 
     match /users/{userId} {
       allow read: if isAuthenticated();
-      // Allow the user themselves, admins, or drivers (to verify codes) to update
       allow create: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin() || isDriver());
       allow delete: if isAdmin();
@@ -40,7 +38,6 @@ service cloud.firestore {
 
     // Routes:
     match /routes/{routeId} {
-      // Allow public read so the landing page can display active corridors
       allow read: if true;
       allow create, update: if isAdmin();
       allow delete: if isAdmin();
