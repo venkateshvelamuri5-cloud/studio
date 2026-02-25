@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -31,7 +30,8 @@ import {
   UserCheck,
   ChevronRight,
   Clock,
-  Target
+  Target,
+  CreditCard
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc } from 'firebase/firestore';
@@ -81,6 +81,7 @@ export default function StudentApp() {
   const [voucherCode, setVoucherCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [isBooking, setIsBooking] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
 
   const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: googleMapsApiKey });
 
@@ -88,6 +89,8 @@ export default function StudentApp() {
   const { data: profile, loading: profileLoading } = useDoc(userRef);
   const { data: activeRoutes } = useCollection(useMemo(() => (db) ? query(collection(db, 'routes'), where('status', '==', 'active')) : null, [db]));
   const { data: activeTrips } = useCollection(useMemo(() => (db) ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db]));
+  const globalConfigRef = useMemo(() => db ? doc(db, 'config', 'global') : null, [db]);
+  const { data: globalConfig } = useDoc(globalConfigRef);
   
   const currentBooking = useMemo(() => {
     if (!activeTrips || !user?.uid) return null;
@@ -157,8 +160,9 @@ export default function StudentApp() {
 
   const handleConfirmBooking = async () => {
     if (!db || !userRef || !selectedRoute || !profile) return;
-    setIsBooking(true);
+    setIsPaying(true);
     
+    // Simulate Payment Gateway Integration
     setTimeout(async () => {
       try {
         const finalFare = Math.max(0, calculatedFare - appliedDiscount);
@@ -170,7 +174,8 @@ export default function StudentApp() {
           pickup: pickupStop,
           destination: destinationStop,
           bookingDate: bookingDate,
-          farePaid: finalFare
+          farePaid: finalFare,
+          paymentStatus: 'successful'
         };
 
         const tripQuery = query(collection(db, 'trips'), 
@@ -211,12 +216,14 @@ export default function StudentApp() {
           loyaltyPoints: increment(Math.floor(finalFare / 10)) 
         });
         
+        setIsPaying(false);
         setBookingStep(4);
         toast({ title: "Seat Secured" });
       } catch (e) {
+        setIsPaying(false);
         toast({ variant: "destructive", title: "Booking Error" });
-      } finally { setIsBooking(false); }
-    }, 1500);
+      }
+    }, 2500);
   };
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/auth/login'); };
@@ -299,7 +306,7 @@ export default function StudentApp() {
                            <Loader2 className="animate-spin h-8 w-8 text-primary opacity-50" />
                            <div className="space-y-1">
                              <p className="text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Operator Assignment Pending</p>
-                             <p className="text-[9px] font-bold text-white/40 uppercase">Driver details will be shared with you 2 hours before the trip</p>
+                             <p className="text-[9px] font-bold text-white/40 uppercase">Driver details shared 2 hours before trip</p>
                            </div>
                         </div>
                       )}
@@ -397,7 +404,12 @@ export default function StudentApp() {
                       <div className="space-y-8 py-4 animate-in zoom-in-95">
                          <div className="p-8 bg-black/40 rounded-[2.5rem] text-center space-y-3 border border-white/5">
                             <p className="text-[10px] font-black uppercase text-primary tracking-[0.3em]">Grid Settlement</p>
-                            <h4 className="text-xl font-black italic text-foreground uppercase tracking-widest">HUB TERMINAL</h4>
+                            <h4 className="text-xl font-black italic text-foreground uppercase tracking-widest">{profile?.city} Hub Terminal</h4>
+                            {globalConfig && (
+                              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mt-2 italic">
+                                Merchant ID: {(globalConfig as any)[profile?.city?.toLowerCase() === 'vizag' ? 'vizagUpiId' : 'vzmUpiId'] || 'PENDING HUB'}
+                              </p>
+                            )}
                          </div>
                          <div className="space-y-3">
                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-3">Voucher Protocol</Label>
@@ -410,6 +422,17 @@ export default function StudentApp() {
                             <p className="text-[10px] font-black uppercase text-primary mb-3 tracking-[0.4em]">Total Due</p>
                             <h3 className="text-7xl font-black italic text-foreground tracking-tighter leading-none">₹{Math.max(0, calculatedFare - appliedDiscount)}</h3>
                          </div>
+                         {isPaying && (
+                           <div className="fixed inset-0 bg-background/90 z-[100] flex flex-col items-center justify-center p-10 text-center animate-in fade-in">
+                              <div className="bg-primary/20 p-10 rounded-[3rem] border border-primary/30 space-y-6">
+                                <Loader2 className="animate-spin h-16 w-16 text-primary mx-auto" />
+                                <div className="space-y-2">
+                                  <h3 className="text-2xl font-black italic uppercase text-primary">Verifying Transaction</h3>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Waiting for Gateway Protocol...</p>
+                                </div>
+                              </div>
+                           </div>
+                         )}
                       </div>
                     )}
 
@@ -418,7 +441,7 @@ export default function StudentApp() {
                          <div className="h-32 w-32 bg-primary text-black rounded-full flex items-center justify-center shadow-2xl shadow-primary/20 animate-bounce"><CheckCircle2 className="h-16 w-16" /></div>
                          <div className="space-y-3">
                             <h3 className="text-5xl font-black italic uppercase text-primary tracking-tighter">Confirmed</h3>
-                            <p className="text-sm font-bold text-muted-foreground italic uppercase tracking-widest leading-relaxed px-6">Seat Secured in the Grid. Your boarding code is active on the home hub.</p>
+                            <p className="text-sm font-bold text-muted-foreground italic uppercase tracking-widest leading-relaxed px-6">Payment Success. Seat Secured in the Grid. Your boarding code is active on the home hub.</p>
                          </div>
                       </div>
                     )}
@@ -427,8 +450,8 @@ export default function StudentApp() {
                   <div className="pt-8 shrink-0 border-t border-white/5">
                     {bookingStep === 1 && <Button variant="ghost" onClick={() => setBookingStep(1)} className="w-full text-muted-foreground font-black uppercase italic tracking-widest h-14">Cancel Request</Button>}
                     {bookingStep === 2 && <Button onClick={() => setBookingStep(3)} disabled={!pickupStop || !destinationStop} className="w-full h-18 bg-primary text-black rounded-[2rem] font-black uppercase italic text-xl shadow-2xl shadow-primary/20 active:scale-95 transition-all">Review Hub Pay</Button>}
-                    {bookingStep === 3 && <Button onClick={handleConfirmBooking} disabled={isBooking} className="w-full h-20 bg-primary text-black rounded-[2rem] font-black uppercase italic text-2xl shadow-2xl shadow-primary/30 active:scale-95 transition-all">
-                      {isBooking ? <Loader2 className="animate-spin h-8 w-8 mx-auto" /> : "Initiate Settlement"}
+                    {bookingStep === 3 && <Button onClick={handleConfirmBooking} disabled={isPaying} className="w-full h-20 bg-primary text-black rounded-[2rem] font-black uppercase italic text-2xl shadow-2xl shadow-primary/30 active:scale-95 transition-all">
+                      {isPaying ? <Loader2 className="animate-spin h-8 w-8 mx-auto" /> : <><CreditCard className="mr-3 h-7 w-7" /> Pay & Secure Seat</>}
                     </Button>}
                     {bookingStep === 4 && <DialogTrigger asChild><Button className="w-full h-18 bg-white/5 rounded-[2rem] font-black uppercase italic text-lg hover:bg-white/10">Return to Grid</Button></DialogTrigger>}
                   </div>

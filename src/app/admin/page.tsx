@@ -40,7 +40,8 @@ import {
   Zap,
   Clock,
   ChevronRight,
-  Brain
+  Brain,
+  CheckCircle2
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
 import { collection, query, doc, setDoc, orderBy, limit, addDoc, deleteDoc } from 'firebase/firestore';
@@ -632,9 +633,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-
-const CheckCircle2 = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M20 6L9 17L4 12" />
-  </svg>
-);
