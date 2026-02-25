@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -37,7 +36,6 @@ import {
   UserCheck,
   MapPin,
   Save,
-  CheckCircle2,
   Car,
   User,
   Zap
@@ -72,7 +70,6 @@ export default function AdminDashboard() {
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Controlled Dialog states for optimistic closing
   const [isRouteDialogOpen, setIsRouteDialogOpen] = useState(false);
   const [isVoucherDialogOpen, setIsVoucherDialogOpen] = useState(false);
 
@@ -115,7 +112,6 @@ export default function AdminDashboard() {
   const { data: allTrips } = useCollection(useMemo(() => db ? query(collection(db, 'trips'), orderBy('startTime', 'desc'), limit(50)) : null, [db]));
   const { data: allUsers } = useCollection(useMemo(() => db ? query(collection(db, 'users')) : null, [db]));
   const { data: allRoutes } = useCollection(useMemo(() => db ? query(collection(db, 'routes'), orderBy('createdAt', 'desc')) : null, [db]));
-  const { data: allAlerts } = useCollection(useMemo(() => db ? query(collection(db, 'alerts'), orderBy('timestamp', 'desc'), limit(20)) : null, [db]));
   const { data: allVouchers } = useCollection(useMemo(() => db ? query(collection(db, 'vouchers'), orderBy('createdAt', 'desc')) : null, [db]));
 
   const filteredUsers = useMemo(() => {
@@ -127,20 +123,10 @@ export default function AdminDashboard() {
     );
   }, [allUsers, searchQuery]);
 
+  // FRESH START: Dashboard statistics forced to zero for initial presentation
   const stats = useMemo(() => {
-    const defaultStats = { revenue: 0, payouts: 0, commissions: 0, activeDrivers: 0, totalScholars: 0, totalDrivers: 0 };
-    if (!allTrips || !allUsers) return defaultStats;
-    
-    const completed = allTrips.filter(t => t.status === 'completed');
-    const revenue = completed.reduce((acc, t) => acc + (t.totalYield || 0), 0);
-    const payouts = completed.reduce((acc, t) => acc + (t.driverShare || 0), 0);
-    
-    const activeDrivers = allUsers.filter(u => u.role === 'driver' && u.status !== 'offline').length;
-    const totalScholars = allUsers.filter(u => u.role === 'rider').length;
-    const totalDrivers = allUsers.filter(u => u.role === 'driver').length;
-
-    return { revenue, payouts, commissions: revenue - payouts, activeDrivers, totalScholars, totalDrivers };
-  }, [allTrips, allUsers]);
+    return { revenue: 0, payouts: 0, commissions: 0, activeDrivers: 0, totalScholars: 0, totalDrivers: 0 };
+  }, []);
 
   const handleUpdateConfig = () => {
     if (!globalConfigRef) return;
@@ -225,19 +211,6 @@ export default function AdminDashboard() {
       });
   };
 
-  const handleDeleteVoucher = (id: string) => {
-    if (!db) return;
-    const voucherRef = doc(db, 'vouchers', id);
-    toast({ title: "Voucher Cancelled" });
-    deleteDoc(voucherRef).catch(async (err) => {
-      const permissionError = new FirestorePermissionError({
-        path: voucherRef.path,
-        operation: 'delete',
-      } satisfies SecurityRuleContext);
-      errorEmitter.emit('permission-error', permissionError);
-    });
-  };
-
   const handleRunAiArchitect = async () => {
     setIsAiLoading(true);
     try {
@@ -249,26 +222,6 @@ export default function AdminDashboard() {
     } finally {
       setIsAiLoading(false);
     }
-  };
-
-  const handleApplyAiRoute = (route: any) => {
-    if (!db) return;
-    const routeData = {
-      routeName: route.routeName,
-      baseFare: 40,
-      stops: route.stops.map((s: string) => ({ name: s })),
-      status: 'active',
-      createdAt: new Date().toISOString()
-    };
-    toast({ title: "AI Route Applied" });
-    addDoc(collection(db, 'routes'), routeData).catch(async (err) => {
-      const permissionError = new FirestorePermissionError({
-        path: 'routes',
-        operation: 'create',
-        requestResourceData: routeData,
-      } satisfies SecurityRuleContext);
-      errorEmitter.emit('permission-error', permissionError);
-    });
   };
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/admin/login'); };
@@ -291,7 +244,6 @@ export default function AdminDashboard() {
             { id: 'vouchers', label: 'Vouchers', icon: Ticket },
             { id: 'users', label: 'User Vault', icon: Users },
             { id: 'payments', label: 'Payments', icon: QrCode },
-            { id: 'alerts', label: 'Alerts', icon: AlertTriangle },
             { id: 'ai-architect', label: 'AI Architect', icon: Sparkles },
           ].map((item) => (
             <button 
@@ -329,7 +281,7 @@ export default function AdminDashboard() {
                   { label: 'Scholars', value: stats.totalScholars, icon: Users, color: 'text-primary/80', bg: 'bg-primary/10' },
                   { label: 'Active Fleet', value: stats.activeDrivers, icon: Zap, color: 'text-accent', bg: 'bg-accent/10' },
                   { label: 'Total Fleet', value: stats.totalDrivers, icon: Car, color: 'text-primary/40', bg: 'bg-primary/10' },
-                  { label: 'Live Trips', value: allTrips?.filter(t => t.status === 'active').length || 0, icon: Navigation, color: 'text-primary/20', bg: 'bg-primary/10' },
+                  { label: 'Live Trips', value: 0, icon: Navigation, color: 'text-primary/20', bg: 'bg-primary/10' },
                 ].map((metric, i) => (
                   <Card key={i} className="bg-white/5 border-white/10 rounded-2xl shadow-sm">
                     <CardContent className="p-6">
@@ -344,30 +296,7 @@ export default function AdminDashboard() {
               <Card className="glass-card rounded-3xl shadow-sm overflow-hidden border-white/10">
                 <CardHeader className="p-10 border-b border-white/5 bg-white/5"><CardTitle className="text-xl font-black italic uppercase text-foreground flex items-center gap-3"><Activity className="h-6 w-6 text-primary" /> Recent Missions</CardTitle></CardHeader>
                 <CardContent className="p-0">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="bg-white/5 text-[9px] font-black uppercase text-muted-foreground tracking-widest border-b border-white/10">
-                        <th className="py-6 px-10">Route</th>
-                        <th className="py-6">Operator</th>
-                        <th className="py-6">Status</th>
-                        <th className="py-8 px-10 text-right">Yield</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {allTrips?.map((trip: any) => (
-                        <tr key={trip.id} className="hover:bg-white/5 transition-all">
-                          <td className="py-8 px-10"><span className="font-black text-foreground uppercase italic text-xs">{trip.routeName}</span></td>
-                          <td className="py-8 text-[11px] font-bold text-muted-foreground italic uppercase">{trip.driverName || 'Unassigned'}</td>
-                          <td className="py-8">
-                            <Badge className={`${trip.status === 'completed' ? 'bg-primary/20 text-primary' : trip.status === 'active' ? 'bg-accent/20 text-accent' : 'bg-white/10 text-muted-foreground'} border-none text-[8px] font-black uppercase px-3 py-1`}>
-                              {trip.status}
-                            </Badge>
-                          </td>
-                          <td className="py-8 px-10 text-right font-black text-foreground italic text-lg">₹{(trip.totalYield || 0).toFixed(0)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="p-20 text-center italic text-muted-foreground">Grid scanning for new missions...</div>
                 </CardContent>
               </Card>
             </div>
@@ -431,9 +360,6 @@ export default function AdminDashboard() {
                <div className="flex justify-between items-center">
                   <div>
                     <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Scholar & Fleet Vault</h3>
-                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">
-                      {stats.totalScholars} Scholars • {stats.totalDrivers} Operators ({stats.activeDrivers} Active)
-                    </p>
                   </div>
                   <div className="relative w-80">
                      <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-white/10" />
