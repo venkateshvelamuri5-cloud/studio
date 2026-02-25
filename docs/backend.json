@@ -23,7 +23,6 @@
         "vehicleType": { "type": "string", "enum": ["5 Seater", "7 Seater", "Mini-Bus"] },
         "seatingCapacity": { "type": "number" },
         "aadhaarNumber": { "type": "string" },
-        "yearsOfExperience": { "type": "number" },
         "currentLat": { "type": "number" },
         "currentLng": { "type": "number" },
         "activeOtp": { "type": "string" },
@@ -47,11 +46,11 @@
         "vehicleNumber": { "type": "string" },
         "vehicleType": { "type": "string" },
         "routeName": { "type": "string" },
+        "scheduledDate": { "type": "string" },
         "status": { "type": "string", "enum": ["active", "completed", "cancelled"] },
         "riderCount": { "type": "number", "default": 0 },
-        "maxCapacity": { "type": "number", "default": 40 },
+        "maxCapacity": { "type": "number", "default": 7 },
         "farePerRider": { "type": "number" },
-        "passengers": { "type": "array", "items": { "type": "string" } },
         "passengerManifest": { 
           "type": "array", 
           "items": { 
@@ -60,20 +59,36 @@
               "uid": { "type": "string" },
               "name": { "type": "string" },
               "pickup": { "type": "string" },
-              "destination": { "type": "string" }
+              "destination": { "type": "string" },
+              "bookingDate": { "type": "string" }
             }
           }
         },
         "verifiedPassengers": { "type": "array", "items": { "type": "string" } },
-        "noShowReports": { "type": "array", "items": { "type": "string" } },
         "totalYield": { "type": "number" },
-        "driverShare": { "type": "number" },
         "currentLat": { "type": "number" },
         "currentLng": { "type": "number" },
         "startTime": { "type": "string", "format": "date-time" },
         "endTime": { "type": "string", "format": "date-time" }
       },
-      "required": ["driverId", "routeName", "status"]
+      "required": ["routeName", "status"]
+    },
+    "Route": {
+      "title": "Route",
+      "description": "A corridor definition.",
+      "type": "object",
+      "properties": {
+        "routeName": { "type": "string" },
+        "baseFare": { "type": "number" },
+        "stops": { 
+          "type": "array", 
+          "items": { 
+            "type": "object", 
+            "properties": { "name": { "type": "string" } } 
+          } 
+        },
+        "status": { "type": "string" }
+      }
     }
   },
   "auth": {
