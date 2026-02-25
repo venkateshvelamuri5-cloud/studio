@@ -19,7 +19,8 @@ import {
   Users,
   MapPin,
   Clock,
-  Navigation
+  Navigation,
+  ArrowUpRight
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
 import { doc, updateDoc, collection, onSnapshot, query, where, arrayUnion, getDocs, increment, setDoc } from 'firebase/firestore';
@@ -104,7 +105,6 @@ export default function DriverApp() {
     if (!db || !user || !profile) return;
     setIsUpdating(true);
     
-    // Check exclusivity: is there already a driver for this specific trip instance?
     if (trip.driverId) {
       toast({ variant: "destructive", title: "Job Taken", description: "Another driver is on this mission." });
       setIsUpdating(false);
@@ -185,7 +185,7 @@ export default function DriverApp() {
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
             <div className="grid grid-cols-2 gap-4">
               <Card className="bg-white/5 border-white/10 rounded-[2rem] p-6 space-y-1">
-                 <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Money</p>
+                 <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">My Money</p>
                  <h2 className="text-2xl font-black italic text-primary">₹{(profile?.totalEarnings || 0).toFixed(0)}</h2>
               </Card>
               <Card className="bg-white/5 border-white/10 rounded-[2rem] p-6 space-y-1">
@@ -194,21 +194,26 @@ export default function DriverApp() {
               </Card>
             </div>
 
-            <h2 className="text-xl font-black italic uppercase text-foreground flex items-center gap-2"><Search className="h-5 w-5 text-primary" /> Available Missions</h2>
+            <div className="flex items-center justify-between px-2">
+              <h2 className="text-xl font-black italic uppercase text-foreground flex items-center gap-2"><Search className="h-5 w-5 text-primary" /> Corridor Grid</h2>
+              <Badge variant="outline" className="border-white/10 text-[8px] uppercase">{profile?.city} Hub</Badge>
+            </div>
             
             <div className="space-y-3">
               {jobPool?.filter(j => !j.driverId).length === 0 ? (
-                <div className="p-16 text-center text-muted-foreground italic bg-white/5 rounded-[2rem] border border-dashed border-white/10">Scanning for demand...</div>
+                <div className="p-16 text-center text-muted-foreground italic bg-white/5 rounded-[2rem] border border-dashed border-white/10">Scanning for scholar demand...</div>
               ) : jobPool?.filter(j => !j.driverId).map((job: any) => (
-                <Card key={job.id} className="glass-card rounded-[2rem] p-8 flex justify-between items-center border-white/5">
+                <Card key={job.id} className="glass-card rounded-[2rem] p-8 flex justify-between items-center border-white/5 group hover:border-primary/30 transition-all">
                   <div className="space-y-1">
                     <h3 className="font-black text-xl text-foreground uppercase italic">{job.routeName}</h3>
                     <div className="flex items-center gap-2">
-                       <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase">{job.passengerManifest?.length || 0} Booked</Badge>
+                       <Badge className="bg-primary text-black border-none text-[8px] font-black uppercase px-2 py-0.5">{job.passengerManifest?.length || 0} Bookings</Badge>
                        <span className="text-[10px] font-bold text-muted-foreground">{job.scheduledDate === format(new Date(), 'yyyy-MM-dd') ? 'Today' : job.scheduledDate}</span>
                     </div>
                   </div>
-                  <Button onClick={() => startJob(job)} disabled={profile?.status === 'offline' || isUpdating} className="rounded-2xl h-14 px-6 bg-primary text-black font-black uppercase italic text-xs">Start</Button>
+                  <Button onClick={() => startJob(job)} disabled={profile?.status === 'offline' || isUpdating} className="rounded-2xl h-14 w-14 p-0 bg-primary text-black shadow-lg shadow-primary/20 active:scale-90 transition-all">
+                    <ArrowUpRight className="h-6 w-6" />
+                  </Button>
                 </Card>
               ))}
             </div>
@@ -221,36 +226,36 @@ export default function DriverApp() {
                   <h2 className="text-3xl font-black italic uppercase leading-none text-primary">{activeTrip.routeName}</h2>
                   <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-1">Active Mission</p>
                 </div>
-                <Badge className="bg-primary/20 text-primary border-none text-[10px] font-black uppercase px-4 py-2 rounded-full">{activeTrip.verifiedPassengers?.length || 0} Boarded</Badge>
+                <Badge className="bg-primary/20 text-primary border-none text-[10px] font-black uppercase px-4 py-2 rounded-full">{activeTrip.verifiedPassengers?.length || 0} / {activeTrip.passengerManifest?.length || 0}</Badge>
               </div>
 
               <div className="bg-black/40 p-6 rounded-[2rem] space-y-4 border border-white/5">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-3">Verify Code</Label>
+                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-3">Verify Boarding Code</Label>
                 <div className="flex gap-3">
-                  <input value={verificationOtp} onChange={(e) => setVerificationOtp(e.target.value)} placeholder="000000" className="h-16 w-full text-center font-black tracking-widest text-3xl rounded-xl bg-white/5 border border-white/10 text-primary" maxLength={6} />
-                  <Button onClick={verifyPassenger} disabled={isVerifying || !verificationOtp} className="h-16 w-16 rounded-xl bg-primary text-black"><CheckCircle2 className="h-8 w-8" /></Button>
+                  <input value={verificationOtp} onChange={(e) => setVerificationOtp(e.target.value)} placeholder="000000" className="h-16 w-full text-center font-black tracking-widest text-3xl rounded-xl bg-white/5 border border-white/10 text-primary focus:ring-2 focus:ring-primary outline-none" maxLength={6} />
+                  <Button onClick={verifyPassenger} disabled={isVerifying || !verificationOtp} className="h-16 w-16 rounded-xl bg-primary text-black shadow-lg shadow-primary/20"><CheckCircle2 className="h-8 w-8" /></Button>
                 </div>
               </div>
 
               <div className="space-y-4">
-                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2 ml-3"><Users className="h-4 w-4" /> Boarding Manifest</h3>
+                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2 ml-3"><Users className="h-4 w-4" /> Scholar Manifest</h3>
                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
                     {activeTrip.passengerManifest?.map((m: any, i: number) => {
                       const isVerified = activeTrip.verifiedPassengers?.includes(m.uid);
                       return (
-                        <div key={i} className={`p-4 rounded-xl border flex items-center justify-between ${isVerified ? 'bg-primary/5 border-primary/20' : 'bg-white/5 border-white/10'}`}>
+                        <div key={i} className={`p-4 rounded-xl border flex items-center justify-between ${isVerified ? 'bg-primary/5 border-primary/20' : 'bg-white/5 border-white/10 opacity-70'}`}>
                            <div>
                               <p className="font-black italic text-foreground text-sm uppercase">{m.name}</p>
                               <p className="text-[8px] font-bold text-muted-foreground uppercase">{m.pickup} → {m.destination}</p>
                            </div>
-                           {isVerified ? <CheckCircle2 className="text-primary h-5 w-5" /> : <Badge className="text-[8px] bg-accent/20 text-accent border-none animate-pulse">Waiting</Badge>}
+                           {isVerified ? <CheckCircle2 className="text-primary h-5 w-5" /> : <Badge className="text-[8px] bg-accent/20 text-accent border-none animate-pulse px-3 py-1">Waiting</Badge>}
                         </div>
                       );
                     })}
                  </div>
               </div>
 
-              <Button onClick={endTrip} disabled={isUpdating} className="w-full h-18 bg-primary/10 border-2 border-primary text-primary rounded-[2rem] font-black uppercase italic text-lg shadow-xl">Finish Mission</Button>
+              <Button onClick={endTrip} disabled={isUpdating} className="w-full h-18 bg-primary/10 border-2 border-primary text-primary rounded-[2rem] font-black uppercase italic text-lg shadow-xl hover:bg-primary hover:text-black transition-all">Finish Mission</Button>
             </Card>
           </div>
         ))}
@@ -259,8 +264,10 @@ export default function DriverApp() {
           <div className="space-y-6 animate-in fade-in pb-12">
              <h3 className="text-4xl font-black italic uppercase text-foreground tracking-tighter pl-2">Money</h3>
              <div className="space-y-4">
-                {[...pastTrips].sort((a,b) => b.endTime.localeCompare(a.endTime)).map((trip: any) => (
-                  <Card key={trip.id} className="bg-white/5 border border-white/10 rounded-[1.5rem] p-6 flex justify-between items-center">
+                {pastTrips?.length === 0 ? (
+                  <div className="p-20 text-center italic text-muted-foreground bg-white/5 rounded-[2rem] border border-dashed border-white/10">No earnings yet.</div>
+                ) : [...pastTrips].sort((a,b) => b.endTime.localeCompare(a.endTime)).map((trip: any) => (
+                  <Card key={trip.id} className="bg-white/5 border border-white/10 rounded-[1.5rem] p-6 flex justify-between items-center shadow-lg">
                     <div>
                         <h4 className="font-black text-xl uppercase italic leading-none">{trip.routeName}</h4>
                         <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">{new Date(trip.endTime).toLocaleDateString()}</p>
@@ -279,8 +286,12 @@ export default function DriverApp() {
                 {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : <Loader2 className="animate-spin text-primary/20 h-10 w-10" />}
               </div>
               <h2 className="text-4xl font-black italic uppercase text-foreground leading-none">{profile?.fullName}</h2>
+              <div className="flex flex-col gap-2 items-center">
+                <Badge variant="outline" className="border-primary/20 text-primary uppercase text-[10px] tracking-widest px-4 py-1">{profile?.vehicleType}</Badge>
+                <p className="text-[10px] font-black uppercase text-muted-foreground italic tracking-widest">{profile?.vehicleNumber}</p>
+              </div>
             </div>
-            <Button onClick={handleSignOut} className="w-full h-16 bg-destructive/10 text-destructive rounded-[2rem] font-black uppercase italic border border-destructive/20 text-lg">
+            <Button onClick={handleSignOut} className="w-full h-16 bg-destructive/10 text-destructive rounded-[2rem] font-black uppercase italic border border-destructive/20 text-lg shadow-xl shadow-destructive/5 transition-all">
               <LogOut className="h-6 w-6 mr-3" /> Sign Out
             </Button>
           </div>

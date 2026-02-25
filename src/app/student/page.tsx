@@ -35,7 +35,8 @@ import {
   CheckCircle2,
   CreditCard,
   Calendar,
-  ArrowRight
+  ArrowRight,
+  UserCheck
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc, getDoc } from 'firebase/firestore';
@@ -85,7 +86,6 @@ export default function StudentApp() {
   const [voucherCode, setVoucherCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [isBooking, setIsBooking] = useState(false);
-  const [map, setMap] = useState<google.maps.Map | null>(null);
 
   const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: googleMapsApiKey });
 
@@ -178,7 +178,6 @@ export default function StudentApp() {
           farePaid: finalFare
         };
 
-        // Find existing trip for this route and date or create a demand record
         const tripQuery = query(collection(db, 'trips'), where('routeName', '==', selectedRoute.routeName), where('scheduledDate', '==', bookingDate), where('status', '==', 'active'));
         const tripSnap = await getDocs(tripQuery);
         
@@ -188,7 +187,6 @@ export default function StudentApp() {
             passengerManifest: arrayUnion(bookingDetails)
           });
         } else {
-          // If no trip exists, create one with 'active' status but no driver yet (demand)
           await addDoc(collection(db, 'trips'), {
             routeName: selectedRoute.routeName,
             scheduledDate: bookingDate,
@@ -252,22 +250,48 @@ export default function StudentApp() {
             </div>
 
             {profile?.activeOtp && currentBooking ? (
-              <Card className="glass-card rounded-[3rem] p-8 shadow-2xl border-primary/30 relative">
-                 <div className="flex flex-col items-center gap-4 mb-8">
-                    <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground italic">Boarding Code</p>
-                    <h3 className="text-7xl font-black tracking-tighter italic text-primary text-glow leading-none">{profile.activeOtp}</h3>
-                 </div>
-                 <div className="space-y-3 mb-8">
-                    <div className="bg-white/5 p-5 rounded-2xl flex items-center gap-4 border border-white/5">
-                       <Bus className="h-6 w-6 text-primary" />
-                       <div>
-                          <p className="text-[9px] font-black uppercase text-muted-foreground">Corridor</p>
-                          <p className="text-lg font-black italic uppercase text-foreground leading-none">{currentBooking.routeName}</p>
-                       </div>
-                    </div>
-                 </div>
-                 <Button onClick={() => setActiveTab('radar')} className="w-full h-16 bg-primary text-black rounded-2xl font-black uppercase italic text-lg shadow-2xl">Track Ride</Button>
-              </Card>
+              <div className="space-y-6 animate-in slide-in-from-bottom-8">
+                <Card className="glass-card rounded-[3rem] p-8 shadow-2xl border-primary/30 relative">
+                   <div className="flex flex-col items-center gap-4 mb-8">
+                      <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground italic">Boarding Code</p>
+                      <h3 className="text-7xl font-black tracking-tighter italic text-primary text-glow leading-none">{profile.activeOtp}</h3>
+                   </div>
+                   
+                   <div className="space-y-4 mb-8">
+                      <div className="bg-white/5 p-5 rounded-2xl flex items-center gap-4 border border-white/5">
+                         <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Bus className="h-6 w-6" /></div>
+                         <div>
+                            <p className="text-[9px] font-black uppercase text-muted-foreground">Corridor</p>
+                            <p className="text-lg font-black italic uppercase text-foreground leading-none">{currentBooking.routeName}</p>
+                         </div>
+                      </div>
+
+                      {currentBooking.driverId ? (
+                        <div className="bg-primary/5 p-5 rounded-3xl flex items-center justify-between border border-primary/20 animate-in fade-in duration-500">
+                          <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-full overflow-hidden border-2 border-primary bg-primary/10">
+                              {currentBooking.driverPhoto ? <img src={currentBooking.driverPhoto} className="h-full w-full object-cover" /> : <UserCheck className="h-full w-full p-2 text-primary" />}
+                            </div>
+                            <div>
+                               <p className="text-[9px] font-black uppercase text-primary">Your Driver</p>
+                               <p className="text-sm font-black italic uppercase text-foreground leading-none">{currentBooking.driverName}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                             <p className="text-[10px] font-black text-foreground uppercase italic">{currentBooking.vehicleNumber}</p>
+                             <Badge variant="outline" className="text-[8px] border-primary/30 text-primary mt-1">{currentBooking.vehicleType}</Badge>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-5 bg-white/5 border border-dashed border-white/10 rounded-2xl text-center">
+                           <Loader2 className="animate-spin h-5 w-5 text-primary mx-auto mb-2" />
+                           <p className="text-[10px] font-black uppercase italic text-muted-foreground">Waiting for Operator...</p>
+                        </div>
+                      )}
+                   </div>
+                   <Button onClick={() => setActiveTab('radar')} className="w-full h-18 bg-primary text-black rounded-2xl font-black uppercase italic text-lg shadow-2xl">Track Ride</Button>
+                </Card>
+              </div>
             ) : (
               <Dialog onOpenChange={(open) => { if (!open) { setBookingStep(1); setSelectedRoute(null); setPickupStop(""); setDestinationStop(""); } }}>
                 <DialogTrigger asChild>
@@ -398,7 +422,12 @@ export default function StudentApp() {
                  <GoogleMap mapContainerStyle={mapContainerStyle} center={mapCenter} zoom={15} options={mapOptions}>
                    {currentPosition && <Marker position={currentPosition} icon={{ path: google.maps.SymbolPath.CIRCLE, fillColor: '#00FFFF', fillOpacity: 1, scale: 8 }} />}
                    {activeTrips?.map((trip: any) => trip.currentLat && (
-                     <Marker key={trip.id} position={{ lat: trip.currentLat, lng: trip.currentLng }} title={trip.routeName} />
+                     <Marker 
+                        key={trip.id} 
+                        position={{ lat: trip.currentLat, lng: trip.currentLng }} 
+                        title={trip.routeName}
+                        icon={trip.driverId === currentBooking?.driverId ? { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, fillColor: '#00FFFF', fillOpacity: 1, scale: 6, strokeColor: '#00FFFF', rotation: 0 } : undefined}
+                     />
                    ))}
                  </GoogleMap>
                ) : <Loader2 className="animate-spin text-primary m-auto h-10 w-10" />}
@@ -410,7 +439,9 @@ export default function StudentApp() {
           <div className="space-y-6 animate-in slide-in-from-bottom-4 pb-12">
              <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">History</h2>
              <div className="space-y-4">
-                {pastTrips?.map((trip: any) => (
+                {pastTrips?.length === 0 ? (
+                  <div className="p-20 text-center italic text-muted-foreground bg-white/5 rounded-[2rem] border border-dashed border-white/10">No missions yet.</div>
+                ) : pastTrips?.map((trip: any) => (
                   <Card key={trip.id} className="bg-white/5 border border-white/10 rounded-[2rem] p-8 flex justify-between items-center shadow-lg">
                     <div>
                       <h4 className="font-black text-foreground uppercase italic text-xl leading-none">{trip.routeName}</h4>
@@ -430,6 +461,7 @@ export default function StudentApp() {
                   {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : <UserIcon className="h-12 w-12 text-primary/20" />}
                 </div>
                 <h2 className="text-4xl font-black italic uppercase text-foreground leading-none tracking-tighter">{profile?.fullName}</h2>
+                <Badge variant="outline" className="border-primary/20 text-primary uppercase text-[10px] tracking-widest px-4 py-1">{profile?.city} Scholar</Badge>
              </div>
              <Button variant="ghost" onClick={handleSignOut} className="w-full h-16 bg-destructive/10 text-destructive rounded-[2rem] font-black uppercase italic border border-destructive/20 text-lg">
                 <LogOut className="mr-3 h-5 w-5" /> Sign Out
