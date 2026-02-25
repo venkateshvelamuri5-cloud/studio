@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -31,7 +32,10 @@ import {
   ChevronRight,
   Clock,
   Target,
-  CreditCard
+  CreditCard,
+  Gift,
+  Copy,
+  Info
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc, limit } from 'firebase/firestore';
@@ -40,7 +44,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { googleMapsApiKey } from '@/firebase/config';
-import { format, addDays } from 'date-fns';
+import { format, addDays, isAfter } from 'date-fns';
 
 const mapContainerStyle = { width: '100%', height: '100%' };
 const mapOptions = { 
@@ -89,13 +93,11 @@ export default function StudentApp() {
   const { data: profile, loading: profileLoading } = useDoc(userRef);
   const { data: activeRoutes } = useCollection(useMemo(() => (db) ? query(collection(db, 'routes'), where('status', '==', 'active')) : null, [db]));
   
-  // Real-time listener for trips to identify current booking and live locations
   const { data: activeTrips } = useCollection(useMemo(() => (db) ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db]));
   
   const globalConfigRef = useMemo(() => db ? doc(db, 'config', 'global') : null, [db]);
   const { data: globalConfig } = useDoc(globalConfigRef);
   
-  // Find if user has a booking in any active trip (either manifest or verified)
   const currentBooking = useMemo(() => {
     if (!activeTrips || !user?.uid) return null;
     return activeTrips.find(t => 
@@ -104,10 +106,13 @@ export default function StudentApp() {
     );
   }, [activeTrips, user?.uid]);
 
-  const { data: pastTrips } = useCollection(useMemo(() => {
+  const { data: allUserTrips } = useCollection(useMemo(() => {
     if (!db || !user?.uid) return null;
-    return query(collection(db, 'trips'), where('status', '==', 'completed'), where('verifiedPassengers', 'array-contains', user.uid));
+    return query(collection(db, 'trips'), where('passengerManifest', 'array-contains-any', [{uid: user.uid}]));
   }, [db, user?.uid]));
+
+  const pastTrips = useMemo(() => allUserTrips?.filter(t => t.status === 'completed') || [], [allUserTrips]);
+  const upcomingTrips = useMemo(() => allUserTrips?.filter(t => t.status === 'active' && t.id !== currentBooking?.id) || [], [allUserTrips, currentBooking]);
 
   const calculatedFare = useMemo(() => {
     if (!selectedRoute || !pickupStop || !destinationStop) return 0;
@@ -149,7 +154,7 @@ export default function StudentApp() {
       city: profile.city || 'Global', timestamp: new Date().toISOString(),
       location: currentPosition || 'Regional Hub'
     });
-    toast({ variant: "destructive", title: "SOS Sent" });
+    toast({ variant: "destructive", title: "SOS Sent", description: "Emergency protocol active." });
   };
 
   const handleApplyVoucher = async () => {
@@ -157,12 +162,12 @@ export default function StudentApp() {
     const vQuery = query(collection(db, 'vouchers'), where('code', '==', voucherCode.toUpperCase()), where('isActive', '==', true), limit(1));
     const snap = await getDocs(vQuery);
     if (snap.empty) {
-      toast({ variant: "destructive", title: "Invalid Voucher", description: "This code does not exist or is expired." });
+      toast({ variant: "destructive", title: "Invalid Voucher" });
       setAppliedDiscount(0);
     } else {
       const vData = snap.docs[0].data();
       setAppliedDiscount(vData.discountAmount);
-      toast({ title: "Voucher Applied", description: `₹${vData.discountAmount} discount activated.` });
+      toast({ title: "Voucher Applied", description: `₹${vData.discountAmount} off.` });
     }
   };
 
@@ -170,7 +175,6 @@ export default function StudentApp() {
     if (!db || !userRef || !selectedRoute || !profile) return;
     setIsPaying(true);
     
-    // Simulate Payment Gateway Integration
     setTimeout(async () => {
       try {
         const finalFare = Math.max(0, calculatedFare - appliedDiscount);
@@ -187,7 +191,6 @@ export default function StudentApp() {
           bookedAt: new Date().toISOString()
         };
 
-        // Find an existing active trip with capacity, or let driver pick up new demand
         const tripQuery = query(collection(db, 'trips'), 
           where('routeName', '==', selectedRoute.routeName), 
           where('scheduledDate', '==', bookingDate), 
@@ -203,12 +206,10 @@ export default function StudentApp() {
         });
 
         if (availableTrip) {
-          // Add to existing trip manifest
           await updateDoc(doc(db, 'trips', availableTrip.id), {
             passengerManifest: arrayUnion(bookingDetails)
           });
         } else {
-          // Create a new Demand Trip for drivers to claim
           await addDoc(collection(db, 'trips'), {
             routeName: selectedRoute.routeName,
             scheduledDate: bookingDate,
@@ -222,7 +223,6 @@ export default function StudentApp() {
           });
         }
 
-        // Sync to scholar profile
         await updateDoc(userRef, { 
           activeOtp: otp, 
           destinationStopName: destinationStop, 
@@ -231,15 +231,22 @@ export default function StudentApp() {
         
         setIsPaying(false);
         setBookingStep(4);
-        toast({ title: "Seat Secured", description: "Your mission is active in the grid." });
+        toast({ title: "Seat Secured" });
       } catch (e) {
         setIsPaying(false);
-        toast({ variant: "destructive", title: "Booking Error", description: "The grid was unable to finalize payment." });
+        toast({ variant: "destructive", title: "Error" });
       }
     }, 2000);
   };
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/auth/login'); };
+
+  const copyReferral = () => {
+    if (profile?.referralCode) {
+      navigator.clipboard.writeText(profile.referralCode);
+      toast({ title: "Code Copied", description: "Share with your scholar community." });
+    }
+  };
 
   if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin text-primary h-12 w-12" /></div>;
 
@@ -254,7 +261,7 @@ export default function StudentApp() {
         </div>
         <div className="flex items-center gap-2">
            <Button variant="ghost" size="icon" onClick={triggerSOS} className="text-destructive bg-destructive/10 h-11 w-11 rounded-2xl border border-destructive/20"><ShieldAlert className="h-5 w-5" /></Button>
-           <Button variant="ghost" size="icon" onClick={() => { navigator.share({ title: 'Aago', url: window.location.origin }); }} className="text-primary bg-primary/10 h-11 w-11 rounded-2xl border border-primary/20"><Share2 className="h-5 w-5" /></Button>
+           <Button variant="ghost" size="icon" onClick={() => { navigator.share({ title: 'AAGO - Smart Campus Rides', url: window.location.origin }); }} className="text-primary bg-primary/10 h-11 w-11 rounded-2xl border border-primary/20"><Share2 className="h-5 w-5" /></Button>
         </div>
       </header>
 
@@ -318,8 +325,8 @@ export default function StudentApp() {
                         <div className="p-8 bg-black/40 border border-dashed border-white/10 rounded-[2.5rem] text-center flex flex-col items-center gap-4 animate-pulse">
                            <Loader2 className="animate-spin h-8 w-8 text-primary opacity-50" />
                            <div className="space-y-1">
-                             <p className="text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Operator Assignment Pending</p>
-                             <p className="text-[9px] font-bold text-white/40 uppercase">Driver details will be shared with you 2 hours before the trip</p>
+                             <p className="text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Operator Pending</p>
+                             <p className="text-[9px] font-bold text-white/40 uppercase">Details will appear 2 hours before trip</p>
                            </div>
                         </div>
                       )}
@@ -329,10 +336,13 @@ export default function StudentApp() {
             ) : (
               <Dialog onOpenChange={(open) => { if (!open) { setBookingStep(1); setSelectedRoute(null); setPickupStop(""); setDestinationStop(""); setAppliedDiscount(0); setVoucherCode(""); } }}>
                 <DialogTrigger asChild>
-                  <div className="p-10 bg-primary text-black rounded-[3rem] shadow-2xl flex items-center justify-between cursor-pointer active:scale-95 transition-all group overflow-hidden relative">
+                  <div className="p-12 bg-primary text-black rounded-[3rem] shadow-2xl flex flex-col gap-2 cursor-pointer active:scale-95 transition-all group overflow-hidden relative">
                     <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <h3 className="text-4xl font-black italic uppercase tracking-tighter relative z-10">Find <br/> Ride</h3>
-                    <Navigation className="h-12 w-12 relative z-10 group-hover:translate-x-2 transition-transform" />
+                    <h3 className="text-5xl font-black italic uppercase tracking-tighter relative z-10 leading-none">Find <br/> Ride</h3>
+                    <div className="flex items-center justify-between mt-4 relative z-10">
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Search Active Grid</p>
+                      <Navigation className="h-8 w-8 group-hover:translate-x-2 transition-transform" />
+                    </div>
                   </div>
                 </DialogTrigger>
                 <DialogContent className="bg-background border-white/5 rounded-[2.5rem] p-8 h-[92vh] flex flex-col shadow-2xl">
@@ -346,12 +356,12 @@ export default function StudentApp() {
                     {bookingStep === 1 && (
                       <div className="space-y-4">
                         {activeRoutes?.length === 0 ? (
-                          <div className="p-20 text-center italic text-muted-foreground">Grid scanning for active corridors...</div>
+                          <div className="p-20 text-center italic text-muted-foreground">Scanning grid...</div>
                         ) : activeRoutes?.map((route: any) => (
                           <div key={route.id} onClick={() => { setSelectedRoute(route); setBookingStep(2); }} className="p-8 bg-white/5 border border-white/10 rounded-3xl cursor-pointer hover:border-primary/50 hover:bg-white/10 transition-all flex justify-between items-center group">
                              <div className="space-y-1">
                                 <h4 className="text-xl font-black italic uppercase text-foreground group-hover:text-primary transition-colors">{route.routeName}</h4>
-                                <p className="text-[10px] font-black text-primary/60 uppercase tracking-widest">Base Fare ₹{route.baseFare}</p>
+                                <p className="text-[10px] font-black text-primary/60 uppercase tracking-widest">₹{route.baseFare} Base</p>
                              </div>
                              <ChevronRight className="h-6 w-6 text-white/10 group-hover:text-primary transition-colors" />
                           </div>
@@ -417,7 +427,7 @@ export default function StudentApp() {
                       <div className="space-y-8 py-4 animate-in zoom-in-95">
                          <div className="p-8 bg-black/40 rounded-[2.5rem] text-center space-y-3 border border-white/5">
                             <p className="text-[10px] font-black uppercase text-primary tracking-[0.3em]">Grid Settlement</p>
-                            <h4 className="text-xl font-black italic text-foreground uppercase tracking-widest">{profile?.city} Hub Terminal</h4>
+                            <h4 className="text-xl font-black italic text-foreground uppercase tracking-widest">{profile?.city} Hub</h4>
                             {globalConfig && (
                               <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mt-2 italic">
                                 Merchant ID: {(globalConfig as any)[profile?.city?.toLowerCase() === 'vizag' ? 'vizagUpiId' : 'vzmUpiId'] || 'PENDING HUB'}
@@ -427,7 +437,7 @@ export default function StudentApp() {
                          <div className="space-y-3">
                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-3">Voucher Protocol</Label>
                            <div className="flex gap-3">
-                              <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="ENTER CODE" className="h-16 w-full bg-white/5 border border-white/10 rounded-2xl font-black italic px-6 uppercase tracking-widest outline-none focus:border-primary transition-colors" />
+                              <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="AAGO50" className="h-16 w-full bg-white/5 border border-white/10 rounded-2xl font-black italic px-6 uppercase tracking-widest outline-none focus:border-primary transition-colors" />
                               <Button onClick={handleApplyVoucher} variant="outline" className="h-16 px-8 rounded-2xl font-black italic text-primary border-primary/30 hover:bg-primary/10">Apply</Button>
                            </div>
                          </div>
@@ -440,8 +450,8 @@ export default function StudentApp() {
                               <div className="bg-primary/20 p-10 rounded-[3rem] border border-primary/30 space-y-6">
                                 <Loader2 className="animate-spin h-16 w-16 text-primary mx-auto" />
                                 <div className="space-y-2">
-                                  <h3 className="text-2xl font-black italic uppercase text-primary">Verifying Transaction</h3>
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Waiting for Gateway Protocol...</p>
+                                  <h3 className="text-2xl font-black italic uppercase text-primary">Verifying Payment</h3>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">AAGO Secure Gateway</p>
                                 </div>
                               </div>
                            </div>
@@ -453,24 +463,36 @@ export default function StudentApp() {
                       <div className="flex flex-col items-center justify-center text-center space-y-8 py-20 animate-in zoom-in-95">
                          <div className="h-32 w-32 bg-primary text-black rounded-full flex items-center justify-center shadow-2xl shadow-primary/20 animate-bounce"><CheckCircle2 className="h-16 w-16" /></div>
                          <div className="space-y-3">
-                            <h3 className="text-5xl font-black italic uppercase text-primary tracking-tighter">Confirmed</h3>
-                            <p className="text-sm font-bold text-muted-foreground italic uppercase tracking-widest leading-relaxed px-6">Payment Success. Seat Secured in the Grid. Your boarding code is active on the home hub.</p>
+                            <h3 className="text-5xl font-black italic uppercase text-primary tracking-tighter leading-none">Grid Mission <br/> Confirmed</h3>
+                            <p className="text-sm font-bold text-muted-foreground italic uppercase tracking-widest px-6 mt-4">Seat Secured. Boarding code active on home hub.</p>
                          </div>
                       </div>
                     )}
                   </div>
 
                   <div className="pt-8 shrink-0 border-t border-white/5">
-                    {bookingStep === 1 && <Button variant="ghost" onClick={() => setBookingStep(1)} className="w-full text-muted-foreground font-black uppercase italic tracking-widest h-14">Cancel Request</Button>}
-                    {bookingStep === 2 && <Button onClick={() => setBookingStep(3)} disabled={!pickupStop || !destinationStop} className="w-full h-18 bg-primary text-black rounded-[2rem] font-black uppercase italic text-xl shadow-2xl shadow-primary/20 active:scale-95 transition-all">Review Hub Pay</Button>}
+                    {bookingStep === 1 && <Button variant="ghost" onClick={() => setBookingStep(1)} className="w-full text-muted-foreground font-black uppercase italic tracking-widest h-14">Cancel</Button>}
+                    {bookingStep === 2 && <Button onClick={() => setBookingStep(3)} disabled={!pickupStop || !destinationStop} className="w-full h-18 bg-primary text-black rounded-[2rem] font-black uppercase italic text-xl shadow-2xl active:scale-95 transition-all">Hub Checkout</Button>}
                     {bookingStep === 3 && <Button onClick={handleConfirmBooking} disabled={isPaying} className="w-full h-20 bg-primary text-black rounded-[2rem] font-black uppercase italic text-2xl shadow-2xl shadow-primary/30 active:scale-95 transition-all">
-                      {isPaying ? <Loader2 className="animate-spin h-8 w-8 mx-auto" /> : <><CreditCard className="mr-3 h-7 w-7" /> Pay & Secure Seat</>}
+                      {isPaying ? <Loader2 className="animate-spin h-8 w-8 mx-auto" /> : <><CreditCard className="mr-3 h-7 w-7" /> Pay ₹{Math.max(0, calculatedFare - appliedDiscount)}</>}
                     </Button>}
-                    {bookingStep === 4 && <DialogTrigger asChild><Button className="w-full h-18 bg-white/5 rounded-[2rem] font-black uppercase italic text-lg hover:bg-white/10">Return to Grid</Button></DialogTrigger>}
+                    {bookingStep === 4 && <DialogTrigger asChild><Button className="w-full h-18 bg-white/5 rounded-[2rem] font-black uppercase italic text-lg hover:bg-white/10">Back to Grid</Button></DialogTrigger>}
                   </div>
                 </DialogContent>
               </Dialog>
             )}
+
+            <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-8 space-y-4">
+              <div className="flex items-center gap-4">
+                 <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Gift className="h-6 w-6" /></div>
+                 <h4 className="text-xl font-black italic uppercase tracking-tighter">Referral Hub</h4>
+              </div>
+              <p className="text-xs font-bold text-muted-foreground italic px-2">Earn 50 Scholar Points for every friend who joins the grid.</p>
+              <div className="flex gap-3 bg-black/40 p-4 rounded-2xl border border-white/5">
+                 <p className="flex-1 font-black italic text-foreground uppercase tracking-widest pt-2.5 px-2">{profile?.referralCode || 'GEN-PENDING'}</p>
+                 <Button onClick={copyReferral} variant="ghost" className="h-10 w-10 p-0 text-primary hover:bg-primary/10"><Copy className="h-5 w-5" /></Button>
+              </div>
+            </Card>
           </div>
         )}
 
@@ -482,7 +504,16 @@ export default function StudentApp() {
                   <div className="h-1.5 w-1.5 bg-primary rounded-full animate-pulse" /> Grid Sync: 100%
                </Badge>
             </div>
-            <div className="flex-1 rounded-[3.5rem] overflow-hidden border border-white/10 shadow-2xl bg-black relative shadow-[inset_0_0_100px_rgba(0,0,0,0.8)]">
+            
+            <div className="bg-white/5 border border-white/10 rounded-3xl p-4 flex items-center gap-4">
+               <ShieldAlert className="h-5 w-5 text-accent animate-pulse" />
+               <div>
+                  <p className="text-[10px] font-black uppercase text-accent tracking-widest leading-none">Safety Protocol Active</p>
+                  <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1 italic">SOS Broadcast Syncing with {profile?.emergencyContactName || 'Safe Hub'}</p>
+               </div>
+            </div>
+
+            <div className="flex-1 rounded-[3.5rem] overflow-hidden border border-white/10 shadow-2xl bg-black relative">
                {isLoaded ? (
                  <GoogleMap mapContainerStyle={mapContainerStyle} center={mapCenter} zoom={15} options={mapOptions}>
                    {currentPosition && <Marker position={currentPosition} icon={{ path: google.maps.SymbolPath.CIRCLE, fillColor: '#00FFFF', fillOpacity: 1, scale: 8, strokeColor: '#FFFFFF', strokeWeight: 2 }} />}
@@ -517,12 +548,29 @@ export default function StudentApp() {
 
         {activeTab === 'history' && (
           <div className="space-y-8 animate-in slide-in-from-bottom-4 pb-12">
-             <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">Missions</h2>
+             <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">Mission Log</h2>
+             
+             {upcomingTrips.length > 0 && (
+               <div className="space-y-4">
+                 <p className="text-[10px] font-black uppercase tracking-widest text-primary ml-4">Upcoming</p>
+                 {upcomingTrips.map((trip: any) => (
+                    <Card key={trip.id} className="bg-primary/5 border border-primary/20 rounded-[2.5rem] p-8 flex justify-between items-center group">
+                       <div className="space-y-1">
+                          <h4 className="font-black text-foreground uppercase italic text-xl leading-none">{trip.routeName}</h4>
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 italic flex items-center gap-2"><Clock className="h-3 w-3" /> {trip.scheduledDate}</p>
+                       </div>
+                       <Badge className="bg-primary text-black uppercase text-[8px] font-black italic px-4 py-1">Confirmed</Badge>
+                    </Card>
+                 ))}
+               </div>
+             )}
+
              <div className="space-y-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Completed</p>
                 {pastTrips?.length === 0 ? (
                   <div className="p-24 text-center italic text-muted-foreground bg-white/5 rounded-[3rem] border border-dashed border-white/10 flex flex-col items-center gap-4">
                      <History className="h-12 w-12 opacity-10" />
-                     <p className="text-[10px] font-black uppercase tracking-widest italic opacity-50">Grid history is empty</p>
+                     <p className="text-[10px] font-black uppercase tracking-widest italic opacity-50">Log is empty</p>
                   </div>
                 ) : [...pastTrips].sort((a,b) => b.endTime.localeCompare(a.endTime)).map((trip: any) => (
                   <Card key={trip.id} className="bg-white/5 border border-white/5 rounded-[2.5rem] p-8 flex justify-between items-center shadow-xl group hover:border-primary/30 transition-all">
@@ -531,8 +579,7 @@ export default function StudentApp() {
                       <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-2"><Clock className="h-3 w-3" /> {new Date(trip.endTime).toLocaleDateString()}</p>
                     </div>
                     <div className="text-right">
-                       <span className="text-2xl font-black italic text-primary">₹{trip.farePaid || trip.farePerRider}</span>
-                       <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest mt-1">Settled</p>
+                       <span className="text-2xl font-black italic text-primary">₹{trip.passengerManifest?.find((m:any) => m.uid === user?.uid)?.farePaid || trip.farePerRider}</span>
                     </div>
                   </Card>
                 ))}
@@ -543,7 +590,7 @@ export default function StudentApp() {
         {activeTab === 'me' && (
           <div className="space-y-12 text-center pb-24 pt-10 animate-in fade-in">
              <div className="flex flex-col items-center gap-6">
-                <div className="h-40 w-40 rounded-full border-[8px] border-white/5 bg-primary/5 flex items-center justify-center overflow-hidden shadow-2xl relative group">
+                <div className="h-44 w-44 rounded-full border-[10px] border-white/5 bg-primary/5 flex items-center justify-center overflow-hidden shadow-2xl relative group">
                   <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                   {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : <UserIcon className="h-16 w-16 text-primary/20" />}
                 </div>
@@ -559,10 +606,10 @@ export default function StudentApp() {
              <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto">
                 <div className="p-8 bg-white/5 rounded-3xl border border-white/5 text-center">
                    <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-1">Grid Rating</p>
-                   <p className="text-2xl font-black italic text-foreground">5.0</p>
+                   <p className="text-2xl font-black italic text-foreground uppercase">Elite</p>
                 </div>
                 <div className="p-8 bg-white/5 rounded-3xl border border-white/5 text-center">
-                   <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-1">Level</p>
+                   <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-1">Scholar Tier</p>
                    <p className="text-2xl font-black italic text-primary uppercase">S-Rank</p>
                 </div>
              </div>
