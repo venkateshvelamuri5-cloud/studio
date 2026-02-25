@@ -42,7 +42,9 @@ import {
   MapPin,
   Clock,
   Save,
-  CheckCircle2
+  CheckCircle2,
+  Car,
+  User
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
 import { collection, query, doc, setDoc, orderBy, limit, addDoc, deleteDoc, updateDoc, where } from 'firebase/firestore';
@@ -116,7 +118,7 @@ export default function AdminDashboard() {
 
   const { data: allTrips } = useCollection(useMemo(() => db ? query(collection(db, 'trips'), orderBy('startTime', 'desc'), limit(50)) : null, [db]));
   const { data: allUsers } = useCollection(useMemo(() => db ? query(collection(db, 'users')) : null, [db]));
-  const { data: allRoutes } = useCollection(useMemo(() => db ? query(collection(db, 'routes')) : null, [db]));
+  const { data: allRoutes } = useCollection(useMemo(() => db ? query(collection(db, 'routes'), orderBy('createdAt', 'desc')) : null, [db]));
   const { data: allAlerts } = useCollection(useMemo(() => db ? query(collection(db, 'alerts'), orderBy('timestamp', 'desc'), limit(20)) : null, [db]));
   const { data: allVouchers } = useCollection(useMemo(() => db ? query(collection(db, 'vouchers'), orderBy('createdAt', 'desc')) : null, [db]));
 
@@ -130,12 +132,19 @@ export default function AdminDashboard() {
   }, [allUsers, searchQuery]);
 
   const stats = useMemo(() => {
-    if (!allTrips) return { revenue: 0, payouts: 0, commissions: 0 };
+    const defaultStats = { revenue: 0, payouts: 0, commissions: 0, activeDrivers: 0, totalScholars: 0, totalDrivers: 0 };
+    if (!allTrips || !allUsers) return defaultStats;
+    
     const completed = allTrips.filter(t => t.status === 'completed');
     const revenue = completed.reduce((acc, t) => acc + (t.totalYield || 0), 0);
     const payouts = completed.reduce((acc, t) => acc + (t.driverShare || 0), 0);
-    return { revenue, payouts, commissions: revenue - payouts };
-  }, [allTrips]);
+    
+    const activeDrivers = allUsers.filter(u => u.role === 'driver' && u.status !== 'offline').length;
+    const totalScholars = allUsers.filter(u => u.role === 'rider').length;
+    const totalDrivers = allUsers.filter(u => u.role === 'driver').length;
+
+    return { revenue, payouts, commissions: revenue - payouts, activeDrivers, totalScholars, totalDrivers };
+  }, [allTrips, allUsers]);
 
   const handleUpdateConfig = () => {
     if (!globalConfigRef) return;
@@ -296,7 +305,7 @@ export default function AdminDashboard() {
             { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
             { id: 'routes', label: 'Corridors', icon: RouteIcon },
             { id: 'vouchers', label: 'Vouchers', icon: Ticket },
-            { id: 'users', label: 'Users', icon: Users },
+            { id: 'users', label: 'User Vault', icon: Users },
             { id: 'payments', label: 'Payments', icon: QrCode },
             { id: 'alerts', label: 'Alerts', icon: AlertTriangle },
             { id: 'ai-architect', label: 'AI Architect', icon: Sparkles },
@@ -329,18 +338,20 @@ export default function AdminDashboard() {
         <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar">
           {activeTab === 'dashboard' && (
             <div className="space-y-10 animate-in fade-in duration-700">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
                 {[
                   { label: 'Revenue', value: `₹${stats.revenue.toFixed(0)}`, icon: IndianRupee, color: 'text-primary', bg: 'bg-primary/10' },
-                  { label: 'Payouts', value: `₹${stats.payouts.toFixed(0)}`, icon: Wallet, color: 'text-primary/80', bg: 'bg-primary/10' },
                   { label: 'Earnings', value: `₹${stats.commissions.toFixed(0)}`, icon: TrendingUp, color: 'text-primary/60', bg: 'bg-primary/10' },
-                  { label: 'Trips', value: allTrips?.filter(t => t.status === 'active').length || 0, icon: Navigation, color: 'text-primary/40', bg: 'bg-primary/10' },
+                  { label: 'Scholars', value: stats.totalScholars, icon: Users, color: 'text-primary/80', bg: 'bg-primary/10' },
+                  { label: 'Active Fleet', value: stats.activeDrivers, icon: Zap, color: 'text-accent', bg: 'bg-accent/10' },
+                  { label: 'Total Fleet', value: stats.totalDrivers, icon: Car, color: 'text-primary/40', bg: 'bg-primary/10' },
+                  { label: 'Live Trips', value: allTrips?.filter(t => t.status === 'active').length || 0, icon: Navigation, color: 'text-primary/20', bg: 'bg-primary/10' },
                 ].map((metric, i) => (
                   <Card key={i} className="bg-white/5 border-white/10 rounded-2xl shadow-sm">
-                    <CardContent className="p-8">
-                      <div className={`p-4 ${metric.bg} rounded-2xl w-fit mb-6 shadow-sm`}><metric.icon className={`h-6 w-6 ${metric.color}`} /></div>
-                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">{metric.label}</p>
-                      <h3 className="text-3xl font-black text-foreground font-headline italic leading-none tracking-tighter">{metric.value}</h3>
+                    <CardContent className="p-6">
+                      <div className={`p-3 ${metric.bg} rounded-xl w-fit mb-4 shadow-sm`}><metric.icon className={`h-5 w-5 ${metric.color}`} /></div>
+                      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">{metric.label}</p>
+                      <h3 className="text-2xl font-black text-foreground font-headline italic leading-none tracking-tighter">{metric.value}</h3>
                     </CardContent>
                   </Card>
                 ))}
@@ -473,11 +484,16 @@ export default function AdminDashboard() {
           {activeTab === 'users' && (
             <div className="space-y-10 animate-in fade-in duration-700">
                <div className="flex justify-between items-center">
-                  <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Scholar Vault</h3>
+                  <div>
+                    <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Scholar & Fleet Vault</h3>
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1">
+                      {stats.totalScholars} Scholars • {stats.totalDrivers} Operators ({stats.activeDrivers} Active)
+                    </p>
+                  </div>
                   <div className="relative w-80">
                      <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-white/10" />
                      <Input 
-                      placeholder="Search name or code..." 
+                      placeholder="Search name, code, or phone..." 
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
                       className="h-14 pl-14 rounded-2xl bg-white/5 border-white/10 shadow-sm font-black italic text-sm" 
@@ -491,9 +507,9 @@ export default function AdminDashboard() {
                       <thead>
                         <tr className="bg-white/5 text-[9px] font-black uppercase text-muted-foreground tracking-widest border-b border-white/10">
                           <th className="py-6 px-10">Identity</th>
-                          <th className="py-6">Code</th>
+                          <th className="py-6">Referral Code</th>
                           <th className="py-6">Role</th>
-                          <th className="py-6">Hub</th>
+                          <th className="py-6">Status / Hub</th>
                           <th className="py-6 px-10 text-right">Action</th>
                         </tr>
                       </thead>
@@ -502,8 +518,8 @@ export default function AdminDashboard() {
                           <tr key={u.uid} className="hover:bg-white/5 transition-all">
                              <td className="py-6 px-10">
                                 <div className="flex items-center gap-5">
-                                   <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black overflow-hidden italic">
-                                      {u.photoUrl ? <img src={u.photoUrl} className="h-full w-full object-cover" /> : <span>{u.fullName?.[0]}</span>}
+                                   <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black overflow-hidden italic border border-white/5">
+                                      {u.photoUrl ? <img src={u.photoUrl} className="h-full w-full object-cover" /> : <User className="h-6 w-6 opacity-30" />}
                                    </div>
                                    <div>
                                       <p className="font-black text-foreground uppercase italic text-sm leading-none">{u.fullName}</p>
@@ -519,7 +535,16 @@ export default function AdminDashboard() {
                                    {u.role}
                                 </Badge>
                              </td>
-                             <td className="py-6 font-black italic text-muted-foreground text-xs uppercase">{u.city}</td>
+                             <td className="py-6">
+                               <div className="flex flex-col gap-1">
+                                 <p className="font-black italic text-foreground text-xs uppercase leading-none">{u.city}</p>
+                                 {u.role === 'driver' && (
+                                   <p className={`text-[8px] font-black uppercase tracking-widest ${u.status === 'offline' ? 'text-muted-foreground' : 'text-accent'}`}>
+                                     {u.status}
+                                   </p>
+                                 )}
+                               </div>
+                             </td>
                              <td className="py-6 px-10 text-right">
                                 <Button variant="ghost" size="sm" className="text-primary hover:bg-primary/10 rounded-xl h-10 w-10 border border-white/10"><UserCheck className="h-5 w-5" /></Button>
                              </td>
