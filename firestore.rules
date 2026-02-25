@@ -8,11 +8,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Helper function to check if the user has an admin role
+    // Helper function to check if the user has an admin role or is the master admin email
     function isAdmin() {
       return isAuthenticated() && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-        request.auth.token.email == 'admin@aago.in'
+        request.auth.token.email == 'admin@aago.in' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
       );
     }
 
@@ -44,6 +44,12 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if isAdmin();
       allow delete: if isAdmin();
+    }
+
+    // Vouchers:
+    match /vouchers/{voucherId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
     // Alerts (SOS):

@@ -103,7 +103,8 @@ export default function AdminDashboard() {
     if (!authLoading && !user) {
         router.push('/admin/login');
     }
-    if (!authLoading && profile && profile.role !== 'admin') {
+    // Hard override for admin@aago.in even if profile is not fully loaded or role is wrong
+    if (!authLoading && profile && profile.role !== 'admin' && user?.email !== 'admin@aago.in') {
       router.push('/admin/login');
     }
   }, [profile, authLoading, user, router]);
@@ -203,7 +204,7 @@ export default function AdminDashboard() {
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/admin/login'); };
 
-  if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin h-12 w-12 text-primary" /></div>;
+  if (authLoading || (profileLoading && user?.email !== 'admin@aago.in')) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin h-12 w-12 text-primary" /></div>;
 
   return (
     <div className="flex h-screen bg-background text-foreground font-body overflow-hidden">
@@ -585,4 +586,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-
