@@ -217,7 +217,7 @@ export default function StudentApp() {
   };
 
   const handleConfirmPayment = async () => {
-    if (!db || !userRef || !selectedTrip || !destinationStop) return;
+    if (!db || !userRef || !selectedTrip || !destinationStop || !profile) return;
     setIsBooking(true);
     
     // Step 1: Simulated Gateway Processing
@@ -237,14 +237,25 @@ export default function StudentApp() {
         const pointsEarned = Math.floor(finalFare / 10);
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         
+        // Detailed manifest data for the driver
+        const scholarDetails = {
+          uid: user!.uid,
+          name: profile.fullName,
+          pickup: pickupStop || "Regional Node",
+          destination: destinationStop
+        };
+
         // Step 2: Confirmation after "Payment Success"
         await updateDoc(userRef, { 
           activeOtp: otp, 
           destinationStopName: destinationStop, 
           loyaltyPoints: increment(pointsEarned) 
         });
+        
+        // Add scholar to the trip manifest (used for driver notifications)
         await updateDoc(doc(db, 'trips', selectedTrip.id), { 
-          passengers: arrayUnion(user!.uid) 
+          passengers: arrayUnion(user!.uid),
+          passengerManifest: arrayUnion(scholarDetails)
         });
         
         setBookingStep(3);
@@ -395,7 +406,7 @@ export default function StudentApp() {
                           <div className="space-y-3">
                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-3">Voucher Vault</Label>
                             <div className="flex gap-3">
-                               <Input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="CODE" className="h-16 bg-white/5 border-white/10 rounded-2xl font-black italic text-xl px-8 text-primary uppercase" />
+                               <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="CODE" className="h-16 w-full bg-white/5 border border-white/10 rounded-2xl font-black italic text-xl px-8 text-primary uppercase outline-none focus:ring-2 focus:ring-primary/20" />
                                <Button onClick={handleApplyVoucher} variant="outline" className="h-16 px-8 rounded-2xl font-black uppercase italic text-xs border-primary text-primary">Apply</Button>
                             </div>
                           </div>

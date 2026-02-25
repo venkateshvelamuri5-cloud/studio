@@ -52,6 +52,18 @@
         "maxCapacity": { "type": "number", "default": 40 },
         "farePerRider": { "type": "number" },
         "passengers": { "type": "array", "items": { "type": "string" } },
+        "passengerManifest": { 
+          "type": "array", 
+          "items": { 
+            "type": "object",
+            "properties": {
+              "uid": { "type": "string" },
+              "name": { "type": "string" },
+              "pickup": { "type": "string" },
+              "destination": { "type": "string" }
+            }
+          }
+        },
         "verifiedPassengers": { "type": "array", "items": { "type": "string" } },
         "noShowReports": { "type": "array", "items": { "type": "string" } },
         "totalYield": { "type": "number" },

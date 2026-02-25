@@ -24,10 +24,13 @@ import {
   MapPin,
   ShieldCheck,
   Zap,
-  Copy
+  Copy,
+  Search,
+  Users,
+  MapPinned
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
-import { doc, updateDoc, collection, addDoc, onSnapshot, query, where, arrayUnion, getDocs, increment } from 'firebase/firestore';
+import { doc, updateDoc, collection, addDoc, onSnapshot, query, where, arrayUnion, getDocs, increment, getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -54,6 +57,10 @@ export default function DriverApp() {
   const [verificationOtp, setVerificationOtp] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   
+  // Search Filters for Drivers
+  const [searchStart, setSearchStart] = useState("");
+  const [searchEnd, setSearchEnd] = useState("");
+
   const userRef = useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
@@ -61,6 +68,11 @@ export default function DriverApp() {
     if (!db || !user?.uid) return null;
     return query(collection(db, 'trips'), where('driverId', '==', user.uid), where('status', '==', 'completed'));
   }, [db, user?.uid]));
+
+  const { data: currentActiveTrips } = useCollection(useMemo(() => {
+    if (!db) return null;
+    return query(collection(db, 'trips'), where('status', '==', 'active'));
+  }, [db]));
 
   const stats = useMemo(() => {
     if (!pastTrips) return { earnings: 0, count: 0, scholars: 0, carbon: 0 };
@@ -101,7 +113,31 @@ export default function DriverApp() {
   }, [user, authLoading, router]);
 
   const { data: allRoutes } = useCollection(useMemo(() => (db && user) ? query(collection(db, 'routes')) : null, [db, user]));
-  const availableRoutes = useMemo(() => allRoutes?.filter(r => r.status === 'active') || [], [allRoutes]);
+  
+  const allStops = useMemo(() => {
+    const stops = new Set<string>();
+    allRoutes?.forEach(r => r.stops?.forEach((s: any) => stops.add(s.name)));
+    return Array.from(stops).sort();
+  }, [allRoutes]);
+
+  const availableRoutes = useMemo(() => {
+    if (!allRoutes) return [];
+    let filtered = allRoutes.filter(r => r.status === 'active');
+    
+    // Filter by Search Hubs
+    if (searchStart || searchEnd) {
+      filtered = filtered.filter(route => {
+        const hasStart = searchStart ? route.stops?.some((s: any) => s.name === searchStart) : true;
+        const hasEnd = searchEnd ? route.stops?.some((s: any) => s.name === searchEnd) : true;
+        return hasStart && hasEnd;
+      });
+    }
+
+    // Exclusivity: Hide routes that already have an active driver
+    return filtered.filter(route => {
+      return !currentActiveTrips?.some(t => t.routeName === route.routeName);
+    });
+  }, [allRoutes, searchStart, searchEnd, currentActiveTrips]);
 
   useEffect(() => {
     if (!db || !user?.uid) return;
@@ -116,12 +152,23 @@ export default function DriverApp() {
     if (!userRef || !profile) return;
     const newStatus = profile.status === 'offline' ? 'available' : 'offline';
     await updateDoc(userRef, { status: newStatus });
-    toast({ title: newStatus === 'available' ? "Ready" : "Offline" });
+    toast({ title: newStatus === 'available' ? "Ready for Jobs" : "Offline" });
   };
 
   const startTrip = async (route: any) => {
     if (!db || !user || !profile) return;
     setIsUpdating(true);
+    
+    // Exclusivity Check (Final check before write)
+    const tripQuery = query(collection(db, 'trips'), where('routeName', '==', route.routeName), where('status', '==', 'active'));
+    const tripSnap = await getDocs(tripQuery);
+    
+    if (!tripSnap.empty) {
+      toast({ variant: "destructive", title: "Route Occupied", description: "Another driver just started this ride." });
+      setIsUpdating(false);
+      return;
+    }
+
     try {
       const tripRef = await addDoc(collection(db, 'trips'), {
         driverId: user.uid, 
@@ -134,13 +181,14 @@ export default function DriverApp() {
         status: 'active', 
         riderCount: 0, 
         passengers: [], 
+        passengerManifest: [], // Detailed scholar data
         verifiedPassengers: [], 
         startTime: new Date().toISOString(),
         currentLat: profile.currentLat || null,
         currentLng: profile.currentLng || null
       });
       await updateDoc(userRef!, { status: 'on-trip', activeTripId: tripRef.id });
-      toast({ title: "Job Started" });
+      toast({ title: "Job Started", description: `Corridor: ${route.routeName}` });
     } finally { setIsUpdating(false); }
   };
 
@@ -211,9 +259,24 @@ export default function DriverApp() {
               </Card>
             </div>
 
-            <h2 className="text-2xl font-black italic uppercase text-foreground tracking-tighter pl-2">Available Jobs</h2>
+            <Card className="bg-white/5 border-white/10 rounded-[2rem] p-8 space-y-4">
+               <h2 className="text-xl font-black italic uppercase text-foreground tracking-tighter flex items-center gap-2"><Search className="h-5 w-5 text-primary" /> Discover Jobs</h2>
+               <div className="space-y-3">
+                  <select value={searchStart} onChange={e => setSearchStart(e.target.value)} className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 font-black italic text-sm outline-none text-foreground appearance-none">
+                     <option value="" className="bg-background">Filter Start Hub?</option>
+                     {allStops.map(s => <option key={s} value={s} className="bg-background">{s}</option>)}
+                  </select>
+                  <select value={searchEnd} onChange={e => setSearchEnd(e.target.value)} className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 font-black italic text-sm outline-none text-foreground appearance-none">
+                     <option value="" className="bg-background">Filter End Hub?</option>
+                     {allStops.map(s => <option key={s} value={s} className="bg-background">{s}</option>)}
+                  </select>
+               </div>
+            </Card>
+
             <div className="space-y-3">
-              {availableRoutes.map((route: any) => (
+              {availableRoutes.length === 0 ? (
+                <div className="p-20 text-center text-muted-foreground italic bg-white/5 rounded-[2rem] border border-dashed border-white/10">No jobs matching these hubs.</div>
+              ) : availableRoutes.map((route: any) => (
                 <Card key={route.id} className="glass-card rounded-[2rem] shadow-xl overflow-hidden border-white/5 group hover:border-primary/20 transition-all">
                   <CardContent className="p-8 flex justify-between items-center">
                     <div className="space-y-1">
@@ -227,22 +290,50 @@ export default function DriverApp() {
             </div>
           </div>
         ) : (
-          <div className="space-y-6 animate-in slide-in-from-bottom-8 duration-500">
+          <div className="space-y-6 animate-in slide-in-from-bottom-8 duration-500 pb-12">
             <Card className="glass-card rounded-[3rem] p-10 space-y-8 shadow-2xl relative overflow-hidden border-primary/30">
               <div className="flex justify-between items-start relative z-10">
                 <div className="space-y-1">
                   <h2 className="text-4xl font-black italic uppercase leading-none tracking-tighter text-primary text-glow">{activeTrip.routeName}</h2>
-                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.4em] mt-2 italic">Active Job</p>
+                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.4em] mt-2 italic">Active Mission</p>
                 </div>
-                <Badge className="bg-primary/20 text-primary border-none text-[10px] font-black uppercase px-5 py-2.5 rounded-full shadow-lg">{activeTrip.verifiedPassengers?.length || 0} In Bus</Badge>
+                <Badge className="bg-primary/20 text-primary border-none text-[10px] font-black uppercase px-5 py-2.5 rounded-full shadow-lg">{activeTrip.verifiedPassengers?.length || 0} Boarded</Badge>
               </div>
 
-              <div className="bg-black/60 p-8 rounded-[2rem] space-y-4 border border-white/10 shadow-inner">
-                <Label className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground ml-3 italic">Enter Scholar Code</Label>
+              <div className="bg-black/60 p-8 rounded-[2.5rem] space-y-4 border border-white/10 shadow-inner">
+                <Label className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground ml-3 italic">Verify Scholar Code</Label>
                 <div className="flex gap-3">
                   <input value={verificationOtp} onChange={(e) => setVerificationOtp(e.target.value)} placeholder="000000" className="h-20 w-full text-center font-black tracking-[0.4em] text-4xl rounded-2xl bg-white/5 border border-white/10 outline-none focus:ring-4 focus:ring-primary/20 text-primary" maxLength={6} />
                   <Button onClick={verifyPassenger} disabled={isVerifying || !verificationOtp} className="h-20 w-20 rounded-2xl bg-primary text-black shadow-2xl p-0 active:scale-95 transition-all"><CheckCircle2 className="h-10 w-10" /></Button>
                 </div>
+              </div>
+
+              {/* Boarding Notification List */}
+              <div className="space-y-4">
+                 <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-3 flex items-center gap-2"><Users className="h-4 w-4" /> Boarding Manifest</h3>
+                 <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                    {(!activeTrip.passengerManifest || activeTrip.passengerManifest.length === 0) ? (
+                      <div className="p-8 text-center bg-white/5 rounded-2xl border border-dashed border-white/10 italic text-[10px] text-muted-foreground uppercase">Waiting for Scholars...</div>
+                    ) : activeTrip.passengerManifest.map((scholar: any, i: number) => {
+                      const isVerified = activeTrip.verifiedPassengers?.includes(scholar.uid);
+                      return (
+                        <div key={i} className={`p-5 rounded-2xl border flex items-center justify-between transition-all ${isVerified ? 'bg-primary/5 border-primary/20' : 'bg-white/5 border-white/10'}`}>
+                           <div className="flex items-center gap-4">
+                              <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${isVerified ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'bg-primary/10 text-primary'}`}>
+                                 {isVerified ? <CheckCircle2 className="h-5 w-5" /> : <Loader2 className="h-5 w-5 animate-spin" />}
+                              </div>
+                              <div>
+                                 <p className="font-black italic text-foreground uppercase text-xs leading-none">{scholar.name}</p>
+                                 <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest mt-1">
+                                    {scholar.pickup} <span className="text-primary">→</span> {scholar.destination}
+                                 </p>
+                              </div>
+                           </div>
+                           {!isVerified && <Badge className="bg-accent/20 text-accent border-none text-[8px] font-black uppercase px-2 py-0.5 animate-pulse">Waiting</Badge>}
+                        </div>
+                      );
+                    })}
+                 </div>
               </div>
 
               <Button onClick={endTrip} disabled={isUpdating} className="w-full h-20 bg-primary/10 border-2 border-primary text-primary rounded-[2rem] font-black uppercase italic text-xl shadow-2xl active:scale-95 transition-all">Finish Job</Button>
