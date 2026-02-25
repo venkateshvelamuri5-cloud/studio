@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,23 +23,15 @@ import {
   History,
   User as UserIcon,
   Star,
-  Leaf,
   LayoutGrid,
   Share2,
   ShieldAlert,
-  Phone,
   Zap,
-  RefreshCw,
-  Car,
-  ChevronRight,
   CheckCircle2,
-  CreditCard,
-  Calendar,
-  ArrowRight,
   UserCheck
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -77,7 +69,7 @@ export default function StudentApp() {
   const { toast } = useToast();
   
   const [activeTab, setActiveTab] = useState<'home' | 'radar' | 'history' | 'me'>('home');
-  const [bookingStep, setBookingStep] = useState(1); // 1: Route, 2: Date & Stops, 3: Payment, 4: Success
+  const [bookingStep, setBookingStep] = useState(1); 
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [bookingDate, setBookingDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [pickupStop, setPickupStop] = useState("");
@@ -178,15 +170,29 @@ export default function StudentApp() {
           farePaid: finalFare
         };
 
-        const tripQuery = query(collection(db, 'trips'), where('routeName', '==', selectedRoute.routeName), where('scheduledDate', '==', bookingDate), where('status', '==', 'active'));
+        // Query for available trips (active, on correct route, same day, and NOT FULL)
+        const tripQuery = query(collection(db, 'trips'), 
+          where('routeName', '==', selectedRoute.routeName), 
+          where('scheduledDate', '==', bookingDate), 
+          where('status', '==', 'active')
+        );
         const tripSnap = await getDocs(tripQuery);
         
-        if (!tripSnap.empty) {
-          const tripDoc = tripSnap.docs[0];
-          await updateDoc(doc(db, 'trips', tripDoc.id), {
+        // Find first trip with available space (default capacity 7)
+        const availableTrip = tripSnap.docs.find(d => {
+          const tripData = d.data();
+          const manifest = tripData.passengerManifest || [];
+          const capacity = tripData.maxCapacity || 7;
+          return manifest.length < capacity;
+        });
+
+        if (availableTrip) {
+          // Join existing trip instance
+          await updateDoc(doc(db, 'trips', availableTrip.id), {
             passengerManifest: arrayUnion(bookingDetails)
           });
         } else {
+          // Automatic Scale: Create a new trip instance based on overflow demand
           await addDoc(collection(db, 'trips'), {
             routeName: selectedRoute.routeName,
             scheduledDate: bookingDate,
@@ -195,6 +201,7 @@ export default function StudentApp() {
             riderCount: 0,
             passengerManifest: [bookingDetails],
             verifiedPassengers: [],
+            maxCapacity: 7, // Default capacity for new demand instances
             createdAt: new Date().toISOString()
           });
         }
