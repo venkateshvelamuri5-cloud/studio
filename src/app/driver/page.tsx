@@ -202,11 +202,11 @@ export default function DriverApp() {
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="grid grid-cols-2 gap-4">
               <Card className="bg-white/5 border-white/10 rounded-[2rem] p-6 space-y-2 shadow-xl backdrop-blur-3xl group active:scale-95 transition-all">
-                 <p className="text-[9px] font-black uppercase text-muted-foreground tracking-[0.3em]">Cash</p>
-                 <h2 className="text-3xl font-black italic uppercase leading-none text-primary text-glow tracking-tighter">₹{stats.earnings.toFixed(0)}</h2>
+                 <p className="text-[9px] font-black uppercase text-muted-foreground tracking-[0.3em]">Total Cash</p>
+                 <h2 className="text-3xl font-black italic uppercase leading-none text-primary text-glow tracking-tighter">₹{(profile?.totalEarnings || 0).toFixed(0)}</h2>
               </Card>
               <Card className="bg-white/5 border-white/10 rounded-[2rem] p-6 space-y-2 shadow-xl backdrop-blur-3xl group active:scale-95 transition-all">
-                 <p className="text-[9px] font-black uppercase text-muted-foreground tracking-[0.3em]">Jobs</p>
+                 <p className="text-[9px] font-black uppercase text-muted-foreground tracking-[0.3em]">Rides</p>
                  <h2 className="text-3xl font-black italic text-foreground leading-none tracking-tighter">{stats.count}</h2>
               </Card>
             </div>

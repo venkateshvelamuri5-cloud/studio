@@ -33,7 +33,8 @@ import {
   Zap,
   Copy,
   RefreshCw,
-  Car
+  Car,
+  ChevronRight
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc } from 'firebase/firestore';
@@ -90,12 +91,15 @@ export default function StudentApp() {
 
   const userRef = useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
-  const { data: globalConfig } = useDoc(useMemo(() => db ? doc(db, 'config', 'global') : null, [db]));
-
+  
   const { data: activeTrips } = useCollection(useMemo(() => (db) ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db]));
   const { data: activeRoutes } = useCollection(useMemo(() => (db) ? query(collection(db, 'routes'), where('status', '==', 'active')) : null, [db]));
   
-  const currentBooking = useMemo(() => (activeTrips && user?.uid) ? activeTrips.find(t => t.verifiedPassengers?.includes(user.uid) || t.passengers?.includes(user.uid)) : null, [activeTrips, user?.uid]);
+  const currentBooking = useMemo(() => {
+    if (!activeTrips || !user?.uid) return null;
+    return activeTrips.find(t => t.verifiedPassengers?.includes(user.uid) || t.passengers?.includes(user.uid));
+  }, [activeTrips, user?.uid]);
+
   const { data: pastTrips } = useCollection(useMemo(() => {
     if (!db || !user?.uid) return null;
     return query(collection(db, 'trips'), where('status', '==', 'completed'), where('verifiedPassengers', 'array-contains', user.uid));
@@ -212,15 +216,29 @@ export default function StudentApp() {
     if (!db || !userRef || !selectedTrip || !destinationStop) return;
     setIsBooking(true);
     try {
-      const finalFare = Math.max(0, selectedTrip.farePerRider - appliedDiscount);
+      const globalConfigSnap = await getDocs(query(collection(db, 'config'), where('id', '==', 'global')));
+      const globalConfig = globalConfigSnap.docs[0]?.data() || {};
+      
+      const appliedDisc = appliedDiscount;
+      const finalFare = Math.max(0, (selectedTrip.farePerRider || 0) - appliedDisc);
       const pointsEarned = Math.floor(finalFare / 10);
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       
-      await updateDoc(userRef, { activeOtp: otp, destinationStopName: destinationStop, loyaltyPoints: increment(pointsEarned) });
-      await updateDoc(doc(db, 'trips', selectedTrip.id), { passengers: arrayUnion(user!.uid) });
+      await updateDoc(userRef, { 
+        activeOtp: otp, 
+        destinationStopName: destinationStop, 
+        loyaltyPoints: increment(pointsEarned) 
+      });
+      await updateDoc(doc(db, 'trips', selectedTrip.id), { 
+        passengers: arrayUnion(user!.uid) 
+      });
       setBookingStep(3);
       toast({ title: "Ride Booked" });
-    } catch (e) { toast({ variant: "destructive", title: "Failed" }); } finally { setIsBooking(false); }
+    } catch (e) { 
+      toast({ variant: "destructive", title: "Failed" }); 
+    } finally { 
+      setIsBooking(false); 
+    }
   };
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/auth/login'); };
@@ -262,15 +280,16 @@ export default function StudentApp() {
             </div>
 
             {profile?.activeOtp && currentBooking ? (
-              <div className="space-y-6">
-                <Card className="glass-card rounded-[3rem] p-8 shadow-2xl border-primary/20 overflow-hidden">
-                   <div className="flex flex-col items-center gap-6 mb-8">
-                      <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground italic">Your Shuttle</p>
+              <div className="space-y-6 animate-in zoom-in-95 duration-700">
+                <Card className="glass-card rounded-[3rem] p-8 shadow-2xl border-primary/30 overflow-hidden relative">
+                   <div className="absolute top-0 right-0 p-10 opacity-5 -rotate-12"><Bus className="h-32 w-32 text-primary" /></div>
+                   <div className="flex flex-col items-center gap-6 mb-8 relative z-10">
+                      <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground italic">Boarding Code</p>
                       <h3 className="text-7xl font-black tracking-tighter italic text-primary text-glow leading-none">{profile.activeOtp}</h3>
                    </div>
                    
-                   <div className="grid grid-cols-1 gap-4 mb-8">
-                      <div className="bg-white/5 p-6 rounded-[2rem] flex items-center gap-5 border border-white/5">
+                   <div className="grid grid-cols-1 gap-4 mb-8 relative z-10">
+                      <div className="bg-white/5 p-6 rounded-[2rem] flex items-center gap-5 border border-white/5 hover:bg-white/10 transition-all">
                          <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary overflow-hidden shadow-inner">
                             {currentBooking.driverPhoto ? <img src={currentBooking.driverPhoto} className="h-full w-full object-cover" /> : <UserIcon className="h-7 w-7" />}
                          </div>
@@ -280,7 +299,7 @@ export default function StudentApp() {
                          </div>
                       </div>
 
-                      <div className="bg-white/5 p-6 rounded-[2rem] flex items-center gap-5 border border-white/5">
+                      <div className="bg-white/5 p-6 rounded-[2rem] flex items-center gap-5 border border-white/5 hover:bg-white/10 transition-all">
                          <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
                             <Car className="h-7 w-7" />
                          </div>
@@ -292,7 +311,7 @@ export default function StudentApp() {
                       </div>
                    </div>
 
-                   <Button onClick={() => setActiveTab('radar')} className="w-full h-18 bg-primary text-black rounded-2xl font-black uppercase italic text-lg shadow-2xl active:scale-95 transition-all">Track Ride</Button>
+                   <Button onClick={() => setActiveTab('radar')} className="w-full h-18 bg-primary text-black rounded-2xl font-black uppercase italic text-lg shadow-2xl shadow-primary/20 active:scale-95 transition-all">Track Ride</Button>
                 </Card>
               </div>
             ) : (
@@ -332,7 +351,7 @@ export default function StudentApp() {
                           <div className="space-y-4 pb-4">
                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-3">Active Shuttles</Label>
                             {filteredTrips.length === 0 ? (
-                               <div className="p-16 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground italic bg-white/5 rounded-3xl border border-dashed border-white/10">Scanning...</div>
+                               <div className="p-16 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground italic bg-white/5 rounded-3xl border border-dashed border-white/10">Scanning Grid...</div>
                             ) : filteredTrips.map((trip: any) => (
                               <div key={trip.id} onClick={() => setSelectedTrip(trip)} className={`p-8 rounded-3xl border-[3px] transition-all cursor-pointer ${selectedTrip?.id === trip.id ? 'bg-primary/10 border-primary text-primary shadow-xl scale-[1.02]' : 'bg-white/5 border-white/10'}`}>
                                 <h4 className="font-black uppercase italic text-2xl tracking-tighter leading-none">{trip.routeName}</h4>
@@ -348,7 +367,7 @@ export default function StudentApp() {
                         <div className="space-y-8 animate-in zoom-in-95 duration-500 py-4">
                           <div className="bg-white/5 p-8 rounded-3xl border border-white/10 text-center space-y-3">
                              <p className="text-[10px] font-black uppercase text-primary tracking-widest">Pay UPI</p>
-                             <h4 className="text-xl font-black text-foreground italic truncate">{(globalConfig as any)?.[profile?.city === 'Vizag' ? 'vizagUpiId' : 'vzmUpiId'] || 'pay@aago'}</h4>
+                             <h4 className="text-xl font-black text-foreground italic truncate">pay@aago</h4>
                           </div>
                           <div className="space-y-3">
                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-3">Promo Code</Label>
@@ -359,7 +378,7 @@ export default function StudentApp() {
                           </div>
                           <div className="p-10 bg-primary/10 rounded-[2.5rem] text-center shadow-2xl">
                             <p className="text-[10px] font-black uppercase text-primary tracking-widest mb-2">Total</p>
-                            <h3 className="text-6xl font-black italic text-foreground leading-none tracking-tighter">₹{Math.max(0, selectedTrip?.farePerRider - appliedDiscount)}</h3>
+                            <h3 className="text-6xl font-black italic text-foreground leading-none tracking-tighter">₹{Math.max(0, (selectedTrip?.farePerRider || 0) - appliedDiscount)}</h3>
                           </div>
                         </div>
                       )}
@@ -391,11 +410,11 @@ export default function StudentApp() {
             )}
             
             <Card className="bg-white/5 p-8 rounded-[2.5rem] border border-white/10 space-y-6">
-               <h3 className="text-lg font-black italic uppercase tracking-tighter text-foreground leading-none">Safe Mode</h3>
+               <h3 className="text-lg font-black italic uppercase tracking-tighter text-foreground leading-none">Safe Hub</h3>
                <div className="p-5 bg-white/5 rounded-2xl flex items-center justify-between border border-white/5">
                   <div>
-                     <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">{profile?.emergencyContactName || 'ICE Contact'}</p>
-                     <p className="text-sm font-black italic text-foreground">{profile?.emergencyContactPhone || 'Not Set'}</p>
+                     <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">{profile?.emergencyContactName || 'Guardian ICE'}</p>
+                     <p className="text-sm font-black italic text-foreground">{profile?.emergencyContactPhone || 'Not Configured'}</p>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => handleCallContact(profile?.emergencyContactPhone)} className="text-primary rounded-xl h-10 w-10 border border-white/10 active:scale-95 transition-all"><Phone className="h-5 w-5" /></Button>
                </div>
@@ -404,13 +423,13 @@ export default function StudentApp() {
         )}
 
         {activeTab === 'radar' && (
-          <div className="flex-1 flex flex-col space-y-6 animate-in fade-in duration-500 overflow-hidden">
-            <div className="flex justify-between items-center px-2">
+          <div className="flex-1 flex flex-col space-y-6 animate-in fade-in duration-500 overflow-hidden h-[calc(100vh-200px)]">
+            <div className="flex justify-between items-center px-2 shrink-0">
               <h2 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Radar</h2>
               <Button variant="ghost" size="icon" onClick={refreshRadar} className="text-primary h-10 w-10 rounded-xl bg-white/5"><RefreshCw className="h-5 w-5" /></Button>
             </div>
             
-            <div className="flex-1 rounded-[3rem] overflow-hidden border border-white/10 shadow-2xl bg-black/40 relative min-h-[350px]">
+            <div className="flex-1 rounded-[3rem] overflow-hidden border border-white/10 shadow-2xl bg-black/40 relative">
                {isLoaded ? (
                  <GoogleMap 
                     mapContainerStyle={mapContainerStyle} 
@@ -423,7 +442,7 @@ export default function StudentApp() {
                    {currentPosition && (
                      <Marker 
                         position={currentPosition} 
-                        title="Me"
+                        title="My Hub"
                         icon={{
                           path: google.maps.SymbolPath.CIRCLE,
                           fillColor: '#00FFFF',
@@ -445,7 +464,7 @@ export default function StudentApp() {
                             url: isMyRide 
                               ? "https://maps.google.com/mapfiles/ms/icons/blue-dot.png" 
                               : "https://maps.google.com/mapfiles/ms/icons/bus.png",
-                            scaledSize: new google.maps.Size(32, 32)
+                            scaledSize: new google.maps.Size(isMyRide ? 48 : 32, isMyRide ? 48 : 32)
                           }}
                         />
                      );
@@ -457,15 +476,30 @@ export default function StudentApp() {
                    <p className="text-[10px] font-black uppercase tracking-widest italic">Syncing Grid...</p>
                  </div>
                )}
+
+               {currentBooking && (
+                 <div className="absolute bottom-6 left-6 right-6 z-10 animate-in slide-in-from-bottom-10 duration-500">
+                    <Card className="glass-card rounded-3xl p-6 border-primary/50 flex items-center gap-5 shadow-2xl">
+                       <div className="h-14 w-14 bg-primary rounded-2xl flex items-center justify-center text-black shadow-lg">
+                          <Bus className="h-8 w-8" />
+                       </div>
+                       <div className="flex-1">
+                          <p className="text-[8px] font-black uppercase text-primary tracking-widest mb-0.5">Assigned Shuttle</p>
+                          <h4 className="text-xl font-black italic uppercase text-foreground leading-none tracking-tighter">{currentBooking.routeName}</h4>
+                       </div>
+                       <Badge className="bg-primary/20 text-primary border-none font-black text-[10px] uppercase px-4 py-2">LIVE</Badge>
+                    </Card>
+                 </div>
+               )}
             </div>
 
-            <div className="space-y-4 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-               <h3 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-3">Live Signal</h3>
+            <div className="space-y-4 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar shrink-0">
+               <h3 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-3">Live Telemetry</h3>
                {!activeTrips || activeTrips.length === 0 ? (
-                 <div className="p-8 text-center bg-white/5 rounded-2xl border border-dashed border-white/10 text-[10px] font-black uppercase tracking-widest text-white/20">Empty...</div>
+                 <div className="p-8 text-center bg-white/5 rounded-2xl border border-dashed border-white/10 text-[10px] font-black uppercase tracking-widest text-white/20">Grid Idle...</div>
                ) : (
                  activeTrips.map((trip: any) => (
-                   <div key={trip.id} className={`p-5 rounded-2xl border flex items-center justify-between shadow-sm transition-all ${trip.id === currentBooking?.id ? 'bg-primary/10 border-primary' : 'bg-white/5 border-white/10'}`}>
+                   <div key={trip.id} className={`p-5 rounded-2xl border flex items-center justify-between shadow-sm transition-all ${trip.id === currentBooking?.id ? 'bg-primary/10 border-primary scale-[1.02]' : 'bg-white/5 border-white/10'}`}>
                       <div className="flex items-center gap-4">
                         <div className={`h-10 w-10 rounded-xl flex items-center justify-center shadow-sm ${trip.id === currentBooking?.id ? 'bg-primary text-black' : 'bg-primary/10 text-primary'}`}>
                            <Bus className="h-5 w-5" />
@@ -473,11 +507,11 @@ export default function StudentApp() {
                         <div>
                            <p className="font-black italic uppercase text-foreground text-sm leading-none">{trip.routeName}</p>
                            <p className="text-[8px] font-black text-primary uppercase tracking-widest mt-1">
-                              {trip.id === currentBooking?.id ? 'YOUR SHUTTLE' : 'Live Tracking'}
+                              {trip.id === currentBooking?.id ? 'MY ASSIGNED RIDE' : 'Active Corridor'}
                            </p>
                         </div>
                       </div>
-                      <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase">{trip.riderCount} Seats</Badge>
+                      <ChevronRight className={`h-5 w-5 ${trip.id === currentBooking?.id ? 'text-primary' : 'text-muted-foreground'}`} />
                    </div>
                  ))
                )}
@@ -490,10 +524,10 @@ export default function StudentApp() {
              <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">History</h2>
              <div className="space-y-4">
                 {!pastTrips || pastTrips.length === 0 ? (
-                  <div className="p-20 text-center bg-white/5 rounded-[3rem] border border-dashed border-white/10 text-[10px] font-black uppercase tracking-widest text-muted-foreground italic">No past rides.</div>
+                  <div className="p-20 text-center bg-white/5 rounded-[3rem] border border-dashed border-white/10 text-[10px] font-black uppercase tracking-widest text-muted-foreground italic">No missions logged.</div>
                 ) : (
                   [...pastTrips].sort((a,b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime()).map((trip: any) => (
-                    <Card key={trip.id} className="bg-white/5 border border-white/10 rounded-[2rem] p-8 flex justify-between items-center shadow-lg">
+                    <Card key={trip.id} className="bg-white/5 border border-white/10 rounded-[2rem] p-8 flex justify-between items-center shadow-lg hover:bg-white/10 transition-all">
                       <div className="space-y-1">
                         <h4 className="font-black text-foreground uppercase italic text-2xl leading-none tracking-tighter">{trip.routeName}</h4>
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest italic">{new Date(trip.endTime).toLocaleDateString()}</p>
@@ -509,7 +543,7 @@ export default function StudentApp() {
         {activeTab === 'me' && (
           <div className="space-y-12 animate-in fade-in text-center pb-24 pt-10 px-4">
              <div className="flex flex-col items-center gap-8">
-                <div className="h-40 w-40 rounded-full bg-primary/10 border-[6px] border-white/10 flex items-center justify-center shadow-[0_0_60px_rgba(0,255,255,0.15)] overflow-hidden">
+                <div className="h-40 w-40 rounded-full bg-primary/10 border-[6px] border-white/10 flex items-center justify-center shadow-[0_0_60px_rgba(0,255,255,0.15)] overflow-hidden relative">
                   {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : <UserIcon className="h-16 w-16 text-primary/20" />}
                 </div>
                 <div className="space-y-3">
@@ -519,8 +553,8 @@ export default function StudentApp() {
              </div>
              
              <div className="grid grid-cols-1 gap-4 text-left">
-                <div className="bg-white/5 p-7 rounded-[2rem] flex items-center gap-6 border border-white/10 shadow-xl group">
-                    <div className="h-14 w-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20"><Copy className="h-7 w-7" /></div>
+                <div className="bg-white/5 p-7 rounded-[2rem] flex items-center gap-6 border border-white/10 shadow-xl group hover:border-primary/20 transition-all cursor-pointer">
+                    <div className="h-14 w-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20 shadow-inner"><Copy className="h-7 w-7" /></div>
                     <div className="flex-1">
                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-1">My Code</p>
                        <p className="font-black italic text-foreground uppercase text-xl leading-none tracking-tighter">{profile?.referralCode || 'N/A'}</p>
@@ -531,8 +565,8 @@ export default function StudentApp() {
                   { label: "Hub", value: profile?.city || 'Vizag', icon: MapPin },
                   { label: "Points", value: `${profile?.loyaltyPoints || 0} Saved`, icon: Star }
                 ].map((item, i) => (
-                  <div key={i} className="bg-white/5 p-7 rounded-[2rem] flex items-center gap-6 border border-white/10 shadow-xl">
-                    <div className="h-14 w-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20"><item.icon className="h-7 w-7" /></div>
+                  <div key={i} className="bg-white/5 p-7 rounded-[2rem] flex items-center gap-6 border border-white/10 shadow-xl backdrop-blur-3xl hover:bg-white/10 transition-all">
+                    <div className="h-14 w-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20 shadow-inner"><item.icon className="h-7 w-7" /></div>
                     <div>
                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-1">{item.label}</p>
                        <p className="font-black italic text-foreground uppercase text-xl leading-none tracking-tighter">{item.value}</p>
@@ -541,8 +575,8 @@ export default function StudentApp() {
                 ))}
              </div>
              
-             <Button variant="ghost" onClick={handleSignOut} className="w-full h-20 bg-destructive/10 text-destructive rounded-[2rem] font-black uppercase italic mt-10 border border-destructive/20 active:scale-95 transition-all text-xl">
-                Sign Out
+             <Button variant="ghost" onClick={handleSignOut} className="w-full h-20 bg-destructive/10 text-destructive rounded-[2rem] font-black uppercase italic mt-10 border border-destructive/20 active:scale-95 transition-all text-xl shadow-lg">
+                <LogOut className="mr-4 h-6 w-6" /> Sign Out
              </Button>
           </div>
         )}
