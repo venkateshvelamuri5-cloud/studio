@@ -34,10 +34,12 @@ import {
   Copy,
   RefreshCw,
   Car,
-  ChevronRight
+  ChevronRight,
+  CheckCircle2,
+  CreditCard
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc } from 'firebase/firestore';
+import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc, getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -75,7 +77,7 @@ export default function StudentApp() {
   
   const [activeTab, setActiveTab] = useState<'home' | 'radar' | 'history' | 'me'>('home');
   const [isBooking, setIsBooking] = useState(false);
-  const [bookingStep, setBookingStep] = useState(1); 
+  const [bookingStep, setBookingStep] = useState(1); // 1: Select, 2: Payment, 3: Success
   const [selectedTrip, setSelectedTrip] = useState<any>(null);
   const [pickupStop, setPickupStop] = useState("");
   const [destinationStop, setDestinationStop] = useState("");
@@ -132,6 +134,8 @@ export default function StudentApp() {
     if (currentPosition) return currentPosition;
     return DEFAULT_CENTER;
   }, [currentPosition, currentBooking]);
+
+  const [hubUpiId, setHubUpiId] = useState('pay@aago');
 
   useEffect(() => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
@@ -215,30 +219,42 @@ export default function StudentApp() {
   const handleConfirmPayment = async () => {
     if (!db || !userRef || !selectedTrip || !destinationStop) return;
     setIsBooking(true);
-    try {
-      const globalConfigSnap = await getDocs(query(collection(db, 'config'), where('id', '==', 'global')));
-      const globalConfig = globalConfigSnap.docs[0]?.data() || {};
-      
-      const appliedDisc = appliedDiscount;
-      const finalFare = Math.max(0, (selectedTrip.farePerRider || 0) - appliedDisc);
-      const pointsEarned = Math.floor(finalFare / 10);
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      
-      await updateDoc(userRef, { 
-        activeOtp: otp, 
-        destinationStopName: destinationStop, 
-        loyaltyPoints: increment(pointsEarned) 
-      });
-      await updateDoc(doc(db, 'trips', selectedTrip.id), { 
-        passengers: arrayUnion(user!.uid) 
-      });
-      setBookingStep(3);
-      toast({ title: "Ride Booked" });
-    } catch (e) { 
-      toast({ variant: "destructive", title: "Failed" }); 
-    } finally { 
-      setIsBooking(false); 
-    }
+    
+    // Step 1: Simulated Gateway Processing
+    setTimeout(async () => {
+      try {
+        const globalConfigRef = doc(db, 'config', 'global');
+        const configSnap = await getDoc(globalConfigRef);
+        const globalConfig = configSnap.exists() ? configSnap.data() : {};
+        
+        const currentHubUpi = profile.city === 'Vizianagaram' 
+          ? (globalConfig.vzmUpiId || 'vzm@aago') 
+          : (globalConfig.vizagUpiId || 'vizag@aago');
+        
+        setHubUpiId(currentHubUpi);
+
+        const finalFare = Math.max(0, (selectedTrip.farePerRider || 0) - appliedDiscount);
+        const pointsEarned = Math.floor(finalFare / 10);
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        // Step 2: Confirmation after "Payment Success"
+        await updateDoc(userRef, { 
+          activeOtp: otp, 
+          destinationStopName: destinationStop, 
+          loyaltyPoints: increment(pointsEarned) 
+        });
+        await updateDoc(doc(db, 'trips', selectedTrip.id), { 
+          passengers: arrayUnion(user!.uid) 
+        });
+        
+        setBookingStep(3);
+        toast({ title: "Payment Successful", description: "Seat confirmed automatically." });
+      } catch (e) { 
+        toast({ variant: "destructive", title: "Payment Failed", description: "Grid connection lost." }); 
+      } finally { 
+        setIsBooking(false); 
+      }
+    }, 2000); // 2 second gateway simulation
   };
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/auth/login'); };
@@ -316,7 +332,7 @@ export default function StudentApp() {
               </div>
             ) : (
               <div className="space-y-6">
-                <Dialog>
+                <Dialog onOpenChange={(open) => { if (!open) setBookingStep(1); }}>
                   <DialogTrigger asChild>
                     <div className="p-12 bg-primary text-black rounded-[3rem] shadow-2xl shadow-primary/20 flex items-center justify-between cursor-pointer active:scale-95 transition-all group overflow-hidden relative">
                       <div className="absolute -right-8 -top-8 p-12 opacity-10 rotate-12 group-hover:scale-110 transition-transform"><ConnectingDotsLogo className="h-32 w-32" /></div>
@@ -330,7 +346,9 @@ export default function StudentApp() {
                   </DialogTrigger>
                   <DialogContent className="bg-background border-white/5 rounded-[2.5rem] p-8 h-[92vh] flex flex-col overflow-hidden shadow-2xl">
                     <DialogHeader className="shrink-0 mb-6 border-b border-white/5 pb-4">
-                      <DialogTitle className="text-3xl font-black italic uppercase text-primary tracking-tighter">Book Seat</DialogTitle>
+                      <DialogTitle className="text-3xl font-black italic uppercase text-primary tracking-tighter">
+                        {bookingStep === 1 ? "Book Seat" : bookingStep === 2 ? "Settlement" : "Confirmed"}
+                      </DialogTitle>
                     </DialogHeader>
                     <div className="flex-1 overflow-y-auto space-y-8 pr-2 custom-scrollbar">
                       {bookingStep === 1 && (
@@ -365,27 +383,71 @@ export default function StudentApp() {
                       )}
                       {bookingStep === 2 && (
                         <div className="space-y-8 animate-in zoom-in-95 duration-500 py-4">
-                          <div className="bg-white/5 p-8 rounded-3xl border border-white/10 text-center space-y-3">
-                             <p className="text-[10px] font-black uppercase text-primary tracking-widest">Pay UPI</p>
-                             <h4 className="text-xl font-black text-foreground italic truncate">pay@aago</h4>
+                          <div className="bg-white/5 p-8 rounded-3xl border border-white/10 text-center space-y-4 relative overflow-hidden">
+                             <div className="absolute top-0 left-0 w-full h-1 bg-primary/20 animate-pulse"></div>
+                             <p className="text-[10px] font-black uppercase text-primary tracking-widest">Hub UPI ID</p>
+                             <div className="flex items-center justify-center gap-3">
+                                <CreditCard className="h-6 w-6 text-muted-foreground" />
+                                <h4 className="text-xl font-black text-foreground italic truncate">{hubUpiId}</h4>
+                             </div>
                           </div>
+                          
                           <div className="space-y-3">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-3">Promo Code</Label>
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-3">Voucher Vault</Label>
                             <div className="flex gap-3">
                                <Input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="CODE" className="h-16 bg-white/5 border-white/10 rounded-2xl font-black italic text-xl px-8 text-primary uppercase" />
                                <Button onClick={handleApplyVoucher} variant="outline" className="h-16 px-8 rounded-2xl font-black uppercase italic text-xs border-primary text-primary">Apply</Button>
                             </div>
                           </div>
-                          <div className="p-10 bg-primary/10 rounded-[2.5rem] text-center shadow-2xl">
-                            <p className="text-[10px] font-black uppercase text-primary tracking-widest mb-2">Total</p>
+
+                          <div className="p-10 bg-primary/10 rounded-[2.5rem] text-center shadow-2xl border border-primary/20">
+                            <p className="text-[10px] font-black uppercase text-primary tracking-widest mb-2">Net Fare</p>
                             <h3 className="text-6xl font-black italic text-foreground leading-none tracking-tighter">₹{Math.max(0, (selectedTrip?.farePerRider || 0) - appliedDiscount)}</h3>
                           </div>
+                          
+                          <p className="text-[9px] text-center font-bold text-muted-foreground uppercase tracking-widest leading-relaxed"> Confirmation is automatic once hub validates transaction. </p>
+                        </div>
+                      )}
+                      {bookingStep === 3 && (
+                        <div className="flex flex-col items-center justify-center text-center space-y-8 py-10 animate-in zoom-in-95 duration-700">
+                           <div className="h-24 w-24 bg-primary text-black rounded-full flex items-center justify-center shadow-2xl shadow-primary/20">
+                              <CheckCircle2 className="h-14 w-14" />
+                           </div>
+                           <div className="space-y-3">
+                              <h3 className="text-4xl font-black italic uppercase tracking-tighter text-primary">Grid Confirmed</h3>
+                              <p className="text-sm font-bold text-muted-foreground italic uppercase">Boarding Code is active on your Home hub.</p>
+                           </div>
                         </div>
                       )}
                     </div>
                     <div className="pt-8 shrink-0 border-t border-white/5">
-                      {bookingStep === 1 && <Button onClick={() => setBookingStep(2)} disabled={!selectedTrip} className="w-full h-16 bg-primary text-black rounded-2xl font-black uppercase italic text-xl shadow-2xl shadow-primary/20 active:scale-95 transition-all">Next</Button>}
-                      {bookingStep === 2 && <Button onClick={handleConfirmPayment} disabled={isBooking} className="w-full h-16 bg-primary text-black rounded-2xl font-black uppercase italic text-xl shadow-2xl shadow-primary/20 active:scale-95 transition-all">{isBooking ? <Loader2 className="animate-spin h-8 w-8" /> : "Pay & Book"}</Button>}
+                      {bookingStep === 1 && (
+                        <Button 
+                          onClick={() => setBookingStep(2)} 
+                          disabled={!selectedTrip} 
+                          className="w-full h-18 bg-primary text-black rounded-2xl font-black uppercase italic text-xl shadow-2xl shadow-primary/20 active:scale-95 transition-all"
+                        >
+                          Review & Pay
+                        </Button>
+                      )}
+                      {bookingStep === 2 && (
+                        <Button 
+                          onClick={handleConfirmPayment} 
+                          disabled={isBooking} 
+                          className="w-full h-18 bg-primary text-black rounded-2xl font-black uppercase italic text-xl shadow-2xl shadow-primary/20 active:scale-95 transition-all"
+                        >
+                          {isBooking ? (
+                            <span className="flex items-center gap-3">
+                              <Loader2 className="animate-spin h-6 w-6" /> Verifying...
+                            </span>
+                          ) : "Pay & Confim"}
+                        </Button>
+                      )}
+                      {bookingStep === 3 && (
+                         <DialogTrigger asChild>
+                            <Button className="w-full h-18 bg-white/5 border border-white/10 text-foreground rounded-2xl font-black uppercase italic text-xl">Close Terminal</Button>
+                         </DialogTrigger>
+                      )}
                     </div>
                   </DialogContent>
                 </Dialog>
