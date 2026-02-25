@@ -49,6 +49,8 @@ import { collection, query, doc, setDoc, orderBy, limit, addDoc, deleteDoc, upda
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { generateShuttleRoutes, AdminGenerateShuttleRoutesInput } from '@/ai/flows/admin-generate-shuttle-routes';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -71,6 +73,10 @@ export default function AdminDashboard() {
   const [vzmUpi, setVzmUpi] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Controlled Dialog states for optimistic closing
+  const [isRouteDialogOpen, setIsRouteDialogOpen] = useState(false);
+  const [isVoucherDialogOpen, setIsVoucherDialogOpen] = useState(false);
 
   // AI Architect State
   const [aiInput, setAiInput] = useState<AdminGenerateShuttleRoutesInput>({
@@ -103,7 +109,6 @@ export default function AdminDashboard() {
     if (!authLoading && !user) {
         router.push('/admin/login');
     }
-    // Hard override for admin@aago.in even if profile is not fully loaded or role is wrong
     if (!authLoading && profile && profile.role !== 'admin' && user?.email !== 'admin@aago.in') {
       router.push('/admin/login');
     }
@@ -134,48 +139,106 @@ export default function AdminDashboard() {
 
   const handleUpdateConfig = () => {
     if (!globalConfigRef) return;
-    setIsSaving(true);
-    setDoc(globalConfigRef, { vizagUpiId: vizagUpi, vzmUpiId: vzmUpi }, { merge: true })
-      .then(() => toast({ title: "Grid Config Updated" }))
-      .finally(() => setIsSaving(false));
+    const data = { vizagUpiId: vizagUpi, vzmUpiId: vzmUpi };
+    
+    // Optimistic UI
+    toast({ title: "Grid Config Updated" });
+    
+    setDoc(globalConfigRef, data, { merge: true })
+      .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: globalConfigRef.path,
+          operation: 'write',
+          requestResourceData: data,
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   const handleAddRoute = () => {
     if (!db || !newRoute.name) return;
     const stopsArray = newRoute.stops.split(',').map(s => ({ name: s.trim() }));
-    addDoc(collection(db, 'routes'), {
+    const routeData = {
       routeName: newRoute.name,
       baseFare: Number(newRoute.fare),
       stops: stopsArray,
       status: 'active',
       createdAt: new Date().toISOString()
-    }).then(() => {
-      toast({ title: "Route Deployed" });
-      setNewRoute({ name: '', fare: 40, stops: '' });
-    });
+    };
+
+    // Optimistic UI updates
+    setNewRoute({ name: '', fare: 40, stops: '' });
+    setIsRouteDialogOpen(false);
+    toast({ title: "Route Deployed" });
+
+    addDoc(collection(db, 'routes'), routeData)
+      .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: 'routes',
+          operation: 'create',
+          requestResourceData: routeData,
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   const handleDeleteRoute = (id: string) => {
     if (!db) return;
-    deleteDoc(doc(db, 'routes', id)).then(() => toast({ title: "Route Removed" }));
+    const routeRef = doc(db, 'routes', id);
+    
+    // Optimistic UI
+    toast({ title: "Route Removed" });
+    
+    deleteDoc(routeRef)
+      .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: routeRef.path,
+          operation: 'delete',
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   const handleAddVoucher = () => {
     if (!db || !newVoucher.code) return;
-    addDoc(collection(db, 'vouchers'), {
+    const voucherData = {
       code: newVoucher.code.toUpperCase(),
       discountAmount: Number(newVoucher.amount),
       isActive: true,
       createdAt: new Date().toISOString()
-    }).then(() => {
-      toast({ title: "Voucher Issued" });
-      setNewVoucher({ code: '', amount: 50 });
-    });
+    };
+
+    // Optimistic UI updates
+    setNewVoucher({ code: '', amount: 50 });
+    setIsVoucherDialogOpen(false);
+    toast({ title: "Voucher Issued" });
+
+    addDoc(collection(db, 'vouchers'), voucherData)
+      .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: 'vouchers',
+          operation: 'create',
+          requestResourceData: voucherData,
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   const handleDeleteVoucher = (id: string) => {
     if (!db) return;
-    deleteDoc(doc(db, 'vouchers', id)).then(() => toast({ title: "Voucher Cancelled" }));
+    const voucherRef = doc(db, 'vouchers', id);
+    
+    // Optimistic UI
+    toast({ title: "Voucher Cancelled" });
+
+    deleteDoc(voucherRef)
+      .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: voucherRef.path,
+          operation: 'delete',
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   const handleRunAiArchitect = async () => {
@@ -193,13 +256,26 @@ export default function AdminDashboard() {
 
   const handleApplyAiRoute = (route: any) => {
     if (!db) return;
-    addDoc(collection(db, 'routes'), {
+    const routeData = {
       routeName: route.routeName,
       baseFare: 40,
       stops: route.stops.map((s: string) => ({ name: s })),
       status: 'active',
       createdAt: new Date().toISOString()
-    }).then(() => toast({ title: "AI Route Applied" }));
+    };
+
+    // Optimistic UI
+    toast({ title: "AI Route Applied" });
+
+    addDoc(collection(db, 'routes'), routeData)
+      .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: 'routes',
+          operation: 'create',
+          requestResourceData: routeData,
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/admin/login'); };
@@ -306,7 +382,7 @@ export default function AdminDashboard() {
             <div className="space-y-10 animate-in fade-in duration-700">
                <div className="flex justify-between items-center">
                   <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Corridor Grid</h3>
-                  <Dialog>
+                  <Dialog open={isRouteDialogOpen} onOpenChange={setIsRouteDialogOpen}>
                     <DialogTrigger asChild>
                       <Button className="bg-primary text-black font-black uppercase italic rounded-xl h-12 px-6"><Plus className="mr-2 h-5 w-5" /> Add Route</Button>
                     </DialogTrigger>
@@ -359,7 +435,7 @@ export default function AdminDashboard() {
             <div className="space-y-10 animate-in fade-in duration-700">
                <div className="flex justify-between items-center">
                   <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Voucher Vault</h3>
-                  <Dialog>
+                  <Dialog open={isVoucherDialogOpen} onOpenChange={setIsVoucherDialogOpen}>
                     <DialogTrigger asChild>
                       <Button className="bg-primary text-black font-black uppercase italic rounded-xl h-12 px-6"><Plus className="mr-2 h-5 w-5" /> Issue Code</Button>
                     </DialogTrigger>
@@ -506,7 +582,17 @@ export default function AdminDashboard() {
                           <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{alert.city} • {new Date(alert.timestamp).toLocaleTimeString()}</p>
                         </div>
                       </div>
-                      <Button variant="ghost" onClick={() => deleteDoc(doc(db!, 'alerts', alert.id))} className="text-destructive font-black uppercase italic border border-destructive/20 rounded-xl px-6">Resolve Signal</Button>
+                      <Button variant="ghost" onClick={() => {
+                        const alertRef = doc(db!, 'alerts', alert.id);
+                        toast({ title: "Alert Resolved" });
+                        deleteDoc(alertRef).catch(async (err) => {
+                          const permissionError = new FirestorePermissionError({
+                            path: alertRef.path,
+                            operation: 'delete',
+                          } satisfies SecurityRuleContext);
+                          errorEmitter.emit('permission-error', permissionError);
+                        });
+                      }} className="text-destructive font-black uppercase italic border border-destructive/20 rounded-xl px-6">Resolve Signal</Button>
                    </Card>
                  ))}
                </div>
