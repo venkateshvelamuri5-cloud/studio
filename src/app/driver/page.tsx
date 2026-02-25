@@ -69,7 +69,6 @@ export default function DriverApp() {
     return { earnings, count: pastTrips.length, scholars: totalScholars, carbon: (totalScholars * 0.4).toFixed(1) };
   }, [pastTrips]);
 
-  // High-Frequency Location Sync
   useEffect(() => {
     if (!profile || profile.status === 'offline' || !userRef || !db) return;
     
@@ -81,10 +80,8 @@ export default function DriverApp() {
             currentLng: pos.coords.longitude 
           };
           
-          // Update User Profile
           updateDoc(userRef, coords);
           
-          // Sync to Active Trip for Scholar tracking
           if (profile.status === 'on-trip' && profile.activeTripId) {
             updateDoc(doc(db, 'trips', profile.activeTripId), coords);
           }
@@ -92,8 +89,8 @@ export default function DriverApp() {
       }
     };
 
-    updateLocation(); // Initial update
-    const interval = setInterval(updateLocation, 5000); // 5 second high-fidelity sync
+    updateLocation();
+    const interval = setInterval(updateLocation, 5000);
     return () => clearInterval(interval);
   }, [profile?.status, profile?.activeTripId, userRef, db]);
 
@@ -129,6 +126,9 @@ export default function DriverApp() {
       const tripRef = await addDoc(collection(db, 'trips'), {
         driverId: user.uid, 
         driverName: profile.fullName, 
+        driverPhoto: profile.photoUrl || null,
+        vehicleNumber: profile.vehicleNumber || 'N/A',
+        vehicleType: profile.vehicleType || 'Shuttle',
         routeName: route.routeName, 
         farePerRider: route.baseFare, 
         status: 'active', 

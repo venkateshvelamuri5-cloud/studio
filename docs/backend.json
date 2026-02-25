@@ -30,6 +30,7 @@
         "destinationStopName": { "type": "string" },
         "totalEarnings": { "type": "number", "default": 0 },
         "loyaltyPoints": { "type": "number", "default": 0 },
+        "referralCode": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "fullName", "role"]
@@ -42,6 +43,9 @@
         "id": { "type": "string" },
         "driverId": { "type": "string" },
         "driverName": { "type": "string" },
+        "driverPhoto": { "type": "string" },
+        "vehicleNumber": { "type": "string" },
+        "vehicleType": { "type": "string" },
         "routeName": { "type": "string" },
         "status": { "type": "string", "enum": ["active", "completed", "cancelled"] },
         "riderCount": { "type": "number", "default": 0 },
@@ -52,6 +56,8 @@
         "noShowReports": { "type": "array", "items": { "type": "string" } },
         "totalYield": { "type": "number" },
         "driverShare": { "type": "number" },
+        "currentLat": { "type": "number" },
+        "currentLng": { "type": "number" },
         "startTime": { "type": "string", "format": "date-time" },
         "endTime": { "type": "string", "format": "date-time" }
       },

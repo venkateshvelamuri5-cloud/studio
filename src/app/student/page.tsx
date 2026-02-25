@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -31,7 +32,8 @@ import {
   Phone,
   Zap,
   Copy,
-  RefreshCw
+  RefreshCw,
+  Car
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc } from 'firebase/firestore';
@@ -120,13 +122,12 @@ export default function StudentApp() {
   }, [activeTrips, activeRoutes, pickupStop, destinationStop]);
 
   const mapCenter = useMemo(() => {
-    if (currentPosition) return currentPosition;
-    if (activeTrips && activeTrips.length > 0) {
-      const first = activeTrips.find(t => t.currentLat && t.currentLng);
-      if (first) return { lat: first.currentLat, lng: first.currentLng };
+    if (currentBooking?.currentLat && currentBooking?.currentLng) {
+      return { lat: currentBooking.currentLat, lng: currentBooking.currentLng };
     }
+    if (currentPosition) return currentPosition;
     return DEFAULT_CENTER;
-  }, [currentPosition, activeTrips]);
+  }, [currentPosition, currentBooking]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && navigator.geolocation) {
@@ -150,7 +151,7 @@ export default function StudentApp() {
   const refreshRadar = () => {
     if (map && mapCenter) {
       map.panTo(mapCenter);
-      toast({ title: "Signal Synced", description: "Grid scan complete." });
+      toast({ title: "Signal Synced" });
     }
   };
 
@@ -170,7 +171,7 @@ export default function StudentApp() {
       timestamp: new Date().toISOString(),
       location: currentPosition || 'Regional Hub'
     });
-    toast({ variant: "destructive", title: "SOS Sent", description: "Team has your location." });
+    toast({ variant: "destructive", title: "SOS Sent" });
   };
 
   const handleCallContact = (phone: string) => {
@@ -189,7 +190,7 @@ export default function StudentApp() {
         });
       } else {
         await navigator.clipboard.writeText(profile.referralCode);
-        toast({ title: "Copied", description: "Share it with a friend!" });
+        toast({ title: "Copied" });
       }
     } catch (e) {}
   };
@@ -262,14 +263,36 @@ export default function StudentApp() {
 
             {profile?.activeOtp && currentBooking ? (
               <div className="space-y-6">
-                <Card className="glass-card rounded-[2.5rem] p-10 text-center shadow-2xl relative overflow-hidden border-primary/20">
-                  <div className="absolute inset-0 bg-primary/5 animate-pulse" />
-                  <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground mb-4 relative z-10 italic">Your Code</p>
-                  <h3 className="text-7xl font-black tracking-tighter italic font-headline leading-none mb-8 relative z-10 text-primary text-glow">{profile.activeOtp}</h3>
-                  <div className="bg-white/5 p-5 rounded-2xl text-left border border-white/10 relative z-10">
-                    <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Destination</p>
-                    <p className="text-sm font-black italic uppercase text-foreground">{profile.destinationStopName}</p>
-                  </div>
+                <Card className="glass-card rounded-[3rem] p-8 shadow-2xl border-primary/20 overflow-hidden">
+                   <div className="flex flex-col items-center gap-6 mb-8">
+                      <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground italic">Your Shuttle</p>
+                      <h3 className="text-7xl font-black tracking-tighter italic text-primary text-glow leading-none">{profile.activeOtp}</h3>
+                   </div>
+                   
+                   <div className="grid grid-cols-1 gap-4 mb-8">
+                      <div className="bg-white/5 p-6 rounded-[2rem] flex items-center gap-5 border border-white/5">
+                         <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary overflow-hidden shadow-inner">
+                            {currentBooking.driverPhoto ? <img src={currentBooking.driverPhoto} className="h-full w-full object-cover" /> : <UserIcon className="h-7 w-7" />}
+                         </div>
+                         <div className="flex-1">
+                            <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest italic mb-0.5">Operator</p>
+                            <p className="text-xl font-black italic uppercase text-foreground leading-none tracking-tighter">{currentBooking.driverName}</p>
+                         </div>
+                      </div>
+
+                      <div className="bg-white/5 p-6 rounded-[2rem] flex items-center gap-5 border border-white/5">
+                         <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                            <Car className="h-7 w-7" />
+                         </div>
+                         <div className="flex-1">
+                            <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest italic mb-0.5">Plate</p>
+                            <p className="text-xl font-black italic uppercase text-foreground leading-none tracking-tighter">{currentBooking.vehicleNumber}</p>
+                         </div>
+                         <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase px-3 py-1">{currentBooking.vehicleType}</Badge>
+                      </div>
+                   </div>
+
+                   <Button onClick={() => setActiveTab('radar')} className="w-full h-18 bg-primary text-black rounded-2xl font-black uppercase italic text-lg shadow-2xl active:scale-95 transition-all">Track Ride</Button>
                 </Card>
               </div>
             ) : (
@@ -411,19 +434,22 @@ export default function StudentApp() {
                         }}
                       />
                    )}
-                   {activeTrips?.map((trip: any) => (
-                     trip.currentLat && trip.currentLng && (
+                   {activeTrips?.map((trip: any) => {
+                     const isMyRide = trip.id === currentBooking?.id;
+                     return trip.currentLat && trip.currentLng && (
                        <Marker 
                           key={trip.id} 
                           position={{ lat: trip.currentLat, lng: trip.currentLng }} 
                           title={trip.routeName}
                           icon={{
-                            url: "https://maps.google.com/mapfiles/ms/icons/bus.png",
+                            url: isMyRide 
+                              ? "https://maps.google.com/mapfiles/ms/icons/blue-dot.png" 
+                              : "https://maps.google.com/mapfiles/ms/icons/bus.png",
                             scaledSize: new google.maps.Size(32, 32)
                           }}
                         />
-                     )
-                   ))}
+                     );
+                   })}
                  </GoogleMap>
                ) : (
                  <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-4">
@@ -439,12 +465,16 @@ export default function StudentApp() {
                  <div className="p-8 text-center bg-white/5 rounded-2xl border border-dashed border-white/10 text-[10px] font-black uppercase tracking-widest text-white/20">Empty...</div>
                ) : (
                  activeTrips.map((trip: any) => (
-                   <div key={trip.id} className="p-5 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-between shadow-sm">
+                   <div key={trip.id} className={`p-5 rounded-2xl border flex items-center justify-between shadow-sm transition-all ${trip.id === currentBooking?.id ? 'bg-primary/10 border-primary' : 'bg-white/5 border-white/10'}`}>
                       <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm"><Bus className="h-5 w-5" /></div>
+                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center shadow-sm ${trip.id === currentBooking?.id ? 'bg-primary text-black' : 'bg-primary/10 text-primary'}`}>
+                           <Bus className="h-5 w-5" />
+                        </div>
                         <div>
                            <p className="font-black italic uppercase text-foreground text-sm leading-none">{trip.routeName}</p>
-                           <p className="text-[8px] font-black text-primary uppercase tracking-widest mt-1">Live Tracking</p>
+                           <p className="text-[8px] font-black text-primary uppercase tracking-widest mt-1">
+                              {trip.id === currentBooking?.id ? 'YOUR SHUTTLE' : 'Live Tracking'}
+                           </p>
                         </div>
                       </div>
                       <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase">{trip.riderCount} Seats</Badge>
