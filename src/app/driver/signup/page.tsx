@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -106,7 +105,17 @@ export default function DriverSignupPage() {
       setStep(5);
       toast({ title: "Code Sent" });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: "Try again." });
+      console.error(error);
+      let title = "Error";
+      let message = "Try again.";
+      
+      if (error.code === 'auth/billing-not-enabled') {
+        title = "Billing Required";
+        message = "Firebase Phone Auth requires a billing account (Blaze plan) to be enabled in the Firebase Console.";
+      }
+      
+      toast({ variant: "destructive", title, description: message });
+      
       if (recaptchaRef.current) {
         recaptchaRef.current.clear();
         recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup-driver', { size: 'invisible' });

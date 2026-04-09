@@ -67,18 +67,23 @@ export default function LoginPage() {
       toast({ title: "Code Sent", description: "Check your phone messages." });
     } catch (error: any) {
       console.error(error);
+      let title = "Auth Error";
       let message = "Could not send code. Try again later.";
-      if (error.code === 'auth/too-many-requests') {
+      
+      if (error.code === 'auth/billing-not-enabled') {
+        title = "Billing Required";
+        message = "Firebase Phone Auth requires a billing account (Blaze plan) to be enabled in the Firebase Console.";
+      } else if (error.code === 'auth/too-many-requests') {
         message = "Too many attempts. Please wait a few minutes.";
       } else if (error.code === 'auth/unauthorized-domain') {
         message = "Terminal access restricted for this domain.";
       }
-      toast({ variant: "destructive", title: "Auth Error", description: message });
+      
+      toast({ variant: "destructive", title, description: message });
+      
       if (recaptchaRef.current) {
-        recaptchaRef.current.render().then((id) => {
-          recaptchaRef.current?.clear();
-          recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
-        });
+        recaptchaRef.current.clear();
+        recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
       }
     } finally {
       setLoading(false);

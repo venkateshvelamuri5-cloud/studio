@@ -66,16 +66,21 @@ export default function DriverLoginPage() {
       toast({ title: "Code Sent", description: "Verification code sent to your phone." });
     } catch (error: any) {
       console.error(error);
+      let title = "Error";
       let message = "Check your signal.";
-      if (error.code === 'auth/too-many-requests') {
+      
+      if (error.code === 'auth/billing-not-enabled') {
+        title = "Billing Required";
+        message = "Firebase Phone Auth requires a billing account (Blaze plan) to be enabled in the Firebase Console.";
+      } else if (error.code === 'auth/too-many-requests') {
         message = "Too many attempts. Please wait.";
       }
-      toast({ variant: "destructive", title: "Error", description: message });
+      
+      toast({ variant: "destructive", title, description: message });
+      
       if (recaptchaRef.current) {
-        recaptchaRef.current.render().then(() => {
-          recaptchaRef.current?.clear();
-          recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-driver', { size: 'invisible' });
-        });
+        recaptchaRef.current.clear();
+        recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-driver', { size: 'invisible' });
       }
     } finally {
       setLoading(false);

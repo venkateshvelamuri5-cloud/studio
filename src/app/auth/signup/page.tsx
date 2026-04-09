@@ -73,7 +73,17 @@ export default function SignupPage() {
       setStep(4);
       toast({ title: "Code Sent" });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: "Try again later." });
+      console.error(error);
+      let title = "Error";
+      let message = "Could not send code. Try again later.";
+      
+      if (error.code === 'auth/billing-not-enabled') {
+        title = "Billing Required";
+        message = "Firebase Phone Auth requires a billing account (Blaze plan) to be enabled in the Firebase Console.";
+      }
+      
+      toast({ variant: "destructive", title, description: message });
+      
       if (recaptchaRef.current) {
         recaptchaRef.current.clear();
         recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup', { size: 'invisible' });
@@ -117,7 +127,7 @@ export default function SignupPage() {
         city,
         referralCode,
         role: 'rider',
-        loyaltyPoints: 0, // Starts at 0, action-based points now.
+        loyaltyPoints: 0, 
         createdAt: new Date().toISOString(),
       });
 
