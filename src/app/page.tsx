@@ -143,12 +143,12 @@ export default function GlobalLandingPage() {
           <div className="container mx-auto px-6 lg:px-20">
             <div className="grid lg:grid-cols-2 gap-24 items-center">
               <div className="space-y-10">
-                <Badge variant="outline" className="px-5 py-2 text-primary border-primary/20 bg-primary/5 font-black uppercase tracking-widest text-[10px] italic">Universal Mobility Protocol v2.5</Badge>
+                <Badge variant="outline" className="px-5 py-2 text-primary border-primary/20 bg-primary/5 font-black uppercase tracking-widest text-[10px] italic">India's Smartest Way to Travel</Badge>
                 <h1 className="text-5xl lg:text-7xl font-black text-foreground italic uppercase tracking-tighter leading-none">
                   The Smarter Way <br /> to Move.
                 </h1>
                 <p className="text-lg text-muted-foreground leading-relaxed max-w-xl italic font-medium">
-                  Professional-grade transit for city dwellers, commuters, and scholars. Experience a perfectly synchronized mobility grid with zero friction.
+                  Easy travel for office workers, commuters, and students. Experience a perfectly connected city grid with no stress.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-5 pt-4">
                   <Link href="/auth/signup">
@@ -171,9 +171,9 @@ export default function GlobalLandingPage() {
         <section className="py-32 bg-slate-50">
           <div className="container mx-auto px-6 lg:px-20">
             <div className="text-center mb-24 space-y-6">
-              <h2 className="text-4xl lg:text-6xl font-black italic uppercase text-foreground tracking-tighter">The Grid Protocol.</h2>
+              <h2 className="text-4xl lg:text-6xl font-black italic uppercase text-foreground tracking-tighter">The Smart Grid.</h2>
               <p className="text-muted-foreground max-w-2xl mx-auto italic font-medium">
-                Simple, predictable, and secure mobility for the modern city professional.
+                Simple, predictable, and safe travel for the modern city.
               </p>
             </div>
 
@@ -181,17 +181,17 @@ export default function GlobalLandingPage() {
               {[
                 { 
                   title: "Fixed Pricing", 
-                  desc: "No surges. No bargaining. Transparent, fixed fares for every node in the grid.", 
+                  desc: "No surges. No bargaining. Clear, fixed fares for every trip in the city.", 
                   icon: IndianRupee 
                 },
                 { 
-                  title: "Live Radar", 
-                  desc: "Precision tracking. See your grid mission position and board with a single code.", 
+                  title: "Live Tracking", 
+                  desc: "Real-time tracking. See your ride's position and board with a simple code.", 
                   icon: Radar 
                 },
                 { 
                   title: "High Safety", 
-                  desc: "Verified operators and real-time journey telemetry for complete peace of mind.", 
+                  desc: "Verified drivers and real-time journey tracking for peace of mind.", 
                   icon: ShieldCheck 
                 }
               ].map((item, i) => (
@@ -215,23 +215,23 @@ export default function GlobalLandingPage() {
                 <TransitFlowAnimation />
               </div>
               <div className="space-y-10">
-                <h2 className="text-4xl lg:text-6xl font-black italic uppercase leading-none tracking-tighter">Synchronized <br/> For Success.</h2>
+                <h2 className="text-4xl lg:text-6xl font-black italic uppercase leading-none tracking-tighter">Perfectly <br/> Connected.</h2>
                 <p className="text-lg text-muted-foreground leading-relaxed italic font-medium">
-                  Whether heading to a morning meeting or a late lecture, AAGO ensures your focus stays on your goals, not your travel logistics.
+                  Whether you are going to a morning meeting or a late class, AAGO makes sure you focus on your day, not the traffic.
                 </p>
                 <div className="space-y-8">
                   <div className="flex gap-6">
                     <div className="shrink-0 h-14 w-14 bg-slate-100 rounded-2xl flex items-center justify-center text-primary"><Briefcase className="h-7 w-7" /></div>
                     <div>
-                      <h4 className="font-black italic uppercase text-xl">Professionals</h4>
-                      <p className="text-muted-foreground text-sm italic font-medium">Arrive refreshed without parking or traffic stress.</p>
+                      <h4 className="font-black italic uppercase text-xl">For Employees</h4>
+                      <p className="text-muted-foreground text-sm italic font-medium">Reach office relaxed without parking or traffic stress.</p>
                     </div>
                   </div>
                   <div className="flex gap-6">
                     <div className="shrink-0 h-14 w-14 bg-slate-100 rounded-2xl flex items-center justify-center text-primary"><GraduationCap className="h-7 w-7" /></div>
                     <div>
-                      <h4 className="font-black italic uppercase text-xl">Scholars</h4>
-                      <p className="text-muted-foreground text-sm italic font-medium">Safe, affordable corridors designed for campus life.</p>
+                      <h4 className="font-black italic uppercase text-xl">For Students</h4>
+                      <p className="text-muted-foreground text-sm italic font-medium">Safe, low-cost travel designed for campus life.</p>
                     </div>
                   </div>
                 </div>
@@ -243,12 +243,12 @@ export default function GlobalLandingPage() {
         {/* How it Works */}
         <section className="py-32 bg-slate-50">
           <div className="container mx-auto px-6 lg:px-20">
-            <h2 className="text-4xl lg:text-6xl font-black italic uppercase text-center mb-24 tracking-tighter">Grid Activation.</h2>
+            <h2 className="text-4xl lg:text-6xl font-black italic uppercase text-center mb-24 tracking-tighter">How it Works.</h2>
             <div className="grid md:grid-cols-3 gap-16">
               {[
-                { title: "Select Node", desc: "Select your corridor and reserve your seat on the grid.", icon: MapPin },
-                { title: "Node Checkout", desc: "Pay securely via our professional payment protocol.", icon: Lock },
-                { title: "Ride Phase", desc: "Board with your pass and track telemetry live.", icon: CheckCircle2 }
+                { title: "Pick Route", desc: "Select your route and book your seat on the grid.", icon: MapPin },
+                { title: "Pay Online", desc: "Pay safely with our secure payment system.", icon: Lock },
+                { title: "Start Ride", desc: "Board with your pass and track your ride live.", icon: CheckCircle2 }
               ].map((item, i) => (
                 <div key={i} className="text-center space-y-6">
                   <div className="mx-auto h-20 w-20 bg-white rounded-3xl shadow-lg flex items-center justify-center text-primary text-3xl font-black italic">
@@ -266,13 +266,13 @@ export default function GlobalLandingPage() {
         <section className="py-32 bg-primary text-white">
           <div className="container mx-auto px-6 lg:px-20 text-center space-y-10">
             <h2 className="text-5xl lg:text-7xl font-black italic uppercase tracking-tighter">Join The Grid.</h2>
-            <p className="text-xl opacity-90 max-w-xl mx-auto italic font-medium uppercase tracking-widest">Universal mobility protocol. Optimized for you.</p>
+            <p className="text-xl opacity-90 max-w-xl mx-auto italic font-medium uppercase tracking-widest">India's Smart mobility for everyone.</p>
             <div className="flex flex-col sm:flex-row justify-center gap-6 pt-6">
               <Link href="/auth/signup">
                 <Button size="lg" className="w-full sm:w-auto h-20 px-16 bg-white text-primary hover:bg-slate-50 rounded-[2rem] font-black uppercase italic text-2xl shadow-2xl active:scale-95 transition-all">Join Grid</Button>
               </Link>
               <Link href="/driver/signup">
-                <Button variant="outline" size="lg" className="w-full sm:w-auto h-20 px-16 border-white/40 text-white hover:bg-white/10 rounded-[2rem] font-black uppercase italic text-2xl active:scale-95 transition-all">Join Fleet</Button>
+                <Button variant="outline" size="lg" className="w-full sm:w-auto h-20 px-16 border-white/40 text-white hover:bg-white/10 hover:text-white rounded-[2rem] font-black uppercase italic text-2xl active:scale-95 transition-all">Join Fleet</Button>
               </Link>
             </div>
           </div>
@@ -288,7 +288,7 @@ export default function GlobalLandingPage() {
               </div>
               <span className="text-xl font-black italic tracking-tighter text-foreground uppercase">AAGO</span>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">© 2024 AAGO GRID. Universal Mobility Protocol Active.</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">© 2024 AAGO GRID. India's Smart Mobility Hub.</p>
             <div className="flex gap-8">
                <Globe className="h-5 w-5 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />
                <Activity className="h-5 w-5 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />
