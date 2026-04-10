@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -8,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth, useFirestore, useUser } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -32,8 +33,22 @@ export default function DriverLoginPage() {
   const router = useRouter();
   const auth = useAuth();
   const db = useFirestore();
+  const { user, loading: authLoading } = useUser();
   const { toast } = useToast();
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
+
+  // Persistent login guard
+  useEffect(() => {
+    if (!authLoading && user && db) {
+      getDoc(doc(db, 'users', user.uid)).then((snap) => {
+        if (snap.exists()) {
+          const role = snap.data().role;
+          if (role === 'driver') router.push('/driver');
+          else router.push('/student');
+        }
+      });
+    }
+  }, [user, authLoading, db, router]);
 
   useEffect(() => {
     if (auth && !recaptchaRef.current) {
@@ -94,8 +109,8 @@ export default function DriverLoginPage() {
 
     try {
       const result = await confirmationResult.confirm(otp);
-      const user = result.user;
-      const userSnap = await getDoc(doc(db, 'users', user.uid));
+      const loggedUser = result.user;
+      const userSnap = await getDoc(doc(db, 'users', loggedUser.uid));
 
       if (!userSnap.exists()) {
         toast({ title: "Join Fleet", description: "Profile not found. Please join the team." });
@@ -117,6 +132,14 @@ export default function DriverLoginPage() {
       setLoading(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <Loader2 className="animate-spin h-12 w-12 text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 font-body safe-area-inset">

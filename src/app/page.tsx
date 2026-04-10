@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,8 +23,11 @@ import {
   Globe,
   ChevronRight,
   Navigation,
-  Target
+  Target,
+  Loader2
 } from 'lucide-react';
+import { useUser, useDoc, useFirestore } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -99,6 +103,11 @@ const TransitFlowAnimation = () => (
 export default function GlobalLandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const { user, loading: authLoading } = useUser();
+  const db = useFirestore();
+
+  const userRef = useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
+  const { data: profile } = useDoc(userRef);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -117,10 +126,20 @@ export default function GlobalLandingPage() {
           <span className="text-xl font-black italic tracking-tighter text-foreground uppercase">AAGO</span>
         </Link>
         <nav className="hidden lg:flex items-center gap-10">
-          <Link href="/auth/login" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Login</Link>
-          <Link href="/auth/signup">
-            <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl font-black uppercase italic px-8 h-12 shadow-xl shadow-primary/10">Start Traveling</Button>
-          </Link>
+          {authLoading ? (
+            <Loader2 className="animate-spin h-5 w-5 text-primary" />
+          ) : user ? (
+            <Link href={profile?.role === 'driver' ? '/driver' : '/student'}>
+              <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl font-black uppercase italic px-8 h-12 shadow-xl shadow-primary/10">Return to Grid</Button>
+            </Link>
+          ) : (
+            <>
+              <Link href="/auth/login" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Login</Link>
+              <Link href="/auth/signup">
+                <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl font-black uppercase italic px-8 h-12 shadow-xl shadow-primary/10">Start Traveling</Button>
+              </Link>
+            </>
+          )}
         </nav>
         <Button variant="ghost" className="lg:hidden p-0" onClick={() => setIsMenuOpen(!isMenuOpen)}>
           {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -130,9 +149,15 @@ export default function GlobalLandingPage() {
       {/* Mobile Menu */}
       {isMenuOpen && (
         <div className="fixed inset-0 z-40 bg-white pt-32 px-10 flex flex-col gap-8 animate-in fade-in slide-in-from-top-4">
-          <Link href="/auth/login" onClick={() => setIsMenuOpen(false)} className="text-3xl font-black italic uppercase text-foreground">Login</Link>
-          <Link href="/auth/signup" onClick={() => setIsMenuOpen(false)} className="text-3xl font-black italic uppercase text-primary">Start Traveling</Link>
-          <Link href="/driver/signup" onClick={() => setIsMenuOpen(false)} className="text-3xl font-black italic uppercase text-muted-foreground">Join Fleet</Link>
+          {user ? (
+             <Link href={profile?.role === 'driver' ? '/driver' : '/student'} onClick={() => setIsMenuOpen(false)} className="text-3xl font-black italic uppercase text-primary">Return to Grid</Link>
+          ) : (
+            <>
+              <Link href="/auth/login" onClick={() => setIsMenuOpen(false)} className="text-3xl font-black italic uppercase text-foreground">Login</Link>
+              <Link href="/auth/signup" onClick={() => setIsMenuOpen(false)} className="text-3xl font-black italic uppercase text-primary">Start Traveling</Link>
+              <Link href="/driver/signup" onClick={() => setIsMenuOpen(false)} className="text-3xl font-black italic uppercase text-muted-foreground">Join Fleet</Link>
+            </>
+          )}
         </div>
       )}
 
@@ -150,12 +175,20 @@ export default function GlobalLandingPage() {
                   Travel easily to office, college, or around the city. Reliable rides, live tracking, and safe travel for everyone.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-5 pt-4">
-                  <Link href="/auth/signup">
-                    <Button size="lg" className="w-full sm:w-auto h-16 px-12 bg-primary hover:bg-primary/90 text-white rounded-2xl font-black uppercase italic text-lg shadow-2xl shadow-primary/20 transition-all active:scale-95">Start Riding</Button>
-                  </Link>
-                  <Link href="/driver/signup">
-                    <Button variant="outline" size="lg" className="w-full sm:w-auto h-16 px-12 rounded-2xl font-black uppercase italic text-lg border-primary text-primary hover:bg-primary/5 transition-all">Join Fleet</Button>
-                  </Link>
+                  {user ? (
+                    <Link href={profile?.role === 'driver' ? '/driver' : '/student'}>
+                      <Button size="lg" className="w-full sm:w-auto h-16 px-12 bg-primary hover:bg-primary/90 text-white rounded-2xl font-black uppercase italic text-lg shadow-2xl shadow-primary/20 transition-all active:scale-95">Go to Dashboard</Button>
+                    </Link>
+                  ) : (
+                    <>
+                      <Link href="/auth/signup">
+                        <Button size="lg" className="w-full sm:w-auto h-16 px-12 bg-primary hover:bg-primary/90 text-white rounded-2xl font-black uppercase italic text-lg shadow-2xl shadow-primary/20 transition-all active:scale-95">Start Riding</Button>
+                      </Link>
+                      <Link href="/driver/signup">
+                        <Button variant="outline" size="lg" className="w-full sm:w-auto h-16 px-12 rounded-2xl font-black uppercase italic text-lg border-primary text-primary hover:bg-primary/5 transition-all">Join Fleet</Button>
+                      </Link>
+                    </>
+                  )}
                 </div>
               </div>
 
