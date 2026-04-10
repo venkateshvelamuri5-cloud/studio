@@ -43,7 +43,6 @@ const GridConnectivityAnimation = () => (
       <circle cx="200" cy="200" r="150" stroke="currentColor" strokeWidth="1" fill="none" className="opacity-10" />
       <circle cx="200" cy="200" r="100" stroke="currentColor" strokeWidth="1" fill="none" className="opacity-20" />
       
-      {/* Moving Nodes */}
       <circle cx="200" cy="200" r="4" fill="currentColor" className="animate-pulse" />
       
       <g className="animate-slow-float">
@@ -118,9 +117,9 @@ export default function GlobalLandingPage() {
           <span className="text-xl font-black italic tracking-tighter text-foreground uppercase">AAGO</span>
         </Link>
         <nav className="hidden lg:flex items-center gap-10">
-          <Link href="/auth/login" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Portal Access</Link>
+          <Link href="/auth/login" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Login</Link>
           <Link href="/auth/signup">
-            <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl font-black uppercase italic px-8 h-12 shadow-xl shadow-primary/10">Join Grid</Button>
+            <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl font-black uppercase italic px-8 h-12 shadow-xl shadow-primary/10">Start Traveling</Button>
           </Link>
         </nav>
         <Button variant="ghost" className="lg:hidden p-0" onClick={() => setIsMenuOpen(!isMenuOpen)}>
@@ -131,8 +130,8 @@ export default function GlobalLandingPage() {
       {/* Mobile Menu */}
       {isMenuOpen && (
         <div className="fixed inset-0 z-40 bg-white pt-32 px-10 flex flex-col gap-8 animate-in fade-in slide-in-from-top-4">
-          <Link href="/auth/login" onClick={() => setIsMenuOpen(false)} className="text-3xl font-black italic uppercase text-foreground">Portal Access</Link>
-          <Link href="/auth/signup" onClick={() => setIsMenuOpen(false)} className="text-3xl font-black italic uppercase text-primary">Join Grid</Link>
+          <Link href="/auth/login" onClick={() => setIsMenuOpen(false)} className="text-3xl font-black italic uppercase text-foreground">Login</Link>
+          <Link href="/auth/signup" onClick={() => setIsMenuOpen(false)} className="text-3xl font-black italic uppercase text-primary">Start Traveling</Link>
           <Link href="/driver/signup" onClick={() => setIsMenuOpen(false)} className="text-3xl font-black italic uppercase text-muted-foreground">Join Fleet</Link>
         </div>
       )}
@@ -143,19 +142,19 @@ export default function GlobalLandingPage() {
           <div className="container mx-auto px-6 lg:px-20">
             <div className="grid lg:grid-cols-2 gap-24 items-center">
               <div className="space-y-10">
-                <Badge variant="outline" className="px-5 py-2 text-primary border-primary/20 bg-primary/5 font-black uppercase tracking-widest text-[10px] italic">India's Smartest Way to Travel</Badge>
+                <Badge variant="outline" className="px-5 py-2 text-primary border-primary/20 bg-primary/5 font-black uppercase tracking-widest text-[10px] italic">India's Smart Way To Travel</Badge>
                 <h1 className="text-5xl lg:text-7xl font-black text-foreground italic uppercase tracking-tighter leading-none">
-                  The Smarter Way <br /> to Move.
+                  The Easiest Way <br /> To Travel.
                 </h1>
                 <p className="text-lg text-muted-foreground leading-relaxed max-w-xl italic font-medium">
-                  Easy travel for office workers, commuters, and students. Experience a perfectly connected city grid with no stress.
+                  Travel easily to office, college, or around the city. Reliable rides, live tracking, and safe travel for everyone.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-5 pt-4">
                   <Link href="/auth/signup">
                     <Button size="lg" className="w-full sm:w-auto h-16 px-12 bg-primary hover:bg-primary/90 text-white rounded-2xl font-black uppercase italic text-lg shadow-2xl shadow-primary/20 transition-all active:scale-95">Start Riding</Button>
                   </Link>
                   <Link href="/driver/signup">
-                    <Button variant="outline" size="lg" className="w-full sm:w-auto h-16 px-12 rounded-2xl font-black uppercase italic text-lg border-black/5 hover:bg-black/5 transition-all">Join Fleet</Button>
+                    <Button variant="outline" size="lg" className="w-full sm:w-auto h-16 px-12 rounded-2xl font-black uppercase italic text-lg border-primary text-primary hover:bg-primary/5 transition-all">Join Fleet</Button>
                   </Link>
                 </div>
               </div>
@@ -173,25 +172,25 @@ export default function GlobalLandingPage() {
             <div className="text-center mb-24 space-y-6">
               <h2 className="text-4xl lg:text-6xl font-black italic uppercase text-foreground tracking-tighter">The Smart Grid.</h2>
               <p className="text-muted-foreground max-w-2xl mx-auto italic font-medium">
-                Simple, predictable, and safe travel for the modern city.
+                Simple, reliable, and safe travel for modern India.
               </p>
             </div>
 
             <div className="grid md:grid-cols-3 gap-10">
               {[
                 { 
-                  title: "Fixed Pricing", 
-                  desc: "No surges. No bargaining. Clear, fixed fares for every trip in the city.", 
+                  title: "Fixed Prices", 
+                  desc: "No surges. No bargaining. Clear, fixed prices for every trip you take.", 
                   icon: IndianRupee 
                 },
                 { 
                   title: "Live Tracking", 
-                  desc: "Real-time tracking. See your ride's position and board with a simple code.", 
+                  desc: "Track your ride live on the map. Board easily with a simple code.", 
                   icon: Radar 
                 },
                 { 
                   title: "High Safety", 
-                  desc: "Verified drivers and real-time journey tracking for peace of mind.", 
+                  desc: "Verified drivers and live journey tracking for complete peace of mind.", 
                   icon: ShieldCheck 
                 }
               ].map((item, i) => (
@@ -215,23 +214,23 @@ export default function GlobalLandingPage() {
                 <TransitFlowAnimation />
               </div>
               <div className="space-y-10">
-                <h2 className="text-4xl lg:text-6xl font-black italic uppercase leading-none tracking-tighter">Perfectly <br/> Connected.</h2>
+                <h2 className="text-4xl lg:text-6xl font-black italic uppercase leading-none tracking-tighter">Stay <br/> Connected.</h2>
                 <p className="text-lg text-muted-foreground leading-relaxed italic font-medium">
-                  Whether you are going to a morning meeting or a late class, AAGO makes sure you focus on your day, not the traffic.
+                  Focus on your work or studies while we handle the traffic. AAGO gets you there on time, every time.
                 </p>
                 <div className="space-y-8">
                   <div className="flex gap-6">
                     <div className="shrink-0 h-14 w-14 bg-slate-100 rounded-2xl flex items-center justify-center text-primary"><Briefcase className="h-7 w-7" /></div>
                     <div>
-                      <h4 className="font-black italic uppercase text-xl">For Employees</h4>
-                      <p className="text-muted-foreground text-sm italic font-medium">Reach office relaxed without parking or traffic stress.</p>
+                      <h4 className="font-black italic uppercase text-xl">For Office Workers</h4>
+                      <p className="text-muted-foreground text-sm italic font-medium">Reach office fresh without parking or traffic stress.</p>
                     </div>
                   </div>
                   <div className="flex gap-6">
                     <div className="shrink-0 h-14 w-14 bg-slate-100 rounded-2xl flex items-center justify-center text-primary"><GraduationCap className="h-7 w-7" /></div>
                     <div>
-                      <h4 className="font-black italic uppercase text-xl">For Students</h4>
-                      <p className="text-muted-foreground text-sm italic font-medium">Safe, low-cost travel designed for campus life.</p>
+                      <h4 className="font-black italic uppercase text-xl">For College Students</h4>
+                      <p className="text-muted-foreground text-sm italic font-medium">Safe and low-cost travel designed for campus students.</p>
                     </div>
                   </div>
                 </div>
@@ -243,12 +242,12 @@ export default function GlobalLandingPage() {
         {/* How it Works */}
         <section className="py-32 bg-slate-50">
           <div className="container mx-auto px-6 lg:px-20">
-            <h2 className="text-4xl lg:text-6xl font-black italic uppercase text-center mb-24 tracking-tighter">How it Works.</h2>
+            <h2 className="text-4xl lg:text-6xl font-black italic uppercase text-center mb-24 tracking-tighter">How It Works.</h2>
             <div className="grid md:grid-cols-3 gap-16">
               {[
-                { title: "Pick Route", desc: "Select your route and book your seat on the grid.", icon: MapPin },
-                { title: "Pay Online", desc: "Pay safely with our secure payment system.", icon: Lock },
-                { title: "Start Ride", desc: "Board with your pass and track your ride live.", icon: CheckCircle2 }
+                { title: "Pick Route", desc: "Select your route and book your seat on the app.", icon: MapPin },
+                { title: "Pay Online", desc: "Pay safely with our secure and easy payment system.", icon: Lock },
+                { title: "Board Ride", desc: "Use your code to board and track your ride live.", icon: CheckCircle2 }
               ].map((item, i) => (
                 <div key={i} className="text-center space-y-6">
                   <div className="mx-auto h-20 w-20 bg-white rounded-3xl shadow-lg flex items-center justify-center text-primary text-3xl font-black italic">
@@ -266,13 +265,13 @@ export default function GlobalLandingPage() {
         <section className="py-32 bg-primary text-white">
           <div className="container mx-auto px-6 lg:px-20 text-center space-y-10">
             <h2 className="text-5xl lg:text-7xl font-black italic uppercase tracking-tighter">Join The Grid.</h2>
-            <p className="text-xl opacity-90 max-w-xl mx-auto italic font-medium uppercase tracking-widest">India's Smart mobility for everyone.</p>
+            <p className="text-xl opacity-90 max-w-xl mx-auto italic font-medium uppercase tracking-widest">Smart mobility for everyone in India.</p>
             <div className="flex flex-col sm:flex-row justify-center gap-6 pt-6">
               <Link href="/auth/signup">
                 <Button size="lg" className="w-full sm:w-auto h-20 px-16 bg-white text-primary hover:bg-slate-50 rounded-[2rem] font-black uppercase italic text-2xl shadow-2xl active:scale-95 transition-all">Join Grid</Button>
               </Link>
               <Link href="/driver/signup">
-                <Button variant="outline" size="lg" className="w-full sm:w-auto h-20 px-16 border-white/40 text-white hover:bg-white/10 hover:text-white rounded-[2rem] font-black uppercase italic text-2xl active:scale-95 transition-all">Join Fleet</Button>
+                <Button size="lg" className="w-full sm:w-auto h-20 px-16 bg-white text-primary hover:bg-slate-50 rounded-[2rem] font-black uppercase italic text-2xl shadow-2xl active:scale-95 transition-all">Join Fleet</Button>
               </Link>
             </div>
           </div>
@@ -288,7 +287,7 @@ export default function GlobalLandingPage() {
               </div>
               <span className="text-xl font-black italic tracking-tighter text-foreground uppercase">AAGO</span>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">© 2024 AAGO GRID. India's Smart Mobility Hub.</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">© 2024 AAGO GRID. Smart Mobility For India.</p>
             <div className="flex gap-8">
                <Globe className="h-5 w-5 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />
                <Activity className="h-5 w-5 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />
