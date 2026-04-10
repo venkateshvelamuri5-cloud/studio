@@ -36,7 +36,8 @@ import {
   Gift,
   Copy,
   Info,
-  ShieldCheck
+  ShieldCheck,
+  ArrowRight
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc, limit } from 'firebase/firestore';
@@ -45,7 +46,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { googleMapsApiKey } from '@/firebase/config';
-import { format, addDays, isAfter } from 'date-fns';
+import { format, addDays } from 'date-fns';
 
 const mapContainerStyle = { width: '100%', height: '100%' };
 const mapOptions = { 
@@ -85,7 +86,6 @@ export default function StudentApp() {
   const [currentPosition, setCurrentPosition] = useState<{lat: number, lng: number} | null>(null);
   const [voucherCode, setVoucherCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState(0);
-  const [isBooking, setIsBooking] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
 
   const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: googleMapsApiKey });
@@ -117,7 +117,7 @@ export default function StudentApp() {
   }, [db, user?.uid]));
 
   const pastTrips = useMemo(() => allUserTrips?.filter(t => t.status === 'completed') || [], [allUserTrips]);
-  const upcomingTrips = useMemo(() => allUserTrips?.filter(t => t.status === 'active' && t.id !== currentBooking?.id) || [], [allUserTrips, currentBooking]);
+  const upcomingTrips = useMemo(() => allUserTrips?.filter(t => (t.status === 'active' || t.status === 'scheduled') && t.id !== currentBooking?.id) || [], [allUserTrips, currentBooking]);
 
   const calculatedFare = useMemo(() => {
     if (!selectedRoute || !pickupStop || !destinationStop) return 0;
@@ -152,16 +152,6 @@ export default function StudentApp() {
     if (!authLoading && !user) router.push('/auth/login');
   }, [user, authLoading, router]);
 
-  const triggerSOS = async () => {
-    if (!db || !user || !profile) return;
-    addDoc(collection(db, 'alerts'), {
-      type: 'SCHOLAR_SOS', userId: user.uid, userName: profile.fullName,
-      city: profile.city || 'Global', timestamp: new Date().toISOString(),
-      location: currentPosition || 'Regional Hub'
-    });
-    toast({ variant: "destructive", title: "SOS Sent", description: "Emergency protocol active." });
-  };
-
   const handleApplyVoucher = async () => {
     if (!db || !voucherCode) return;
     const vQuery = query(collection(db, 'vouchers'), where('code', '==', voucherCode.toUpperCase()), where('isActive', '==', true), limit(1));
@@ -176,72 +166,102 @@ export default function StudentApp() {
     }
   };
 
-  const handleConfirmBooking = async () => {
+  const processPaymentSuccess = async (paymentId: string) => {
     if (!db || !userRef || !selectedRoute || !profile) return;
     setIsPaying(true);
-    
-    setTimeout(async () => {
-      try {
-        const finalFare = Math.max(0, calculatedFare - appliedDiscount);
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        
-        const bookingDetails = {
-          uid: user!.uid,
-          name: profile.fullName,
-          pickup: pickupStop,
-          destination: destinationStop,
-          bookingDate: bookingDate,
-          farePaid: finalFare,
-          paymentStatus: 'successful',
-          bookedAt: new Date().toISOString()
-        };
 
-        const tripQuery = query(collection(db, 'trips'), 
-          where('routeName', '==', selectedRoute.routeName), 
-          where('scheduledDate', '==', bookingDate), 
-          where('status', '==', 'active')
-        );
-        const tripSnap = await getDocs(tripQuery);
-        
-        const availableTrip = tripSnap.docs.find(d => {
-          const tripData = d.data();
-          const manifest = tripData.passengerManifest || [];
-          const capacity = tripData.maxCapacity || 7;
-          return manifest.length < capacity;
+    try {
+      const finalFare = Math.max(0, calculatedFare - appliedDiscount);
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      const bookingDetails = {
+        uid: user!.uid,
+        name: profile.fullName,
+        pickup: pickupStop,
+        destination: destinationStop,
+        bookingDate: bookingDate,
+        farePaid: finalFare,
+        paymentId: paymentId,
+        paymentStatus: 'successful',
+        bookedAt: new Date().toISOString()
+      };
+
+      const tripQuery = query(collection(db, 'trips'), 
+        where('routeName', '==', selectedRoute.routeName), 
+        where('scheduledDate', '==', bookingDate), 
+        where('status', '==', 'active')
+      );
+      const tripSnap = await getDocs(tripQuery);
+      
+      const availableTrip = tripSnap.docs.find(d => {
+        const tripData = d.data();
+        const manifest = tripData.passengerManifest || [];
+        const capacity = tripData.maxCapacity || 7;
+        return manifest.length < capacity;
+      });
+
+      if (availableTrip) {
+        await updateDoc(doc(db, 'trips', availableTrip.id), {
+          passengerManifest: arrayUnion(bookingDetails)
         });
-
-        if (availableTrip) {
-          await updateDoc(doc(db, 'trips', availableTrip.id), {
-            passengerManifest: arrayUnion(bookingDetails)
-          });
-        } else {
-          await addDoc(collection(db, 'trips'), {
-            routeName: selectedRoute.routeName,
-            scheduledDate: bookingDate,
-            farePerRider: selectedRoute.baseFare,
-            status: 'active',
-            riderCount: 0,
-            passengerManifest: [bookingDetails],
-            verifiedPassengers: [],
-            maxCapacity: 7,
-            createdAt: new Date().toISOString()
-          });
-        }
-
-        await updateDoc(userRef, { 
-          activeOtp: otp, 
-          destinationStopName: destinationStop, 
-          loyaltyPoints: increment(Math.floor(finalFare / 10)) 
+      } else {
+        await addDoc(collection(db, 'trips'), {
+          routeName: selectedRoute.routeName,
+          scheduledDate: bookingDate,
+          farePerRider: selectedRoute.baseFare,
+          status: 'active',
+          riderCount: 0,
+          passengerManifest: [bookingDetails],
+          verifiedPassengers: [],
+          maxCapacity: 7,
+          createdAt: new Date().toISOString()
         });
-        
-        setIsPaying(false);
-        setBookingStep(4);
-        toast({ title: "Seat Secured" });
-      } catch (e) {
-        setIsPaying(false);
-        toast({ variant: "destructive", title: "Error" });
       }
-    }, 2000);
+
+      await updateDoc(userRef, { 
+        activeOtp: otp, 
+        destinationStopName: destinationStop, 
+        loyaltyPoints: increment(Math.floor(finalFare / 10)) 
+      });
+      
+      setIsPaying(false);
+      setBookingStep(4);
+      toast({ title: "Seat Secured", description: "Your mission is active." });
+    } catch (e) {
+      setIsPaying(false);
+      toast({ variant: "destructive", title: "Sync Error", description: "Payment recorded, but sync failed. Contact Hub Support." });
+    }
+  };
+
+  const initiatePayment = async () => {
+    if (typeof window === 'undefined' || !selectedRoute) return;
+
+    const finalAmount = Math.max(0, calculatedFare - appliedDiscount);
+    if (finalAmount === 0) {
+      await processPaymentSuccess('FREE_BOOKING_' + Date.now());
+      return;
+    }
+
+    const options = {
+      key: "rzp_test_SbhAeIVwQu3pji",
+      amount: finalAmount * 100, // paise
+      currency: "INR",
+      name: "AAGO GRID",
+      description: `Ride Booking: ${selectedRoute.routeName}`,
+      handler: function (response: any) {
+        processPaymentSuccess(response.razorpay_payment_id);
+      },
+      prefill: {
+        name: profile?.fullName || "",
+        contact: profile?.phoneNumber || "",
+      },
+      theme: {
+        color: "#00FFFF",
+      },
+    };
+
+    const rzp = new (window as any).Razorpay(options);
+    rzp.open();
   };
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/auth/login'); };
@@ -249,7 +269,7 @@ export default function StudentApp() {
   const copyReferral = () => {
     if (profile?.referralCode) {
       navigator.clipboard.writeText(profile.referralCode);
-      toast({ title: "Code Copied", description: "Share with your scholar community." });
+      toast({ title: "Code Copied", description: "Share with your community." });
     }
   };
 
@@ -265,8 +285,8 @@ export default function StudentApp() {
           <h1 className="text-lg font-black italic uppercase tracking-tighter leading-none text-primary text-glow">AAGO</h1>
         </div>
         <div className="flex items-center gap-2">
-           <Button variant="ghost" size="icon" onClick={triggerSOS} className="text-destructive bg-destructive/10 h-11 w-11 rounded-2xl border border-destructive/20"><ShieldAlert className="h-5 w-5" /></Button>
-           <Button variant="ghost" size="icon" onClick={() => { navigator.share({ title: 'AAGO - Smart Campus Rides', url: window.location.origin }); }} className="text-primary bg-primary/10 h-11 w-11 rounded-2xl border border-primary/20"><Share2 className="h-5 w-5" /></Button>
+           <Button variant="ghost" size="icon" onClick={() => { addDoc(collection(db!, 'alerts'), { type: 'SOS', uid: user?.uid, name: profile?.fullName, timestamp: new Date().toISOString() }); toast({ variant: 'destructive', title: 'SOS Broadcasted' }); }} className="text-destructive bg-destructive/10 h-11 w-11 rounded-2xl border border-destructive/20"><ShieldAlert className="h-5 w-5" /></Button>
+           <Button variant="ghost" size="icon" onClick={() => { navigator.share({ title: 'AAGO - Smart Rides', url: window.location.origin }); }} className="text-primary bg-primary/10 h-11 w-11 rounded-2xl border border-primary/20"><Share2 className="h-5 w-5" /></Button>
         </div>
       </header>
 
@@ -275,11 +295,11 @@ export default function StudentApp() {
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
             <div className="flex justify-between items-start gap-4">
               <div className="space-y-1">
-                <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest italic leading-none">Scholar,</p>
+                <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest italic leading-none">Hello,</p>
                 <h2 className="text-3xl font-black text-foreground italic uppercase tracking-tighter mt-1">{profile?.fullName?.split(' ')[0]}</h2>
               </div>
               <div className="bg-white/5 p-4 rounded-2xl text-center border border-white/10 min-w-[100px]">
-                 <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Points</p>
+                 <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Rewards</p>
                  <div className="flex items-center justify-center gap-1 text-primary">
                    <Star className="h-4 w-4 fill-primary" />
                    <span className="text-2xl font-black text-foreground italic">{profile?.loyaltyPoints || 0}</span>
@@ -303,7 +323,7 @@ export default function StudentApp() {
                           <ShieldCheck className="h-10 w-10" />
                         </div>
                         <p className="text-[10px] font-black uppercase tracking-[0.5em] text-primary italic">In Transit</p>
-                        <h3 className="text-2xl font-black tracking-tighter italic text-foreground uppercase leading-none">Boarded Successfully</h3>
+                        <h3 className="text-2xl font-black tracking-tighter italic text-foreground uppercase leading-none">Mission Active</h3>
                      </div>
                    )}
                    
@@ -317,28 +337,27 @@ export default function StudentApp() {
                       </div>
 
                       {currentBooking.driverId ? (
-                        <div className="bg-primary/5 p-6 rounded-[2.5rem] border border-primary/30 animate-in fade-in duration-700">
+                        <div className="bg-primary/5 p-6 rounded-[2.5rem] border border-primary/30">
                           <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center gap-4">
-                              <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-primary bg-primary/10 shadow-lg shadow-primary/20">
+                              <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-primary bg-primary/10">
                                 {currentBooking.driverPhoto ? <img src={currentBooking.driverPhoto} className="h-full w-full object-cover" /> : <UserCheck className="h-full w-full p-2 text-primary" />}
                               </div>
                               <div>
-                                 <p className="text-[10px] font-black uppercase text-primary tracking-widest">Driver</p>
+                                 <p className="text-[10px] font-black uppercase text-primary tracking-widest">Operator</p>
                                  <p className="text-xl font-black italic uppercase text-foreground leading-none">{currentBooking.driverName}</p>
                               </div>
                             </div>
                             <div className="text-right">
                                <p className="text-sm font-black text-foreground uppercase italic tracking-tighter">{currentBooking.vehicleNumber}</p>
-                               <Badge className="bg-primary text-black border-none text-[8px] font-black uppercase mt-1 px-3 py-0.5 rounded-full">{currentBooking.vehicleType}</Badge>
                             </div>
                           </div>
-                          <Button onClick={() => setActiveTab('radar')} className="w-full h-14 bg-primary text-black rounded-2xl font-black uppercase italic shadow-xl shadow-primary/10 flex items-center justify-center gap-3 active:scale-95 transition-all">
+                          <Button onClick={() => setActiveTab('radar')} className="w-full h-14 bg-primary text-black rounded-2xl font-black uppercase italic shadow-xl shadow-primary/10 flex items-center justify-center gap-3 active:scale-95">
                              <Navigation className="h-5 w-5" /> Track Live Radar
                           </Button>
                         </div>
                       ) : (
-                        <div className="p-8 bg-black/40 border border-dashed border-white/10 rounded-[2.5rem] text-center flex flex-col items-center gap-4 animate-pulse">
+                        <div className="p-8 bg-black/40 border border-dashed border-white/10 rounded-[2.5rem] text-center flex flex-col items-center gap-4">
                            <Loader2 className="animate-spin h-8 w-8 text-primary opacity-50" />
                            <div className="space-y-1">
                              <p className="text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Operator Pending</p>
@@ -354,17 +373,17 @@ export default function StudentApp() {
                 <DialogTrigger asChild>
                   <div className="p-12 bg-primary text-black rounded-[3rem] shadow-2xl flex flex-col gap-2 cursor-pointer active:scale-95 transition-all group overflow-hidden relative">
                     <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <h3 className="text-5xl font-black italic uppercase tracking-tighter relative z-10 leading-none">Find <br/> Ride</h3>
+                    <h3 className="text-5xl font-black italic uppercase tracking-tighter relative z-10 leading-none">Book <br/> Ride</h3>
                     <div className="flex items-center justify-between mt-4 relative z-10">
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Search Active Grid</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Scan Active Grid</p>
                       <Navigation className="h-8 w-8 group-hover:translate-x-2 transition-transform" />
                     </div>
                   </div>
                 </DialogTrigger>
-                <DialogContent className="bg-background border-white/5 rounded-[2.5rem] p-8 h-[92vh] flex flex-col shadow-2xl">
+                <DialogContent className="bg-background border-white/5 rounded-[2.5rem] p-8 h-[92vh] flex flex-col shadow-2xl overflow-hidden">
                   <DialogHeader className="shrink-0 mb-6">
                     <DialogTitle className="text-3xl font-black italic uppercase text-primary tracking-tighter">
-                      {bookingStep === 1 ? "Pick Corridor" : bookingStep === 2 ? "Pick Stops" : bookingStep === 3 ? "Payment" : "Done"}
+                      {bookingStep === 1 ? "Corridors" : bookingStep === 2 ? "Schedule" : bookingStep === 3 ? "Payment" : "Done"}
                     </DialogTitle>
                   </DialogHeader>
 
@@ -372,12 +391,15 @@ export default function StudentApp() {
                     {bookingStep === 1 && (
                       <div className="space-y-4">
                         {activeRoutes?.length === 0 ? (
-                          <div className="p-20 text-center italic text-muted-foreground">Scanning grid...</div>
+                          <div className="p-20 text-center italic text-muted-foreground flex flex-col items-center gap-4">
+                            <Loader2 className="animate-spin h-8 w-8 opacity-20" />
+                            <p className="text-[10px] uppercase font-black tracking-widest">Updating Grid Corridors...</p>
+                          </div>
                         ) : activeRoutes?.map((route: any) => (
                           <div key={route.id} onClick={() => { setSelectedRoute(route); setBookingStep(2); }} className="p-8 bg-white/5 border border-white/10 rounded-3xl cursor-pointer hover:border-primary/50 hover:bg-white/10 transition-all flex justify-between items-center group">
                              <div className="space-y-1">
                                 <h4 className="text-xl font-black italic uppercase text-foreground group-hover:text-primary transition-colors">{route.routeName}</h4>
-                                <p className="text-[10px] font-black text-primary/60 uppercase tracking-widest">₹{route.baseFare} Base</p>
+                                <p className="text-[10px] font-black text-primary/60 uppercase tracking-widest">₹{route.baseFare} Base Fee</p>
                              </div>
                              <ChevronRight className="h-6 w-6 text-white/10 group-hover:text-primary transition-colors" />
                           </div>
@@ -390,7 +412,7 @@ export default function StudentApp() {
                         <div className="space-y-4">
                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Select Date</Label>
                           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                             {[0, 1, 2].map((day) => {
+                             {[0, 1, 2, 3, 4].map((day) => {
                                const date = addDays(new Date(), day);
                                const dateStr = format(date, 'yyyy-MM-dd');
                                return (
@@ -404,7 +426,7 @@ export default function StudentApp() {
 
                         <div className="space-y-6">
                           <div className="space-y-4">
-                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2 flex items-center gap-2"><MapPin className="h-3 w-3" /> Boarding Node</Label>
+                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2 flex items-center gap-2"><MapPin className="h-3 w-3" /> Pickup Hub</Label>
                              <div className="grid grid-cols-1 gap-2">
                                {selectedRoute.stops.map((stop: any, i: number) => (
                                  <button key={i} disabled={i === selectedRoute.stops.length - 1} onClick={() => setPickupStop(stop.name)} className={`p-5 rounded-2xl border text-left font-black italic text-sm transition-all ${pickupStop === stop.name ? 'bg-primary/20 border-primary text-primary shadow-lg shadow-primary/10' : 'bg-white/5 border-white/5 text-muted-foreground hover:bg-white/10'}`}>
@@ -415,13 +437,13 @@ export default function StudentApp() {
                           </div>
 
                           <div className="space-y-4">
-                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2 flex items-center gap-2"><Target className="h-3 w-3" /> Dropping Node</Label>
+                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2 flex items-center gap-2"><Target className="h-3 w-3" /> Destination Hub</Label>
                              <div className="grid grid-cols-1 gap-2">
                                {selectedRoute.stops.map((stop: any, i: number) => {
                                  const pIdx = selectedRoute.stops.findIndex((s: any) => s.name === pickupStop);
                                  const isDisabled = pIdx === -1 || i <= pIdx;
                                  return (
-                                   <button key={i} disabled={isDisabled} onClick={() => setDestinationStop(stop.name)} className={`p-5 rounded-2xl border text-left font-black italic text-sm transition-all ${isDisabled ? 'opacity-20 cursor-not-allowed' : destinationStop === stop.name ? 'bg-accent/20 border-accent text-accent shadow-lg shadow-accent/10' : 'bg-white/5 border-white/5 text-muted-foreground hover:bg-white/10'}`}>
+                                   <button key={i} disabled={isDisabled} onClick={() => setDestinationStop(stop.name)} className={`p-5 rounded-2xl border text-left font-black italic text-sm transition-all ${isDisabled ? 'opacity-10 cursor-not-allowed' : destinationStop === stop.name ? 'bg-accent/20 border-accent text-accent shadow-lg shadow-accent/10' : 'bg-white/5 border-white/5 text-muted-foreground hover:bg-white/10'}`}>
                                      {stop.name}
                                    </button>
                                  );
@@ -429,13 +451,6 @@ export default function StudentApp() {
                              </div>
                           </div>
                         </div>
-
-                        {calculatedFare > 0 && (
-                          <div className="p-8 bg-primary/10 rounded-[2.5rem] border border-primary/20 text-center animate-in zoom-in-95">
-                             <p className="text-[10px] font-black uppercase text-primary mb-2 tracking-[0.2em]">Prorated Transit Fee</p>
-                             <h4 className="text-4xl font-black italic text-foreground tracking-tighter">₹{calculatedFare}</h4>
-                          </div>
-                        )}
                       </div>
                     )}
 
@@ -443,31 +458,29 @@ export default function StudentApp() {
                       <div className="space-y-8 py-4 animate-in zoom-in-95">
                          <div className="p-8 bg-black/40 rounded-[2.5rem] text-center space-y-3 border border-white/5">
                             <p className="text-[10px] font-black uppercase text-primary tracking-[0.3em]">Grid Settlement</p>
-                            <h4 className="text-xl font-black italic text-foreground uppercase tracking-widest">{profile?.city} Hub</h4>
-                            {globalConfig && (
-                              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mt-2 italic">
-                                Merchant ID: {(globalConfig as any)[profile?.city?.toLowerCase() === 'vizag' ? 'vizagUpiId' : 'vzmUpiId'] || 'PENDING HUB'}
-                              </p>
-                            )}
+                            <h4 className="text-xl font-black italic text-foreground uppercase tracking-widest">{profile?.city} Gateway</h4>
+                            <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-2 italic flex items-center justify-center gap-2">
+                               <ShieldCheck className="h-3 w-3 text-primary" /> Secure Razorpay Interface
+                            </p>
                          </div>
                          <div className="space-y-3">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-3">Voucher Protocol</Label>
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-3">Voucher Entry</Label>
                            <div className="flex gap-3">
                               <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="AAGO50" className="h-16 w-full bg-white/5 border border-white/10 rounded-2xl font-black italic px-6 uppercase tracking-widest outline-none focus:border-primary transition-colors" />
                               <Button onClick={handleApplyVoucher} variant="outline" className="h-16 px-8 rounded-2xl font-black italic text-primary border-primary/30 hover:bg-primary/10">Apply</Button>
                            </div>
                          </div>
-                         <div className="p-12 bg-primary/5 rounded-[3.5rem] text-center border-2 border-primary/20 shadow-2xl shadow-primary/5">
-                            <p className="text-[10px] font-black uppercase text-primary mb-3 tracking-[0.4em]">Total Due</p>
+                         <div className="p-12 bg-primary/5 rounded-[3.5rem] text-center border-2 border-primary/20 shadow-2xl">
+                            <p className="text-[10px] font-black uppercase text-primary mb-3 tracking-[0.4em]">Final Fare</p>
                             <h3 className="text-7xl font-black italic text-foreground tracking-tighter leading-none">₹{Math.max(0, calculatedFare - appliedDiscount)}</h3>
                          </div>
                          {isPaying && (
                            <div className="fixed inset-0 bg-background/90 z-[100] flex flex-col items-center justify-center p-10 text-center animate-in fade-in">
-                              <div className="bg-primary/20 p-10 rounded-[3rem] border border-primary/30 space-y-6">
+                              <div className="bg-primary/10 p-10 rounded-[3rem] border border-primary/20 space-y-6">
                                 <Loader2 className="animate-spin h-16 w-16 text-primary mx-auto" />
                                 <div className="space-y-2">
-                                  <h3 className="text-2xl font-black italic uppercase text-primary">Verifying Payment</h3>
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">AAGO Secure Gateway</p>
+                                  <h3 className="text-2xl font-black italic uppercase text-primary">Verifying Transaction</h3>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Grid Sync Protocol Active</p>
                                 </div>
                               </div>
                            </div>
@@ -477,22 +490,22 @@ export default function StudentApp() {
 
                     {bookingStep === 4 && (
                       <div className="flex flex-col items-center justify-center text-center space-y-8 py-20 animate-in zoom-in-95">
-                         <div className="h-32 w-32 bg-primary text-black rounded-full flex items-center justify-center shadow-2xl shadow-primary/20 animate-bounce"><CheckCircle2 className="h-16 w-16" /></div>
+                         <div className="h-32 w-32 bg-primary text-black rounded-full flex items-center justify-center shadow-2xl animate-bounce"><CheckCircle2 className="h-16 w-16" /></div>
                          <div className="space-y-3">
-                            <h3 className="text-5xl font-black italic uppercase text-primary tracking-tighter leading-none">Grid Mission <br/> Confirmed</h3>
-                            <p className="text-sm font-bold text-muted-foreground italic uppercase tracking-widest px-6 mt-4">Seat Secured. Boarding pass active on home hub.</p>
+                            <h3 className="text-5xl font-black italic uppercase text-primary tracking-tighter leading-none">Mission <br/> Secured</h3>
+                            <p className="text-sm font-bold text-muted-foreground italic uppercase tracking-widest px-6 mt-4">Seat confirmed on the Grid. View boarding pass on Home.</p>
                          </div>
                       </div>
                     )}
                   </div>
 
                   <div className="pt-8 shrink-0 border-t border-white/5">
-                    {bookingStep === 1 && <Button variant="ghost" onClick={() => setBookingStep(1)} className="w-full text-muted-foreground font-black uppercase italic tracking-widest h-14">Cancel</Button>}
-                    {bookingStep === 2 && <Button onClick={() => setBookingStep(3)} disabled={!pickupStop || !destinationStop} className="w-full h-18 bg-primary text-black rounded-[2rem] font-black uppercase italic text-xl shadow-2xl active:scale-95 transition-all">Hub Checkout</Button>}
-                    {bookingStep === 3 && <Button onClick={handleConfirmBooking} disabled={isPaying} className="w-full h-20 bg-primary text-black rounded-[2rem] font-black uppercase italic text-2xl shadow-2xl shadow-primary/30 active:scale-95 transition-all">
-                      {isPaying ? <Loader2 className="animate-spin h-8 w-8 mx-auto" /> : <><CreditCard className="mr-3 h-7 w-7" /> Pay ₹{Math.max(0, calculatedFare - appliedDiscount)}</>}
+                    {bookingStep === 1 && <Button variant="ghost" onClick={() => setBookingStep(1)} className="w-full text-muted-foreground font-black uppercase italic tracking-widest h-14">Close Portal</Button>}
+                    {bookingStep === 2 && <Button onClick={() => setBookingStep(3)} disabled={!pickupStop || !destinationStop} className="w-full h-18 bg-primary text-black rounded-[2rem] font-black uppercase italic text-xl shadow-2xl active:scale-95">Next Segment</Button>}
+                    {bookingStep === 3 && <Button onClick={initiatePayment} disabled={isPaying} className="w-full h-20 bg-primary text-black rounded-[2rem] font-black uppercase italic text-2xl shadow-2xl active:scale-95 flex items-center justify-center gap-3">
+                      {isPaying ? <Loader2 className="animate-spin h-8 w-8" /> : <><CreditCard className="h-7 w-7" /> Pay ₹{Math.max(0, calculatedFare - appliedDiscount)}</>}
                     </Button>}
-                    {bookingStep === 4 && <DialogTrigger asChild><Button className="w-full h-18 bg-white/5 rounded-[2rem] font-black uppercase italic text-lg hover:bg-white/10">Back to Grid</Button></DialogTrigger>}
+                    {bookingStep === 4 && <DialogTrigger asChild><Button className="w-full h-18 bg-white/5 rounded-[2rem] font-black uppercase italic text-lg">Return to Grid</Button></DialogTrigger>}
                   </div>
                 </DialogContent>
               </Dialog>
@@ -503,7 +516,7 @@ export default function StudentApp() {
                  <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Gift className="h-6 w-6" /></div>
                  <h4 className="text-xl font-black italic uppercase tracking-tighter">Referral Hub</h4>
               </div>
-              <p className="text-xs font-bold text-muted-foreground italic px-2">Earn 50 Scholar Points for every friend who joins the grid.</p>
+              <p className="text-xs font-bold text-muted-foreground italic px-2 leading-relaxed">Refer a friend to the Grid and earn 50 Scholar Points instantly upon their first journey.</p>
               <div className="flex gap-3 bg-black/40 p-4 rounded-2xl border border-white/5">
                  <p className="flex-1 font-black italic text-foreground uppercase tracking-widest pt-2.5 px-2">{profile?.referralCode || 'GEN-PENDING'}</p>
                  <Button onClick={copyReferral} variant="ghost" className="h-10 w-10 p-0 text-primary hover:bg-primary/10"><Copy className="h-5 w-5" /></Button>
@@ -517,15 +530,15 @@ export default function StudentApp() {
             <div className="flex items-center justify-between px-2">
                <h2 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Live Radar</h2>
                <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-4 py-1.5 rounded-full flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 bg-primary rounded-full animate-pulse" /> Grid Sync: 100%
+                  <div className="h-1.5 w-1.5 bg-primary rounded-full animate-pulse" /> Grid Syncing
                </Badge>
             </div>
             
             <div className="bg-white/5 border border-white/10 rounded-3xl p-4 flex items-center gap-4">
                {isVerified ? <ShieldCheck className="h-5 w-5 text-primary" /> : <ShieldAlert className="h-5 w-5 text-accent animate-pulse" />}
                <div>
-                  <p className={`text-[10px] font-black uppercase tracking-widest leading-none ${isVerified ? 'text-primary' : 'text-accent'}`}>{isVerified ? 'Mission In Progress' : 'Safety Protocol Active'}</p>
-                  <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1 italic">{isVerified ? 'You are securely linked to the operator hub' : `SOS Broadcast Syncing with ${profile?.emergencyContactName || 'Safe Hub'}`}</p>
+                  <p className={`text-[10px] font-black uppercase tracking-widest leading-none ${isVerified ? 'text-primary' : 'text-accent'}`}>{isVerified ? 'Mission In Progress' : 'Safety Sync Active'}</p>
+                  <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1 italic leading-tight">{isVerified ? 'Operator hub linked with scholar telemetry.' : `SOS Protocol synchronized with hub alerts.`}</p>
                </div>
             </div>
 
@@ -545,7 +558,6 @@ export default function StudentApp() {
                           scale: 1.5, 
                           strokeColor: '#FFFFFF', 
                           strokeWeight: 1,
-                          rotation: 0 
                         } : { 
                           path: google.maps.SymbolPath.CIRCLE,
                           fillColor: '#00FFFF', 
@@ -566,39 +578,44 @@ export default function StudentApp() {
           <div className="space-y-8 animate-in slide-in-from-bottom-4 pb-12">
              <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">Mission Log</h2>
              
-             {upcomingTrips.length > 0 && (
-               <div className="space-y-4">
-                 <p className="text-[10px] font-black uppercase tracking-widest text-primary ml-4">Upcoming</p>
-                 {upcomingTrips.map((trip: any) => (
-                    <Card key={trip.id} className="bg-primary/5 border border-primary/20 rounded-[2.5rem] p-8 flex justify-between items-center group">
-                       <div className="space-y-1">
-                          <h4 className="font-black text-foreground uppercase italic text-xl leading-none">{trip.routeName}</h4>
-                          <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 italic flex items-center gap-2"><Clock className="h-3 w-3" /> {trip.scheduledDate}</p>
-                       </div>
-                       <Badge className="bg-primary text-black uppercase text-[8px] font-black italic px-4 py-1">Confirmed</Badge>
-                    </Card>
-                 ))}
-               </div>
-             )}
+             <div className="space-y-6">
+               {upcomingTrips.length > 0 && (
+                 <div className="space-y-4">
+                   <p className="text-[10px] font-black uppercase tracking-widest text-primary ml-4">Scheduled Missions</p>
+                   {upcomingTrips.map((trip: any) => (
+                      <Card key={trip.id} className="bg-primary/5 border border-primary/20 rounded-[2.5rem] p-8 flex justify-between items-center group">
+                         <div className="space-y-2">
+                            <h4 className="font-black text-foreground uppercase italic text-xl leading-none">{trip.routeName}</h4>
+                            <div className="flex items-center gap-3">
+                               <Badge className="bg-primary text-black text-[8px] font-black uppercase px-3 py-0.5 rounded-full">Secure</Badge>
+                               <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-2"><Clock className="h-3 w-3" /> {trip.scheduledDate}</p>
+                            </div>
+                         </div>
+                         <ArrowRight className="h-6 w-6 text-primary/40" />
+                      </Card>
+                   ))}
+                 </div>
+               )}
 
-             <div className="space-y-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Completed</p>
-                {pastTrips?.length === 0 ? (
-                  <div className="p-24 text-center italic text-muted-foreground bg-white/5 rounded-[3rem] border border-dashed border-white/10 flex flex-col items-center gap-4">
-                     <History className="h-12 w-12 opacity-10" />
-                     <p className="text-[10px] font-black uppercase tracking-widest italic opacity-50">Log is empty</p>
-                  </div>
-                ) : [...pastTrips].sort((a,b) => b.endTime.localeCompare(a.endTime)).map((trip: any) => (
-                  <Card key={trip.id} className="bg-white/5 border border-white/5 rounded-[2.5rem] p-8 flex justify-between items-center shadow-xl group hover:border-primary/30 transition-all">
-                    <div className="space-y-1">
-                      <h4 className="font-black text-foreground uppercase italic text-xl leading-none group-hover:text-primary transition-colors">{trip.routeName}</h4>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-2"><Clock className="h-3 w-3" /> {new Date(trip.endTime).toLocaleDateString()}</p>
+               <div className="space-y-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Past Travels</p>
+                  {pastTrips?.length === 0 ? (
+                    <div className="p-24 text-center italic text-muted-foreground bg-white/5 rounded-[3rem] border border-dashed border-white/10 flex flex-col items-center gap-4">
+                       <History className="h-12 w-12 opacity-10" />
+                       <p className="text-[10px] font-black uppercase tracking-widest italic opacity-40">No past logs found on the Grid.</p>
                     </div>
-                    <div className="text-right">
-                       <span className="text-2xl font-black italic text-primary">₹{trip.passengerManifest?.find((m:any) => m.uid === user?.uid)?.farePaid || trip.farePerRider}</span>
-                    </div>
-                  </Card>
-                ))}
+                  ) : [...pastTrips].sort((a,b) => b.endTime.localeCompare(a.endTime)).map((trip: any) => (
+                    <Card key={trip.id} className="bg-white/5 border border-white/5 rounded-[2.5rem] p-8 flex justify-between items-center shadow-xl group hover:border-primary/30 transition-all">
+                      <div className="space-y-1">
+                        <h4 className="font-black text-foreground uppercase italic text-xl leading-none group-hover:text-primary transition-colors">{trip.routeName}</h4>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-2"><Clock className="h-3 w-3" /> {new Date(trip.endTime).toLocaleDateString()}</p>
+                      </div>
+                      <div className="text-right">
+                         <span className="text-2xl font-black italic text-primary">₹{trip.passengerManifest?.find((m:any) => m.uid === user?.uid)?.farePaid || trip.farePerRider}</span>
+                      </div>
+                    </Card>
+                  ))}
+               </div>
              </div>
           </div>
         )}
@@ -612,9 +629,9 @@ export default function StudentApp() {
                 </div>
                 <div className="space-y-2">
                    <h2 className="text-5xl font-black italic uppercase text-foreground leading-none tracking-tighter">{profile?.fullName}</h2>
-                   <div className="flex items-center justify-center gap-2">
-                      <Badge className="bg-primary/20 text-primary border-none uppercase text-[9px] font-black tracking-widest px-4 py-1.5 rounded-full">{profile?.city} Scholar</Badge>
-                      <Badge variant="outline" className="border-white/10 text-muted-foreground text-[9px] font-black px-4 py-1.5 rounded-full uppercase italic tracking-widest">ID: {profile?.studentId || 'N/A'}</Badge>
+                   <div className="flex flex-col items-center gap-2">
+                      <Badge className="bg-primary/20 text-primary border-none uppercase text-[9px] font-black tracking-widest px-6 py-1.5 rounded-full">{profile?.city} GRID HUB</Badge>
+                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest opacity-60">Scholar ID: {profile?.studentId || 'N/A'}</p>
                    </div>
                 </div>
              </div>
@@ -622,11 +639,11 @@ export default function StudentApp() {
              <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto">
                 <div className="p-8 bg-white/5 rounded-3xl border border-white/5 text-center">
                    <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-1">Grid Rating</p>
-                   <p className="text-2xl font-black italic text-foreground uppercase">Elite</p>
+                   <p className="text-2xl font-black italic text-foreground">5.0</p>
                 </div>
                 <div className="p-8 bg-white/5 rounded-3xl border border-white/5 text-center">
-                   <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-1">Scholar Tier</p>
-                   <p className="text-2xl font-black italic text-primary uppercase">S-Rank</p>
+                   <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-1">Tier</p>
+                   <p className="text-2xl font-black italic text-primary">Elite</p>
                 </div>
              </div>
 
