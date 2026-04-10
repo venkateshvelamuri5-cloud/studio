@@ -34,7 +34,6 @@ export default function SignupPage() {
   const [gender, setGender] = useState('Male');
   const [emergencyName, setEmergencyName] = useState('');
   const [emergencyPhone, setEmergencyPhone] = useState('');
-  const [city, setCity] = useState('Vizag');
   const [referredByCode, setReferredByCode] = useState('');
   
   // Auth
@@ -78,7 +77,6 @@ export default function SignupPage() {
       }
     };
 
-    // Small delay to ensure DOM is ready
     const timeout = setTimeout(initRecaptcha, 500);
     return () => {
       clearTimeout(timeout);
@@ -107,14 +105,11 @@ export default function SignupPage() {
       console.error(error);
       let title = "Error";
       let message = "Could not send code. Try again later.";
-      
       if (error.code === 'auth/billing-not-enabled') {
         title = "Service Unavailable";
         message = "SMS services are restricted. Please contact support or enable billing.";
       }
-      
       toast({ variant: "destructive", title, description: message });
-      
       if (recaptchaRef.current) {
         recaptchaRef.current.clear();
         recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup', { size: 'invisible' });
@@ -132,10 +127,8 @@ export default function SignupPage() {
     try {
       const result = await confirmationResult.confirm(otp);
       const user = result.user;
-      
       const referralCode = `AAGO-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
-      // Reward the referrer
       if (referredByCode.trim()) {
         const q = query(collection(db, 'users'), where('referralCode', '==', referredByCode.trim().toUpperCase()));
         const referrerSnap = await getDocs(q);
@@ -155,9 +148,9 @@ export default function SignupPage() {
         gender,
         emergencyContactName: emergencyName,
         emergencyContactPhone: emergencyPhone,
-        city,
         referralCode,
         role: 'rider',
+        isVerified: true, // Riders verified by default for community access
         loyaltyPoints: 0, 
         createdAt: new Date().toISOString(),
       });
@@ -231,17 +224,8 @@ export default function SignupPage() {
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Safe Phone Number</Label>
                 <Input value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)} placeholder="0000000000" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
               </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Primary Hub</Label>
-                <Select value={city} onValueChange={setCity}>
-                  <SelectTrigger className="h-14 bg-white/5 border-white/10 text-foreground font-black italic rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border-white/10">
-                    <SelectItem value="Vizag">Vizag</SelectItem>
-                    <SelectItem value="Vizianagaram">Vizianagaram</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="pt-4 p-4 bg-primary/5 rounded-2xl border border-primary/20">
+                <p className="text-[9px] font-black uppercase text-primary tracking-widest text-center">Open Community Registration Active</p>
               </div>
               <Button onClick={() => setStep(3)} disabled={!emergencyName || !emergencyPhone} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl mt-2 active:scale-95 transition-all">Verify Phone</Button>
             </div>

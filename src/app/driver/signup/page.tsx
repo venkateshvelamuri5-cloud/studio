@@ -30,7 +30,6 @@ export default function DriverSignupPage() {
   
   // Profile
   const [fullName, setFullName] = useState('');
-  const [city, setCity] = useState('Vizag');
   const [licenseNumber, setLicenseNumber] = useState('');
   const [aadhaarNumber, setAadhaarNumber] = useState('');
   
@@ -84,7 +83,6 @@ export default function DriverSignupPage() {
         }
       }
     };
-
     const timeout = setTimeout(initRecaptcha, 500);
     return () => {
       clearTimeout(timeout);
@@ -135,14 +133,11 @@ export default function DriverSignupPage() {
       console.error(error);
       let title = "Error";
       let message = "Try again later.";
-      
       if (error.code === 'auth/billing-not-enabled') {
         title = "Restricted Service";
         message = "SMS services are blocked. Contact hub support.";
       }
-      
       toast({ variant: "destructive", title, description: message });
-      
       if (recaptchaRef.current) {
         recaptchaRef.current.clear();
         recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup-driver', { size: 'invisible' });
@@ -164,12 +159,13 @@ export default function DriverSignupPage() {
       await setDoc(doc(db, 'users', result.user.uid), {
         uid: result.user.uid,
         phoneNumber: result.user.phoneNumber,
-        fullName, city, licenseNumber, vehicleNumber, vehicleType,
+        fullName, licenseNumber, vehicleNumber, vehicleType,
         seatingCapacity: parseInt(seatingCapacity),
         aadhaarNumber,
         photoUrl: photoUrl,
         referralCode,
         role: 'driver', 
+        isVerified: false, // DRIVER REQUIRES ADMIN VERIFICATION
         status: 'offline', 
         totalEarnings: 0, 
         createdAt: new Date().toISOString(),
@@ -273,7 +269,7 @@ export default function DriverSignupPage() {
               <div className="space-y-3">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number</Label>
                 <div className="relative">
-                  <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary text-lg z-10">+91</span>
+                  <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary text-lg z-20">+91</span>
                   <Input 
                     type="tel" 
                     value={phoneNumber} 
