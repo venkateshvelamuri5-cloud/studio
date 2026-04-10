@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -17,14 +16,14 @@ import {
   Menu,
   X,
   Lock,
-  Clock,
   CheckCircle2,
   Briefcase,
   GraduationCap,
   Globe,
-  ChevronRight
+  ChevronRight,
+  Navigation,
+  Target
 } from 'lucide-react';
-import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 
 const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -33,6 +32,69 @@ const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) =
     <circle cx="20" cy="30" r="3" fill="currentColor" />
     <path d="M10 10L30 10M30 10L20 30M20 30L10 10" stroke="currentColor" strokeWidth="2" />
   </svg>
+);
+
+const GridConnectivityAnimation = () => (
+  <div className="relative w-full h-full bg-slate-950 flex items-center justify-center overflow-hidden rounded-3xl">
+    <div className="absolute inset-0 opacity-20">
+      <div className="absolute top-0 left-0 w-full h-full" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #00FFFF 1px, transparent 0)', backgroundSize: '40px 40px' }}></div>
+    </div>
+    <svg viewBox="0 0 400 400" className="w-4/5 h-4/5 relative z-10 text-primary">
+      <circle cx="200" cy="200" r="150" stroke="currentColor" strokeWidth="1" fill="none" className="opacity-10" />
+      <circle cx="200" cy="200" r="100" stroke="currentColor" strokeWidth="1" fill="none" className="opacity-20" />
+      
+      {/* Moving Nodes */}
+      <circle cx="200" cy="200" r="4" fill="currentColor" className="animate-pulse" />
+      
+      <g className="animate-slow-float">
+        <circle cx="100" cy="100" r="6" fill="currentColor" />
+        <circle cx="300" cy="100" r="6" fill="currentColor" />
+        <circle cx="200" cy="350" r="6" fill="currentColor" />
+      </g>
+
+      <path d="M100 100 L200 200 M300 100 L200 200 M200 350 L200 200" stroke="currentColor" strokeWidth="2" strokeDasharray="5 5" className="animate-[dash_10s_linear_infinite]" />
+      
+      <style jsx>{`
+        @keyframes dash {
+          to { stroke-dashoffset: -100; }
+        }
+      `}</style>
+    </svg>
+    <div className="absolute bottom-8 left-8 right-8 flex justify-between">
+      <Badge variant="outline" className="bg-black/40 border-primary/20 text-primary text-[10px] font-black italic">NODE_SYNC: ACTIVE</Badge>
+      <Badge variant="outline" className="bg-black/40 border-primary/20 text-primary text-[10px] font-black italic">GRID_PULSE: 100%</Badge>
+    </div>
+  </div>
+);
+
+const TransitFlowAnimation = () => (
+  <div className="relative w-full h-full bg-slate-50 flex items-center justify-center overflow-hidden rounded-3xl border border-black/5">
+    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent"></div>
+    <div className="relative z-10 space-y-8 w-full max-w-md p-10">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex items-center gap-6 p-4 bg-white rounded-2xl shadow-sm border border-black/5 animate-in slide-in-from-left duration-700" style={{ animationDelay: `${i * 200}ms` }}>
+          <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+            <Navigation className="h-6 w-6" />
+          </div>
+          <div className="flex-1 space-y-1">
+            <div className="h-2 w-24 bg-slate-100 rounded-full overflow-hidden">
+               <div className="h-full bg-primary animate-[loading_2s_ease-in-out_infinite]" style={{ animationDelay: `${i * 300}ms` }}></div>
+            </div>
+            <div className="h-2 w-16 bg-slate-50 rounded-full"></div>
+          </div>
+          <div className="text-right">
+            <div className="h-4 w-8 bg-primary/20 rounded-md"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+    <style jsx>{`
+      @keyframes loading {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+    `}</style>
+  </div>
 );
 
 export default function GlobalLandingPage() {
@@ -45,21 +107,20 @@ export default function GlobalLandingPage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const heroImage = PlaceHolderImages.find(img => img.id === 'modern-transit');
-  const commuteImage = PlaceHolderImages.find(img => img.id === 'office-commute');
-
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground font-body overflow-x-hidden">
       {/* Navigation */}
-      <header className={`fixed top-0 left-0 right-0 h-16 z-50 px-6 lg:px-20 flex items-center justify-between transition-all duration-300 ${scrolled ? 'bg-white/90 border-b border-black/5 backdrop-blur-md' : 'bg-transparent'}`}>
-        <Link href="/" className="flex items-center gap-2">
-          <ConnectingDotsLogo className="h-6 w-6 text-primary" />
-          <span className="text-xl font-bold tracking-tight text-primary">AAGO</span>
+      <header className={`fixed top-0 left-0 right-0 h-20 z-50 px-6 lg:px-20 flex items-center justify-between transition-all duration-300 ${scrolled ? 'bg-white/90 border-b border-black/5 backdrop-blur-md' : 'bg-transparent'}`}>
+        <Link href="/" className="flex items-center gap-3">
+          <div className="bg-primary p-2 rounded-lg text-white shadow-lg shadow-primary/20">
+            <ConnectingDotsLogo className="h-6 w-6" />
+          </div>
+          <span className="text-xl font-black italic tracking-tighter text-foreground uppercase">AAGO</span>
         </Link>
-        <nav className="hidden lg:flex items-center gap-8">
-          <Link href="/auth/login" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Login</Link>
+        <nav className="hidden lg:flex items-center gap-10">
+          <Link href="/auth/login" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Portal Access</Link>
           <Link href="/auth/signup">
-            <Button size="sm" className="bg-primary text-white rounded-lg font-bold px-6">Join the Grid</Button>
+            <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl font-black uppercase italic px-8 h-12 shadow-xl shadow-primary/10">Join Grid</Button>
           </Link>
         </nav>
         <Button variant="ghost" className="lg:hidden p-0" onClick={() => setIsMenuOpen(!isMenuOpen)}>
@@ -69,118 +130,108 @@ export default function GlobalLandingPage() {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-white pt-24 px-10 flex flex-col gap-6 animate-in fade-in slide-in-from-top-4">
-          <Link href="/auth/login" onClick={() => setIsMenuOpen(false)} className="text-2xl font-bold text-foreground">Login</Link>
-          <Link href="/auth/signup" onClick={() => setIsMenuOpen(false)} className="text-2xl font-bold text-primary">Join Grid</Link>
-          <Link href="/driver/signup" onClick={() => setIsMenuOpen(false)} className="text-2xl font-bold text-muted-foreground">Join Fleet</Link>
+        <div className="fixed inset-0 z-40 bg-white pt-32 px-10 flex flex-col gap-8 animate-in fade-in slide-in-from-top-4">
+          <Link href="/auth/login" onClick={() => setIsMenuOpen(false)} className="text-3xl font-black italic uppercase text-foreground">Portal Access</Link>
+          <Link href="/auth/signup" onClick={() => setIsMenuOpen(false)} className="text-3xl font-black italic uppercase text-primary">Join Grid</Link>
+          <Link href="/driver/signup" onClick={() => setIsMenuOpen(false)} className="text-3xl font-black italic uppercase text-muted-foreground">Join Fleet</Link>
         </div>
       )}
 
       <main>
         {/* Hero Section */}
-        <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 bg-white">
+        <section className="relative pt-40 pb-20 lg:pt-56 lg:pb-40 bg-white">
           <div className="container mx-auto px-6 lg:px-20">
-            <div className="grid lg:grid-cols-2 gap-16 items-center">
-              <div className="space-y-8">
-                <Badge variant="outline" className="px-4 py-1 text-primary border-primary/20 bg-primary/5">AAGO City Transit v2.0</Badge>
-                <h1 className="text-5xl lg:text-7xl font-bold text-foreground tracking-tight">
+            <div className="grid lg:grid-cols-2 gap-24 items-center">
+              <div className="space-y-10">
+                <Badge variant="outline" className="px-5 py-2 text-primary border-primary/20 bg-primary/5 font-black uppercase tracking-widest text-[10px] italic">Universal Mobility Protocol v2.5</Badge>
+                <h1 className="text-5xl lg:text-7xl font-black text-foreground italic uppercase tracking-tighter leading-none">
                   The Smarter Way <br /> to Move.
                 </h1>
-                <p className="text-lg text-muted-foreground leading-relaxed max-w-xl">
-                  AAGO brings professional-grade city transit to your daily routine. Reserved seats, real-time tracking, and fixed pricing for everyone.
+                <p className="text-lg text-muted-foreground leading-relaxed max-w-xl italic font-medium">
+                  Professional-grade transit for city dwellers, commuters, and scholars. Experience a perfectly synchronized mobility grid with zero friction.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex flex-col sm:flex-row gap-5 pt-4">
                   <Link href="/auth/signup">
-                    <Button size="lg" className="w-full sm:w-auto h-14 px-10 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold text-lg">Start Riding</Button>
+                    <Button size="lg" className="w-full sm:w-auto h-16 px-12 bg-primary hover:bg-primary/90 text-white rounded-2xl font-black uppercase italic text-lg shadow-2xl shadow-primary/20 transition-all active:scale-95">Start Riding</Button>
                   </Link>
                   <Link href="/driver/signup">
-                    <Button variant="outline" size="lg" className="w-full sm:w-auto h-14 px-10 rounded-xl font-bold text-lg border-black/5 hover:bg-black/5">Join Fleet</Button>
+                    <Button variant="outline" size="lg" className="w-full sm:w-auto h-16 px-12 rounded-2xl font-black uppercase italic text-lg border-black/5 hover:bg-black/5 transition-all">Join Fleet</Button>
                   </Link>
                 </div>
               </div>
 
-              <div className="relative aspect-video lg:aspect-square rounded-3xl overflow-hidden shadow-xl border border-black/5">
-                <Image 
-                  src={heroImage?.imageUrl || "https://picsum.photos/seed/aago-hero/1200/800"} 
-                  alt="Modern Transit" 
-                  fill 
-                  className="object-cover"
-                />
+              <div className="relative aspect-square rounded-[3rem] overflow-hidden shadow-2xl shadow-primary/5 animate-slow-float">
+                <GridConnectivityAnimation />
               </div>
             </div>
           </div>
         </section>
 
         {/* Benefits Section */}
-        <section className="py-24 bg-slate-50">
+        <section className="py-32 bg-slate-50">
           <div className="container mx-auto px-6 lg:px-20">
-            <div className="text-center mb-16 space-y-4">
-              <h2 className="text-3xl lg:text-5xl font-bold text-foreground">The Grid Difference.</h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
-                Simple, predictable, and secure mobility for the modern city.
+            <div className="text-center mb-24 space-y-6">
+              <h2 className="text-4xl lg:text-6xl font-black italic uppercase text-foreground tracking-tighter">The Grid Protocol.</h2>
+              <p className="text-muted-foreground max-w-2xl mx-auto italic font-medium">
+                Simple, predictable, and secure mobility for the modern city professional.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-8">
+            <div className="grid md:grid-cols-3 gap-10">
               {[
                 { 
                   title: "Fixed Pricing", 
-                  desc: "No surges. No bargaining. Transparent fares for your daily commute.", 
+                  desc: "No surges. No bargaining. Transparent, fixed fares for every node in the grid.", 
                   icon: IndianRupee 
                 },
                 { 
                   title: "Live Radar", 
-                  desc: "See your shuttle's live position and know exactly when to step out.", 
+                  desc: "Precision tracking. See your grid mission position and board with a single code.", 
                   icon: Radar 
                 },
                 { 
-                  title: "Safety First", 
-                  desc: "Tracked journeys and verified operators for your peace of mind.", 
+                  title: "High Safety", 
+                  desc: "Verified operators and real-time journey telemetry for complete peace of mind.", 
                   icon: ShieldCheck 
                 }
               ].map((item, i) => (
-                <Card key={i} className="p-8 border-none shadow-sm hover:shadow-md transition-shadow">
-                  <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary mb-6">
-                    <item.icon className="h-6 w-6" />
+                <Card key={i} className="p-10 border-none shadow-sm hover:shadow-xl hover:translate-y-[-8px] transition-all duration-500 rounded-[2.5rem] bg-white">
+                  <div className="h-16 w-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-8">
+                    <item.icon className="h-8 w-8" />
                   </div>
-                  <h3 className="text-xl font-bold mb-3">{item.title}</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">{item.desc}</p>
+                  <h3 className="text-2xl font-black italic uppercase mb-4">{item.title}</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed italic font-medium">{item.desc}</p>
                 </Card>
               ))}
             </div>
           </div>
         </section>
 
-        {/* Professional Section */}
-        <section className="py-24 bg-white">
+        {/* Efficiency Section */}
+        <section className="py-32 bg-white">
           <div className="container mx-auto px-6 lg:px-20">
-            <div className="grid lg:grid-cols-2 gap-16 items-center">
-              <div className="relative rounded-3xl overflow-hidden shadow-lg aspect-square lg:aspect-[4/3]">
-                <Image 
-                  src={commuteImage?.imageUrl || "https://picsum.photos/seed/aago-professional/800/600"} 
-                  alt="Professional Commute" 
-                  fill 
-                  className="object-cover"
-                />
+            <div className="grid lg:grid-cols-2 gap-24 items-center">
+              <div className="relative rounded-[3rem] overflow-hidden shadow-2xl aspect-square bg-slate-50">
+                <TransitFlowAnimation />
               </div>
-              <div className="space-y-8">
-                <h2 className="text-3xl lg:text-5xl font-bold leading-tight">Built for Professionals <br/> & Scholars.</h2>
-                <p className="text-lg text-muted-foreground leading-relaxed">
-                  Whether heading to a morning meeting or a late lecture, AAGO ensures your focus stays on your goals, not your travel.
+              <div className="space-y-10">
+                <h2 className="text-4xl lg:text-6xl font-black italic uppercase leading-none tracking-tighter">Synchronized <br/> For Success.</h2>
+                <p className="text-lg text-muted-foreground leading-relaxed italic font-medium">
+                  Whether heading to a morning meeting or a late lecture, AAGO ensures your focus stays on your goals, not your travel logistics.
                 </p>
-                <div className="space-y-6">
-                  <div className="flex gap-4">
-                    <div className="shrink-0 h-10 w-10 bg-slate-100 rounded-lg flex items-center justify-center text-primary"><Briefcase className="h-5 w-5" /></div>
+                <div className="space-y-8">
+                  <div className="flex gap-6">
+                    <div className="shrink-0 h-14 w-14 bg-slate-100 rounded-2xl flex items-center justify-center text-primary"><Briefcase className="h-7 w-7" /></div>
                     <div>
-                      <h4 className="font-bold text-lg">Professionals</h4>
-                      <p className="text-muted-foreground text-sm">Arrive refreshed without parking or traffic stress.</p>
+                      <h4 className="font-black italic uppercase text-xl">Professionals</h4>
+                      <p className="text-muted-foreground text-sm italic font-medium">Arrive refreshed without parking or traffic stress.</p>
                     </div>
                   </div>
-                  <div className="flex gap-4">
-                    <div className="shrink-0 h-10 w-10 bg-slate-100 rounded-lg flex items-center justify-center text-primary"><GraduationCap className="h-5 w-5" /></div>
+                  <div className="flex gap-6">
+                    <div className="shrink-0 h-14 w-14 bg-slate-100 rounded-2xl flex items-center justify-center text-primary"><GraduationCap className="h-7 w-7" /></div>
                     <div>
-                      <h4 className="font-bold text-lg">Students</h4>
-                      <p className="text-muted-foreground text-sm">Safe, affordable routes designed for campus life.</p>
+                      <h4 className="font-black italic uppercase text-xl">Scholars</h4>
+                      <p className="text-muted-foreground text-sm italic font-medium">Safe, affordable corridors designed for campus life.</p>
                     </div>
                   </div>
                 </div>
@@ -190,21 +241,21 @@ export default function GlobalLandingPage() {
         </section>
 
         {/* How it Works */}
-        <section className="py-24 bg-slate-50">
+        <section className="py-32 bg-slate-50">
           <div className="container mx-auto px-6 lg:px-20">
-            <h2 className="text-3xl lg:text-5xl font-bold text-center mb-16">Simple to Use.</h2>
-            <div className="grid md:grid-cols-3 gap-12">
+            <h2 className="text-4xl lg:text-6xl font-black italic uppercase text-center mb-24 tracking-tighter">Grid Activation.</h2>
+            <div className="grid md:grid-cols-3 gap-16">
               {[
-                { title: "Pick Route", desc: "Select your corridor and reserve your seat.", icon: MapPin },
-                { title: "Pay Securely", desc: "Transparent, fixed fares via the grid app.", icon: Lock },
-                { title: "Ride", desc: "Board with your code and track your progress.", icon: CheckCircle2 }
+                { title: "Select Node", desc: "Select your corridor and reserve your seat on the grid.", icon: MapPin },
+                { title: "Node Checkout", desc: "Pay securely via our professional payment protocol.", icon: Lock },
+                { title: "Ride Phase", desc: "Board with your pass and track telemetry live.", icon: CheckCircle2 }
               ].map((item, i) => (
-                <div key={i} className="text-center space-y-4">
-                  <div className="mx-auto h-16 w-16 bg-white rounded-2xl shadow-sm flex items-center justify-center text-primary text-2xl font-bold">
+                <div key={i} className="text-center space-y-6">
+                  <div className="mx-auto h-20 w-20 bg-white rounded-3xl shadow-lg flex items-center justify-center text-primary text-3xl font-black italic">
                     {i + 1}
                   </div>
-                  <h4 className="text-xl font-bold">{item.title}</h4>
-                  <p className="text-muted-foreground text-sm">{item.desc}</p>
+                  <h4 className="text-2xl font-black italic uppercase">{item.title}</h4>
+                  <p className="text-muted-foreground text-sm italic font-medium">{item.desc}</p>
                 </div>
               ))}
             </div>
@@ -212,34 +263,36 @@ export default function GlobalLandingPage() {
         </section>
 
         {/* CTA Section */}
-        <section className="py-24 bg-primary text-white">
-          <div className="container mx-auto px-6 lg:px-20 text-center space-y-8">
-            <h2 className="text-4xl lg:text-6xl font-bold">Ready to Move?</h2>
-            <p className="text-lg opacity-90 max-w-xl mx-auto">Join the mobility grid and experience stress-free transit today.</p>
-            <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
+        <section className="py-32 bg-primary text-white">
+          <div className="container mx-auto px-6 lg:px-20 text-center space-y-10">
+            <h2 className="text-5xl lg:text-7xl font-black italic uppercase tracking-tighter">Join The Grid.</h2>
+            <p className="text-xl opacity-90 max-w-xl mx-auto italic font-medium uppercase tracking-widest">Universal mobility protocol. Optimized for you.</p>
+            <div className="flex flex-col sm:flex-row justify-center gap-6 pt-6">
               <Link href="/auth/signup">
-                <Button size="lg" className="w-full sm:w-auto h-16 px-12 bg-white text-primary hover:bg-slate-50 rounded-xl font-bold text-xl">Join as Rider</Button>
+                <Button size="lg" className="w-full sm:w-auto h-20 px-16 bg-white text-primary hover:bg-slate-50 rounded-[2rem] font-black uppercase italic text-2xl shadow-2xl active:scale-95 transition-all">Join Grid</Button>
               </Link>
               <Link href="/driver/signup">
-                <Button variant="outline" size="lg" className="w-full sm:w-auto h-16 px-12 border-white text-white hover:bg-white/10 rounded-xl font-bold text-xl">Join Fleet</Button>
+                <Button variant="outline" size="lg" className="w-full sm:w-auto h-20 px-16 border-white/40 text-white hover:bg-white/10 rounded-[2rem] font-black uppercase italic text-2xl active:scale-95 transition-all">Join Fleet</Button>
               </Link>
             </div>
           </div>
         </section>
       </main>
 
-      <footer className="bg-white border-t border-black/5 py-12">
+      <footer className="bg-white border-t border-black/5 py-16">
         <div className="container mx-auto px-6 lg:px-20">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-            <div className="flex items-center gap-2">
-              <ConnectingDotsLogo className="h-6 w-6 text-primary" />
-              <span className="text-xl font-bold tracking-tight text-primary">AAGO</span>
+          <div className="flex flex-col md:flex-row justify-between items-center gap-10">
+            <div className="flex items-center gap-3">
+              <div className="bg-primary/10 p-2 rounded-lg text-primary">
+                <ConnectingDotsLogo className="h-6 w-6" />
+              </div>
+              <span className="text-xl font-black italic tracking-tighter text-foreground uppercase">AAGO</span>
             </div>
-            <p className="text-sm text-muted-foreground">© 2024 AAGO GRID. Universal Mobility Protocol.</p>
-            <div className="flex gap-6">
-               <Globe className="h-5 w-5 text-muted-foreground" />
-               <Activity className="h-5 w-5 text-muted-foreground" />
-               <Zap className="h-5 w-5 text-muted-foreground" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">© 2024 AAGO GRID. Universal Mobility Protocol Active.</p>
+            <div className="flex gap-8">
+               <Globe className="h-5 w-5 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />
+               <Activity className="h-5 w-5 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />
+               <Zap className="h-5 w-5 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />
             </div>
           </div>
         </div>
