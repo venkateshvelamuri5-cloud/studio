@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth, useFirestore, useUser } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { doc, setDoc, getDocs, collection, query, where, updateDoc, increment } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -27,9 +28,9 @@ export default function SignupPage() {
   const [step, setStep] = useState(1); // 1: Info, 2: Safety, 3: Phone, 4: Code
   const [loading, setLoading] = useState(false);
   
-  // Student Details
+  // Profile Details
   const [fullName, setFullName] = useState('');
-  const [studentId, setStudentId] = useState('');
+  const [identityNumber, setIdentityNumber] = useState('');
   const [gender, setGender] = useState('Male');
   const [emergencyName, setEmergencyName] = useState('');
   const [emergencyPhone, setEmergencyPhone] = useState('');
@@ -44,8 +45,16 @@ export default function SignupPage() {
   const router = useRouter();
   const auth = useAuth();
   const db = useFirestore();
+  const { user, loading: authLoading } = useUser();
   const { toast } = useToast();
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
+
+  // Persistence Check
+  useEffect(() => {
+    if (!authLoading && user && db) {
+      router.push('/student');
+    }
+  }, [user, authLoading, router, db]);
 
   useEffect(() => {
     if (auth && !recaptchaRef.current) {
@@ -79,7 +88,7 @@ export default function SignupPage() {
       
       if (error.code === 'auth/billing-not-enabled') {
         title = "Billing Required";
-        message = "Firebase Phone Auth requires a billing account (Blaze plan) to be enabled in the Firebase Console.";
+        message = "SMS services require a billing plan. Please enable billing in Firebase Console.";
       }
       
       toast({ variant: "destructive", title, description: message });
@@ -104,7 +113,7 @@ export default function SignupPage() {
       
       const referralCode = `AAGO-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
-      // Logic to reward the referrer
+      // Reward the referrer
       if (referredByCode.trim()) {
         const q = query(collection(db, 'users'), where('referralCode', '==', referredByCode.trim().toUpperCase()));
         const referrerSnap = await getDocs(q);
@@ -120,7 +129,7 @@ export default function SignupPage() {
         uid: user.uid,
         phoneNumber: user.phoneNumber,
         fullName,
-        studentId,
+        identityNumber,
         gender,
         emergencyContactName: emergencyName,
         emergencyContactPhone: emergencyPhone,
@@ -139,20 +148,22 @@ export default function SignupPage() {
     }
   };
 
+  if (authLoading) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin h-12 w-12 text-primary" /></div>;
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 sm:p-6 font-body safe-area-inset">
       <div id="recaptcha-container-signup"></div>
       
-      <div className="mb-6 flex flex-col items-center gap-3">
+      <div className="mb-6 flex flex-col items-center gap-3 animate-in fade-in duration-700">
         <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/20">
           <ConnectingDotsLogo className="h-8 w-8 text-black" />
         </div>
-        <h1 className="text-xl font-black italic uppercase tracking-tighter text-primary">JOIN AAGO</h1>
+        <h1 className="text-xl font-black italic uppercase tracking-tighter text-primary">JOIN THE GRID</h1>
       </div>
 
       <Card className="w-full max-w-md glass-card border-none rounded-[2.5rem] overflow-hidden shadow-2xl">
         <CardHeader className="pt-8 pb-4 text-center border-b border-white/5 bg-white/5">
-          <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-foreground leading-none">Create Account</CardTitle>
+          <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-foreground leading-none">Rider Profile</CardTitle>
           <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Step {step} of 4</CardDescription>
         </CardHeader>
         
@@ -161,7 +172,7 @@ export default function SignupPage() {
             <div className="space-y-5 animate-in slide-in-from-right-8 duration-500">
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Rahul" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Name" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Gender</Label>
@@ -177,14 +188,14 @@ export default function SignupPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Student ID No.</Label>
-                <Input value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="12345" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identity Number (Aadhaar/ID)</Label>
+                <Input value={identityNumber} onChange={(e) => setIdentityNumber(e.target.value)} placeholder="ID Number" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Referral Code (Optional)</Label>
                 <Input value={referredByCode} onChange={(e) => setReferredByCode(e.target.value)} placeholder="AAGO-XXXX" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base uppercase" />
               </div>
-              <Button onClick={() => setStep(2)} disabled={!fullName || !studentId} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl mt-2 active:scale-95 transition-all">Next</Button>
+              <Button onClick={() => setStep(2)} disabled={!fullName || !identityNumber} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl mt-2 active:scale-95 transition-all">Continue</Button>
             </div>
           )}
 
@@ -192,14 +203,14 @@ export default function SignupPage() {
             <div className="space-y-5 animate-in slide-in-from-right-8 duration-500">
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Safe Contact Name</Label>
-                <Input value={emergencyName} onChange={(e) => setEmergencyName(e.target.value)} placeholder="Parent Name" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
+                <Input value={emergencyName} onChange={(e) => setEmergencyName(e.target.value)} placeholder="Friend or Family" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Safe Phone Number</Label>
                 <Input value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)} placeholder="0000000000" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Your City Hub</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Community Hub</Label>
                 <Select value={city} onValueChange={setCity}>
                   <SelectTrigger className="h-14 bg-white/5 border-white/10 text-foreground font-black italic rounded-xl">
                     <SelectValue />
@@ -210,7 +221,7 @@ export default function SignupPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={() => setStep(3)} disabled={!emergencyName || !emergencyPhone} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl mt-2 active:scale-95 transition-all">Last Step</Button>
+              <Button onClick={() => setStep(3)} disabled={!emergencyName || !emergencyPhone} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl mt-2 active:scale-95 transition-all">Verify Phone</Button>
             </div>
           )}
 
@@ -259,7 +270,7 @@ export default function SignupPage() {
 
         <CardFooter className="flex flex-col space-y-4 bg-white/5 p-8 border-t border-white/5">
           <p className="text-[10px] text-center font-bold text-muted-foreground uppercase tracking-widest">
-            Have a profile?{' '}
+            Existing Rider?{' '}
             <Link href="/auth/login" className="text-primary font-black hover:underline italic">Sign In</Link>
           </p>
         </CardFooter>

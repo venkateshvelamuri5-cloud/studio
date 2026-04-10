@@ -3,15 +3,15 @@
   "entities": {
     "User": {
       "title": "User",
-      "description": "A student rider, driver, or administrative user profile.",
+      "description": "A rider, driver, or administrative user profile for the community grid.",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
         "fullName": { "type": "string" },
         "phoneNumber": { "type": "string" },
         "email": { "type": "string" },
-        "collegeName": { "type": "string" },
-        "studentId": { "type": "string" },
+        "communityName": { "type": "string" },
+        "identityNumber": { "type": "string" },
         "gender": { "type": "string", "enum": ["Male", "Female", "Other"] },
         "emergencyContactName": { "type": "string" },
         "emergencyContactPhone": { "type": "string" },
@@ -36,7 +36,7 @@
     },
     "Trip": {
       "title": "Trip",
-      "description": "A record of a shuttle trip.",
+      "description": "A record of a community shuttle trip.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -75,7 +75,7 @@
     },
     "Route": {
       "title": "Route",
-      "description": "A corridor definition.",
+      "description": "A community transit corridor definition.",
       "type": "object",
       "properties": {
         "routeName": { "type": "string" },
@@ -95,10 +95,10 @@
     "providers": ["phone", "password"]
   },
   "firestore": {
-    "/users/{userId}": { "schema": "User", "description": "User profiles." },
-    "/trips/{tripId}": { "schema": "Trip", "description": "Trip records." },
-    "/routes/{routeId}": { "schema": "Route", "description": "Route definitions." },
+    "/users/{userId}": { "schema": "User", "description": "Community user profiles." },
+    "/trips/{tripId}": { "schema": "Trip", "description": "Grid trip records." },
+    "/routes/{routeId}": { "schema": "Route", "description": "Transit corridors." },
     "/vouchers/{voucherId}": { "schema": "Voucher", "description": "Discount vouchers." },
-    "/config/global": { "schema": "AppConfig", "description": "Global network settings." }
+    "/config/global": { "schema": "AppConfig", "description": "Global grid settings." }
   }
 }

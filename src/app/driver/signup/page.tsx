@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Camera, RefreshCcw } from 'lucide-react';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth, useFirestore, useUser } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -51,8 +52,16 @@ export default function DriverSignupPage() {
   const router = useRouter();
   const auth = useAuth();
   const db = useFirestore();
+  const { user, loading: authLoading } = useUser();
   const { toast } = useToast();
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
+
+  // Persistence Check
+  useEffect(() => {
+    if (!authLoading && user && db) {
+      router.push('/driver');
+    }
+  }, [user, authLoading, router, db]);
 
   useEffect(() => {
     if (auth && !recaptchaRef.current) {
@@ -111,7 +120,7 @@ export default function DriverSignupPage() {
       
       if (error.code === 'auth/billing-not-enabled') {
         title = "Billing Required";
-        message = "Firebase Phone Auth requires a billing account (Blaze plan) to be enabled in the Firebase Console.";
+        message = "SMS services require a billing plan. Please enable billing in Firebase Console.";
       }
       
       toast({ variant: "destructive", title, description: message });
@@ -132,7 +141,6 @@ export default function DriverSignupPage() {
 
     try {
       const result = await confirmationResult.confirm(otp);
-      
       const referralCode = `FLEET-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
       await setDoc(doc(db, 'users', result.user.uid), {
@@ -156,20 +164,22 @@ export default function DriverSignupPage() {
     }
   };
 
+  if (authLoading) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin h-12 w-12 text-primary" /></div>;
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 sm:p-6 font-body safe-area-inset">
       <div id="recaptcha-container-signup-driver"></div>
       
-      <div className="mb-6 flex flex-col items-center gap-3">
+      <div className="mb-6 flex flex-col items-center gap-3 animate-in fade-in duration-700">
         <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/30">
           <ConnectingDotsLogo className="h-6 w-6 text-black" />
         </div>
-        <h1 className="text-xl font-black italic uppercase tracking-tighter text-foreground text-center">JOIN FLEET</h1>
+        <h1 className="text-xl font-black italic uppercase tracking-tighter text-foreground text-center">JOIN THE FLEET</h1>
       </div>
 
       <Card className="w-full max-w-md glass-card border-none rounded-[2.5rem] overflow-hidden shadow-2xl">
         <CardHeader className="pt-8 pb-4 text-center border-b border-white/5 bg-white/5">
-          <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-foreground leading-none">Registration</CardTitle>
+          <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-foreground leading-none">Operator Registration</CardTitle>
           <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Step {step} of 5</CardDescription>
         </CardHeader>
         
@@ -188,14 +198,14 @@ export default function DriverSignupPage() {
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Gov ID (Aadhaar)</Label>
                 <Input value={aadhaarNumber} onChange={(e) => setAadhaarNumber(e.target.value)} placeholder="Aadhaar ID" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
               </div>
-              <Button onClick={() => setStep(2)} disabled={!fullName || !licenseNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4 active:scale-95 transition-all">Next</Button>
+              <Button onClick={() => setStep(2)} disabled={!fullName || !licenseNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4 active:scale-95 transition-all">Continue</Button>
             </div>
           )}
 
           {step === 2 && (
             <div className="space-y-4 animate-in slide-in-from-right-8 duration-500">
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Plate No.</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Vehicle Plate No.</Label>
                 <Input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="Plate Number" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
               </div>
               <div className="space-y-1.5">
@@ -272,7 +282,7 @@ export default function DriverSignupPage() {
         </CardContent>
 
         <CardFooter className="bg-white/5 p-8 flex flex-col gap-4 border-t border-white/5">
-          <Link href="/driver/login" className="text-[10px] font-black uppercase italic text-primary hover:underline tracking-widest text-center w-full">Sign In</Link>
+          <Link href="/driver/login" className="text-[10px] font-black uppercase italic text-primary hover:underline tracking-widest text-center w-full">Operator Login</Link>
         </CardFooter>
       </Card>
     </div>
