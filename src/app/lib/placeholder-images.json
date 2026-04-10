@@ -1,28 +1,28 @@
 {
   "placeholderImages": [
     {
-      "id": "3d-shuttle",
-      "description": "3D isometric render of a modern blue student shuttle",
-      "imageUrl": "https://picsum.photos/seed/aago-3d-bus/1200/800",
-      "imageHint": "3d shuttle"
+      "id": "modern-transit",
+      "description": "Clean modern transit hub with people walking",
+      "imageUrl": "https://picsum.photos/seed/aago-transit/1200/800",
+      "imageHint": "modern transit"
     },
     {
-      "id": "3d-network",
-      "description": "3D abstract glowing network nodes and connections",
-      "imageUrl": "https://picsum.photos/seed/aago-3d-grid/800/600",
-      "imageHint": "3d network"
+      "id": "office-commute",
+      "description": "Professional person checking phone while commuting",
+      "imageUrl": "https://picsum.photos/seed/aago-commuter/800/600",
+      "imageHint": "commuter person"
     },
     {
-      "id": "3d-map",
-      "description": "3D stylized city map with glowing route markers",
-      "imageUrl": "https://picsum.photos/seed/aago-3d-map/800/600",
-      "imageHint": "3d map"
+      "id": "city-map-light",
+      "description": "Soft colored digital city map with route lines",
+      "imageUrl": "https://picsum.photos/seed/aago-map-light/800/600",
+      "imageHint": "city map"
     },
     {
-      "id": "scholar-3d",
-      "description": "3D abstract representation of a student identity",
-      "imageUrl": "https://picsum.photos/seed/aago-3d-user/600/800",
-      "imageHint": "3d character"
+      "id": "modern-shuttle",
+      "description": "Sleek white shuttle van on a city street",
+      "imageUrl": "https://picsum.photos/seed/aago-shuttle-modern/1200/800",
+      "imageHint": "modern shuttle"
     }
   ]
 }

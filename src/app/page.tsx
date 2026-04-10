@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,32 +10,27 @@ import {
   Bus, 
   ArrowRight, 
   Navigation,
-  QrCode,
   ShieldCheck,
   Radar,
   IndianRupee,
   MapPin,
-  TrendingUp,
-  Globe,
-  Network,
   Activity,
   Zap,
   Menu,
   X,
   Lock,
-  Wifi,
-  Cpu,
   Target,
-  BarChart3,
   ShieldAlert,
   Clock,
-  Leaf,
   CheckCircle2,
   Users,
-  Smartphone
+  Smartphone,
+  Briefcase,
+  GraduationCap,
+  Globe,
+  ChevronRight
 } from 'lucide-react';
-import { useFirestore, useCollection } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 
 const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -47,95 +43,113 @@ const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) =
 
 export default function GlobalLandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const db = useFirestore();
-  const routesQuery = useMemo(() => db ? query(collection(db, 'routes'), where('status', '==', 'active')) : null, [db]);
-  const { data: activeRoutes } = useCollection(routesQuery);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const heroImage = PlaceHolderImages.find(img => img.id === 'modern-transit');
+  const commuteImage = PlaceHolderImages.find(img => img.id === 'office-commute');
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground font-body selection:bg-primary selection:text-black overflow-x-hidden">
+    <div className="flex flex-col min-h-screen bg-background text-foreground font-body selection:bg-primary selection:text-white overflow-x-hidden">
       {/* Navigation */}
-      <header className="fixed top-0 left-0 right-0 h-20 z-50 px-6 lg:px-20 flex items-center justify-between bg-background/80 border-b border-white/5 backdrop-blur-md">
+      <header className={`fixed top-0 left-0 right-0 h-20 z-50 px-6 lg:px-20 flex items-center justify-between transition-all duration-300 ${scrolled ? 'bg-white/80 border-b border-primary/5 backdrop-blur-md' : 'bg-transparent'}`}>
         <Link href="/" className="flex items-center gap-3 group">
-          <div className="bg-primary p-2 rounded-xl shadow-[0_0_20px_rgba(0,255,255,0.3)] group-hover:rotate-12 transition-transform duration-500">
-            <ConnectingDotsLogo className="h-6 w-6 text-black" />
+          <div className="bg-primary p-2.5 rounded-2xl shadow-xl shadow-primary/20 group-hover:scale-110 transition-transform duration-500">
+            <ConnectingDotsLogo className="h-6 w-6 text-white" />
           </div>
-          <span className="text-xl font-black italic tracking-tighter uppercase text-primary text-glow">AAGO</span>
+          <span className="text-2xl font-black italic tracking-tighter uppercase text-primary leading-none">AAGO</span>
         </Link>
-        <nav className="hidden lg:flex items-center gap-10">
-          <Link href="/auth/login" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Scholar Login</Link>
+        <nav className="hidden lg:flex items-center gap-12">
+          <Link href="/auth/login" className="text-[11px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Access Portal</Link>
           <Link href="/auth/signup">
-            <Button className="h-10 bg-primary text-black px-6 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">Join Now</Button>
+            <Button className="h-11 bg-primary text-white px-8 rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-primary/90 transition-all shadow-xl shadow-primary/20">Join the Grid</Button>
           </Link>
         </nav>
-        <Button variant="ghost" className="lg:hidden h-10 w-10 rounded-xl bg-white/5" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+        <Button variant="ghost" className="lg:hidden h-12 w-12 rounded-2xl bg-white/50 border border-white" onClick={() => setIsMenuOpen(!isMenuOpen)}>
           {isMenuOpen ? <X size={24} className="text-primary" /> : <Menu size={24} className="text-primary" />}
         </Button>
       </header>
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-background pt-32 px-10 flex flex-col gap-8 animate-in fade-in slide-in-from-top-10 duration-500">
-          <Link href="/auth/login" onClick={() => setIsMenuOpen(false)} className="text-2xl font-black uppercase italic text-foreground border-b border-white/5 pb-4">Scholar Login</Link>
-          <Link href="/auth/signup" onClick={() => setIsMenuOpen(false)} className="text-2xl font-black uppercase italic text-primary">Join Now</Link>
-          <Link href="/driver/signup" onClick={() => setIsMenuOpen(false)} className="text-2xl font-black uppercase italic text-muted-foreground">Join Fleet</Link>
+        <div className="fixed inset-0 z-40 bg-white/95 backdrop-blur-xl pt-32 px-10 flex flex-col gap-8 animate-in fade-in slide-in-from-top-10 duration-500">
+          <Link href="/auth/login" onClick={() => setIsMenuOpen(false)} className="text-3xl font-black uppercase italic text-foreground border-b border-black/5 pb-6">Access Portal</Link>
+          <Link href="/auth/signup" onClick={() => setIsMenuOpen(false)} className="text-3xl font-black uppercase italic text-primary">Join the Grid</Link>
+          <Link href="/driver/signup" onClick={() => setIsMenuOpen(false)} className="text-3xl font-black uppercase italic text-muted-foreground">Join the Fleet</Link>
         </div>
       )}
 
       <main>
         {/* Hero Section */}
-        <section className="relative min-h-screen flex items-center pt-32 pb-20 overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(0,255,255,0.05),transparent_50%)]" />
+        <section className="relative min-h-[95vh] flex items-center pt-32 pb-20 overflow-hidden bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/50">
+          <div className="absolute top-0 right-0 w-1/2 h-full bg-[radial-gradient(circle_at_70%_30%,rgba(99,102,241,0.08),transparent_70%)]" />
           <div className="container mx-auto px-6 lg:px-20 relative z-10">
-            <div className="grid lg:grid-cols-2 gap-16 items-center">
-              <div className="max-w-2xl space-y-8 animate-in fade-in slide-in-from-left-10 duration-1000">
-                <Badge className="bg-primary/10 text-primary border-primary/20 px-6 py-2 text-[10px] font-black uppercase tracking-[0.3em]">Smart Campus Rides</Badge>
-                <h1 className="text-5xl lg:text-7xl font-black leading-tight italic tracking-tighter text-foreground">
-                  The Smartest <br /> <span className="text-primary text-glow">Way to Class.</span>
+            <div className="grid lg:grid-cols-2 gap-20 items-center">
+              <div className="max-w-3xl space-y-10 animate-in fade-in slide-in-from-left-10 duration-1000">
+                <div className="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-2xl shadow-sm border border-black/5">
+                  <Badge className="bg-primary/10 text-primary border-none text-[10px] font-black uppercase tracking-widest px-3 py-1">v2.0 Active</Badge>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Smart Mobility for All</span>
+                </div>
+                <h1 className="text-6xl lg:text-8xl font-black leading-[0.95] italic tracking-tighter text-foreground">
+                  The Smarter <br /> <span className="text-primary">Way to Move.</span>
                 </h1>
-                <p className="text-lg font-bold text-muted-foreground leading-relaxed italic border-l-4 border-primary/20 pl-6">
-                  Stop wasting your pocket money on expensive private transport. Get fast, safe, and reliable bus rides to campus. Never miss a 1st hour lecture again.
+                <p className="text-xl font-bold text-muted-foreground leading-relaxed italic border-l-4 border-primary/20 pl-8 max-w-xl">
+                  Stop settling for chaotic commutes. AAGO brings professional-grade transit to your daily routine. Reserved seats, real-time tracking, and fixed pricing for everyone.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-6">
+                <div className="flex flex-col sm:flex-row gap-6 pt-4">
                   <Link href="/auth/signup">
-                    <Button className="h-16 px-10 bg-primary hover:bg-primary/90 text-black rounded-2xl font-black uppercase italic text-lg shadow-2xl shadow-primary/20 transition-all hover:scale-105">Join Now</Button>
+                    <Button className="h-18 px-12 bg-primary hover:bg-primary/90 text-white rounded-3xl font-black uppercase italic text-xl shadow-2xl shadow-primary/20 transition-all hover:scale-105 active:scale-95">Start Riding</Button>
                   </Link>
                   <Link href="/driver/signup">
-                    <Button variant="ghost" className="h-16 px-10 rounded-2xl font-black uppercase italic text-lg border border-white/5 bg-white/5 hover:bg-white/10 shadow-xl transition-all text-primary">Join Fleet</Button>
+                    <Button variant="ghost" className="h-18 px-12 rounded-3xl font-black uppercase italic text-xl border border-black/5 bg-white shadow-xl transition-all hover:bg-primary/5 text-primary">Join Fleet</Button>
                   </Link>
                 </div>
               </div>
 
-              {/* Simulation Visual */}
-              <div className="hidden lg:block relative perspective-2000 h-[600px]">
+              {/* High-Fidelity Interface Simulation */}
+              <div className="hidden lg:block relative perspective-2000 h-[650px] animate-in fade-in zoom-in duration-1000">
                 <div className="absolute inset-0 animate-slow-float flex items-center justify-center">
-                  <div className="w-[450px] h-[550px] bg-white/5 rounded-[4rem] border border-white/10 shadow-[0_32px_128px_-12px_rgba(0,255,255,0.15)] relative overflow-hidden group backdrop-blur-3xl">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(0,255,255,0.1),transparent_70%)]" />
-                    <div className="p-8 space-y-8 relative z-10">
-                      <div className="flex justify-between items-center px-2">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
-                          <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Grid: Active</span>
+                  <div className="w-[480px] h-[600px] glass-card rounded-[4rem] border border-white shadow-2xl relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent" />
+                    <div className="p-10 space-y-10 relative z-10">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                          <div className="h-2.5 w-2.5 bg-primary rounded-full animate-pulse" />
+                          <span className="text-[11px] font-black uppercase tracking-widest text-primary">Live Grid Active</span>
                         </div>
-                        <ConnectingDotsLogo className="h-5 w-5 text-primary opacity-50" />
+                        <ConnectingDotsLogo className="h-6 w-6 text-primary opacity-30" />
                       </div>
-                      <div className="h-64 bg-black/40 rounded-[2.5rem] border border-white/5 p-6 relative overflow-hidden shadow-inner">
+                      
+                      <div className="h-64 bg-slate-50 rounded-[3rem] border border-black/5 p-4 relative overflow-hidden shadow-inner">
+                        <Image 
+                          src={heroImage?.imageUrl || "https://picsum.photos/seed/aago-map/800/600"} 
+                          alt="City Map" 
+                          fill 
+                          className="object-cover opacity-80"
+                        />
                         <div className="absolute inset-0 flex items-center justify-center">
-                           <div className="h-3 w-3 bg-primary rounded-full absolute top-1/4 left-1/4 animate-ping" />
-                           <div className="absolute animate-[shuttle-move_8s_linear_infinite] flex flex-col items-center">
-                              <Bus className="h-8 w-8 text-primary drop-shadow-[0_0_10px_rgba(0,255,255,0.8)]" />
+                           <div className="h-4 w-4 bg-primary rounded-full absolute top-1/3 left-1/4 animate-ping" />
+                           <div className="absolute animate-[shuttle-move_10s_linear_infinite] flex flex-col items-center">
+                              <Bus className="h-10 w-10 text-primary drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
                            </div>
                         </div>
                       </div>
+
                       <div className="space-y-4">
-                        <div className="p-4 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-between">
-                           <div className="flex items-center gap-4">
-                              <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm"><Navigation className="h-5 w-5" /></div>
-                              <div className="space-y-1">
-                                 <div className="h-2 w-24 bg-primary/20 rounded-full" />
-                                 <div className="h-2 w-12 bg-primary/10 rounded-full" />
+                        <div className="p-6 bg-white/80 rounded-3xl border border-black/5 flex items-center justify-between shadow-sm">
+                           <div className="flex items-center gap-5">
+                              <div className="h-12 w-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary"><Navigation className="h-6 w-6" /></div>
+                              <div className="space-y-1.5">
+                                 <div className="h-2.5 w-32 bg-primary/20 rounded-full" />
+                                 <div className="h-2.5 w-16 bg-primary/10 rounded-full" />
                               </div>
                            </div>
-                           <Badge className="bg-primary text-black border-none text-[8px] font-black uppercase">On Time</Badge>
+                           <Badge className="bg-primary text-white border-none text-[9px] font-black uppercase px-4 py-1 rounded-full">On Time</Badge>
                         </div>
                       </div>
                     </div>
@@ -146,97 +160,50 @@ export default function GlobalLandingPage() {
           </div>
         </section>
 
-        {/* The Commute Crisis Section */}
-        <section className="py-24 bg-white/[0.02] border-y border-white/5">
-           <div className="container mx-auto px-6 lg:px-20">
-              <div className="text-center max-w-3xl mx-auto mb-20 space-y-6">
-                 <Badge className="bg-destructive/10 text-destructive border-destructive/20 px-6 py-2 text-[10px] font-black uppercase tracking-[0.3em]">The Commute Crisis</Badge>
-                 <h2 className="text-4xl lg:text-5xl font-black uppercase italic tracking-tighter text-foreground leading-none">Why Students Hate Travel.</h2>
-                 <p className="text-lg font-bold text-muted-foreground italic leading-relaxed">
-                    Campus transport shouldn't be a daily struggle for scholars. We identified the top 3 reasons students are frustrated.
-                 </p>
-              </div>
-
-              <div className="grid lg:grid-cols-3 gap-10">
-                 {[
-                   { 
-                     title: "Unfair Pricing", 
-                     desc: "Local transport often charges high prices just because you're a student. It kills your monthly pocket money.", 
-                     icon: IndianRupee 
-                   },
-                   { 
-                     title: "Unpredictable Rides", 
-                     desc: "Regular buses have no tracking. You stand in the heat for a long time not knowing if the ride is coming or full.", 
-                     icon: Clock 
-                   },
-                   { 
-                     title: "Safety is a Gamble", 
-                     desc: "Walking long distances or taking unverified rides is risky. Every scholar deserves a secure journey.", 
-                     icon: ShieldAlert 
-                   }
-                 ].map((item, i) => (
-                   <Card key={i} className="bg-white/5 border border-white/10 p-10 rounded-[2.5rem] shadow-xl hover:border-primary/20 transition-all group">
-                      <div className="h-14 w-14 bg-destructive/10 rounded-2xl flex items-center justify-center text-destructive mb-8 group-hover:scale-110 transition-transform">
-                         <item.icon className="h-7 w-7" />
-                      </div>
-                      <h4 className="text-2xl font-black uppercase italic text-foreground tracking-tighter mb-4">{item.title}</h4>
-                      <p className="text-sm font-bold text-muted-foreground italic leading-relaxed">{item.desc}</p>
-                   </Card>
-                 ))}
-              </div>
-           </div>
-        </section>
-
-        {/* The Student Grid Section */}
-        <section className="py-24 bg-[radial-gradient(circle_at_0%_50%,rgba(0,255,255,0.03),transparent_50%)]">
+        {/* Global Commute Section */}
+        <section className="py-32 bg-white border-y border-black/5 relative">
            <div className="container mx-auto px-6 lg:px-20">
               <div className="grid lg:grid-cols-2 gap-24 items-center">
-                 <div className="relative">
-                    <div className="absolute -inset-4 bg-primary/20 blur-3xl opacity-20" />
-                    <Card className="glass-card p-12 rounded-[3.5rem] relative z-10 space-y-10 border-primary/20">
-                       <h3 className="text-3xl font-black italic uppercase text-primary text-glow">How AAGO Fixes It.</h3>
-                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                          <div className="space-y-4">
-                             <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><IndianRupee className="h-6 w-6" /></div>
-                             <h5 className="text-xl font-black uppercase italic text-foreground tracking-tighter">Fixed Fare</h5>
-                             <p className="text-xs font-bold text-muted-foreground italic leading-relaxed">No more bargaining. Pay the same student price every single day.</p>
-                          </div>
-                          <div className="space-y-4">
-                             <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Radar className="h-6 w-6" /></div>
-                             <h5 className="text-xl font-black uppercase italic text-foreground tracking-tighter">Live Map</h5>
-                             <p className="text-xs font-bold text-muted-foreground italic leading-relaxed">See where your bus is. Walk to the stop only when it's nearby.</p>
-                          </div>
-                          <div className="space-y-4">
-                             <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><CheckCircle2 className="h-6 w-6" /></div>
-                             <h5 className="text-xl font-black uppercase italic text-foreground tracking-tighter">Verified Seats</h5>
-                             <p className="text-xs font-bold text-muted-foreground italic leading-relaxed">Secure your seat before you board. No more standing in crowds.</p>
-                          </div>
-                          <div className="space-y-4">
-                             <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Smartphone className="h-6 w-6" /></div>
-                             <h5 className="text-xl font-black uppercase italic text-foreground tracking-tighter">Smart Boarding</h5>
-                             <p className="text-xs font-bold text-muted-foreground italic leading-relaxed">Just show your 6-digit code. Fast, paperless, and futuristic.</p>
-                          </div>
+                 <div className="relative animate-in slide-in-from-left-10 duration-1000">
+                    <div className="rounded-[4rem] overflow-hidden shadow-2xl border-[12px] border-slate-50 relative aspect-[4/5]">
+                       <Image 
+                         src={commuteImage?.imageUrl || "https://picsum.photos/seed/aago-office/800/1000"} 
+                         alt="Commuter" 
+                         fill 
+                         className="object-cover"
+                         data-ai-hint="commuter person"
+                       />
+                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                       <div className="absolute bottom-10 left-10 text-white space-y-2">
+                          <p className="text-[10px] font-black uppercase tracking-[0.4em]">Grid Case Study #14</p>
+                          <h4 className="text-3xl font-black italic uppercase leading-none">The Modern Professional</h4>
                        </div>
-                    </Card>
+                    </div>
+                    <div className="absolute -bottom-10 -right-10 glass-card p-10 rounded-[3rem] hidden lg:block animate-slow-float">
+                       <div className="flex items-center gap-4 mb-6">
+                          <div className="h-12 w-12 bg-primary rounded-2xl flex items-center justify-center text-white"><Clock className="h-6 w-6" /></div>
+                          <h5 className="text-xl font-black uppercase italic">Time Saved</h5>
+                       </div>
+                       <p className="text-4xl font-black text-primary leading-none">42 <span className="text-lg">mins/day</span></p>
+                    </div>
                  </div>
-                 <div className="space-y-10">
-                    <Badge className="bg-primary/10 text-primary border-primary/20 px-6 py-2 text-[10px] font-black uppercase tracking-[0.3em]">Smart Mobility</Badge>
-                    <h2 className="text-4xl lg:text-5xl font-black uppercase italic tracking-tighter text-foreground leading-none">Built by Tech, <br/> Driven by Scholars.</h2>
-                    <p className="text-lg font-bold text-muted-foreground italic leading-relaxed pl-6 border-l-4 border-primary/20">
-                       AAGO isn't just a bus service. It's a digital grid designed to move students with maximum efficiency and zero stress. We use smart algorithms to optimize routes and fixed pricing to protect your wallet.
+                 
+                 <div className="space-y-12 animate-in slide-in-from-right-10 duration-1000">
+                    <Badge className="bg-primary/10 text-primary border-none px-6 py-2 text-[11px] font-black uppercase tracking-[0.3em]">Transit Evolution</Badge>
+                    <h2 className="text-5xl lg:text-7xl font-black uppercase italic tracking-tighter text-foreground leading-[0.9]">Transit for the <br/> Ambitious.</h2>
+                    <p className="text-xl font-bold text-muted-foreground italic leading-relaxed pl-8 border-l-4 border-primary/20">
+                       Whether you're heading to a 9 AM briefing or a late-night lecture, AAGO ensures your focus stays on your goals, not your travel. We've removed the stress of unpredictable city transit.
                     </p>
-                    <div className="flex gap-10">
-                       <div className="space-y-1">
-                          <h4 className="text-3xl font-black text-primary italic leading-none tracking-tighter">Scholar</h4>
-                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Rates</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-10">
+                       <div className="space-y-4">
+                          <div className="h-14 w-14 bg-slate-50 rounded-2xl flex items-center justify-center text-primary shadow-sm"><Briefcase className="h-7 w-7" /></div>
+                          <h5 className="text-2xl font-black uppercase italic text-foreground tracking-tighter">Professionals</h5>
+                          <p className="text-sm font-bold text-muted-foreground italic leading-relaxed">Arrive at the office refreshed. No parking stress, no expensive private cabs.</p>
                        </div>
-                       <div className="space-y-1">
-                          <h4 className="text-3xl font-black text-primary italic leading-none tracking-tighter">100%</h4>
-                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Live Updates</p>
-                       </div>
-                       <div className="space-y-1">
-                          <h4 className="text-3xl font-black text-primary italic leading-none tracking-tighter">24/7</h4>
-                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Safety Support</p>
+                       <div className="space-y-4">
+                          <div className="h-14 w-14 bg-slate-50 rounded-2xl flex items-center justify-center text-primary shadow-sm"><GraduationCap className="h-7 w-7" /></div>
+                          <h5 className="text-2xl font-black uppercase italic text-foreground tracking-tighter">Scholars</h5>
+                          <p className="text-sm font-bold text-muted-foreground italic leading-relaxed">Safety first. Affordable routes designed to keep your focus on your education.</p>
                        </div>
                     </div>
                  </div>
@@ -244,112 +211,175 @@ export default function GlobalLandingPage() {
            </div>
         </section>
 
-        {/* Steps Section */}
-        <section className="py-24 bg-white/[0.01] border-y border-white/5">
+        {/* The Grid Difference */}
+        <section className="py-32 bg-slate-50/50">
            <div className="container mx-auto px-6 lg:px-20">
-              <div className="text-center space-y-6 mb-24">
-                 <h2 className="text-4xl font-black uppercase italic tracking-tighter text-foreground">3 Steps to Class.</h2>
-                 <p className="text-lg font-bold text-muted-foreground italic">Join the network in under 60 seconds.</p>
+              <div className="text-center max-w-4xl mx-auto mb-24 space-y-8">
+                 <h2 className="text-5xl lg:text-6xl font-black uppercase italic tracking-tighter text-foreground leading-none">The Grid Experience.</h2>
+                 <p className="text-xl font-bold text-muted-foreground italic leading-relaxed">
+                    Designed from the ground up to solve the three biggest transit challenges: Pricing, Prediction, and Protection.
+                 </p>
               </div>
-              <div className="grid md:grid-cols-3 gap-12">
+
+              <div className="grid lg:grid-cols-3 gap-12">
                  {[
-                   { step: "01", title: "Find Ride", desc: "Open the app and search your campus route. See the nearest pickup node.", icon: Radar },
-                   { step: "02", title: "Secure Seat", desc: "Book your seat for a student price. Get your unique boarding code instantly.", icon: Lock },
-                   { step: "03", title: "Show & Go", desc: "Board your shuttle, show your code to the driver, and ride to class comfortably.", icon: CheckCircle2 }
+                   { 
+                     title: "Fixed Hub Pricing", 
+                     desc: "No surges. No bargaining. Transparent fares calculated by the grid to protect your budget every single day.", 
+                     icon: IndianRupee 
+                   },
+                   { 
+                     title: "Predictive Radar", 
+                     desc: "See your shuttle's live telemetry on the AAGO Radar. Know exactly when to step out of your home or office.", 
+                     icon: Radar 
+                   },
+                   { 
+                     title: "Protocol Security", 
+                     desc: "Every ride is tracked. Every operator is verified. Your journey is protected by the grid's safety protocol.", 
+                     icon: ShieldCheck 
+                   }
                  ].map((item, i) => (
-                   <div key={i} className="relative flex flex-col items-center text-center space-y-8 bg-white/5 p-12 border border-white/10 rounded-[3rem] shadow-xl group hover:border-primary transition-all">
-                      <div className="absolute -top-6 h-12 w-12 rounded-full bg-primary text-black flex items-center justify-center font-black italic shadow-lg">{item.step}</div>
-                      <div className="h-20 w-20 rounded-[2rem] bg-primary/10 flex items-center justify-center text-primary group-hover:rotate-12 transition-all">
+                   <div key={i} className="bg-white p-12 rounded-[3.5rem] border border-black/5 shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all group flex flex-col items-center text-center">
+                      <div className="h-20 w-20 bg-primary/10 rounded-[2rem] flex items-center justify-center text-primary mb-10 group-hover:rotate-6 transition-all">
                          <item.icon className="h-10 w-10" />
                       </div>
-                      <div className="space-y-2">
-                         <h4 className="text-2xl font-black uppercase italic text-foreground tracking-tighter">{item.title}</h4>
-                         <p className="text-sm font-bold text-muted-foreground italic leading-relaxed">{item.desc}</p>
-                      </div>
+                      <h4 className="text-2xl font-black uppercase italic text-foreground tracking-tighter mb-6">{item.title}</h4>
+                      <p className="text-base font-bold text-muted-foreground italic leading-relaxed">{item.desc}</p>
                    </div>
                  ))}
               </div>
            </div>
         </section>
 
-        {/* Referral Section */}
-        <section className="py-24 bg-[radial-gradient(circle_at_100%_50%,rgba(0,255,255,0.02),transparent_50%)]">
+        {/* Steps Section */}
+        <section className="py-32 relative overflow-hidden bg-white">
+           <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
            <div className="container mx-auto px-6 lg:px-20">
-              <Card className="glass-card rounded-[4rem] p-16 text-center border-primary/10 overflow-hidden relative">
-                 <div className="absolute top-0 right-0 p-10 opacity-5 -rotate-12"><Users className="h-64 w-64 text-primary" /></div>
-                 <div className="max-w-3xl mx-auto space-y-10 relative z-10">
-                    <Badge className="bg-primary/10 text-primary border-primary/20 px-6 py-2 text-[10px] font-black uppercase tracking-[0.3em]">The Referral Loop</Badge>
-                    <h2 className="text-4xl lg:text-6xl font-black uppercase italic tracking-tighter text-foreground leading-none">Invite Scholars. <br/> Earn Points.</h2>
-                    <p className="text-xl font-bold text-muted-foreground italic leading-relaxed">
-                       Help your campus community. Every friend who joins using your unique code earns you **Scholar Points**. Use points for discounts and exclusive rewards.
-                    </p>
-                    <div className="flex justify-center">
-                       <Link href="/auth/signup">
-                          <Button className="h-16 px-12 bg-primary text-black rounded-2xl font-black uppercase italic text-xl shadow-2xl shadow-primary/20 hover:scale-105 transition-all">Get Your Code</Button>
-                       </Link>
+              <div className="grid lg:grid-cols-2 gap-24 items-center">
+                 <div className="space-y-10">
+                    <h2 className="text-5xl lg:text-7xl font-black uppercase italic tracking-tighter text-foreground leading-[0.9]">Moving in <br/> Three Acts.</h2>
+                    <div className="space-y-12">
+                       {[
+                         { step: "01", title: "Select Corridor", desc: "Open the grid. Pick your route and secure your seat with a single tap.", icon: MapPin },
+                         { step: "02", title: "Secure Checkout", desc: "Pay the fixed transit fee via the secure AAGO gateway and get your boarding pass.", icon: Lock },
+                         { step: "03", title: "Board & Ride", desc: "Show your code to the operator. Track your progress live until you reach your node.", icon: CheckCircle2 }
+                       ].map((item, i) => (
+                         <div key={i} className="flex gap-8 group">
+                            <div className="text-4xl font-black italic text-primary/20 group-hover:text-primary transition-colors">{item.step}</div>
+                            <div className="space-y-2">
+                               <h4 className="text-2xl font-black uppercase italic text-foreground">{item.title}</h4>
+                               <p className="text-base font-bold text-muted-foreground italic leading-relaxed">{item.desc}</p>
+                            </div>
+                         </div>
+                       ))}
                     </div>
                  </div>
-              </Card>
+                 <div className="relative">
+                    <div className="absolute -inset-10 bg-primary/5 blur-[100px] rounded-full" />
+                    <Card className="glass-card p-12 rounded-[4rem] relative z-10 border-white shadow-2xl">
+                       <div className="flex flex-col items-center gap-8 py-10">
+                          <div className="h-24 w-24 bg-primary text-white rounded-full flex items-center justify-center shadow-xl shadow-primary/30 animate-pulse">
+                             <ConnectingDotsLogo className="h-12 w-12" />
+                          </div>
+                          <div className="text-center space-y-3">
+                             <h4 className="text-3xl font-black italic uppercase text-primary">Grid Ready</h4>
+                             <p className="text-[11px] font-black uppercase tracking-[0.4em] text-muted-foreground">Universal Access Protocol</p>
+                          </div>
+                          <Link href="/auth/signup" className="w-full">
+                             <Button className="w-full h-18 bg-primary text-white rounded-3xl font-black uppercase italic text-xl shadow-xl active:scale-95 transition-all">Create Profile</Button>
+                          </Link>
+                       </div>
+                    </Card>
+                 </div>
+              </div>
            </div>
         </section>
 
-        {/* CTA Section */}
-        <section className="py-32 relative overflow-hidden">
-           <div className="container mx-auto px-6 lg:px-20 text-center space-y-12 relative z-10">
-              <h2 className="text-5xl lg:text-8xl font-black uppercase italic tracking-tighter text-foreground leading-none">Join the Grid.</h2>
-              <p className="text-xl font-bold text-muted-foreground italic max-w-2xl mx-auto">Create your scholar profile today and take control of your daily commute.</p>
-              <div className="flex flex-col sm:flex-row justify-center gap-8 pt-10">
+        {/* Referral Section */}
+        <section className="py-32 bg-slate-900 text-white relative overflow-hidden">
+           <div className="absolute top-0 right-0 w-1/2 h-full bg-[radial-gradient(circle_at_70%_30%,rgba(99,102,241,0.2),transparent_70%)]" />
+           <div className="container mx-auto px-6 lg:px-20 relative z-10">
+              <div className="max-w-4xl mx-auto text-center space-y-12">
+                 <Badge className="bg-primary text-white border-none px-6 py-2 text-[11px] font-black uppercase tracking-[0.3em]">Growth Grid</Badge>
+                 <h2 className="text-5xl lg:text-8xl font-black uppercase italic tracking-tighter leading-[0.85]">Spread the Move. <br/> Ride for Less.</h2>
+                 <p className="text-2xl font-bold text-slate-400 italic leading-relaxed">
+                    The more people use the grid, the smarter it gets. Invite friends or colleagues and earn points for every journey they complete.
+                 </p>
+                 <div className="flex justify-center pt-8">
+                    <Link href="/auth/signup">
+                       <Button className="h-20 px-16 bg-primary text-white rounded-[2.5rem] font-black uppercase italic text-2xl shadow-2xl shadow-primary/40 hover:scale-105 active:scale-95 transition-all">Get Referral Link</Button>
+                    </Link>
+                 </div>
+              </div>
+           </div>
+        </section>
+
+        {/* Final CTA */}
+        <section className="py-40 bg-white relative">
+           <div className="container mx-auto px-6 lg:px-20 text-center space-y-16">
+              <h2 className="text-6xl lg:text-9xl font-black uppercase italic tracking-tighter text-foreground leading-none">Join the Grid.</h2>
+              <p className="text-2xl font-bold text-muted-foreground italic max-w-2xl mx-auto">Modern mobility is here. Secure your seat on the next mission today.</p>
+              <div className="flex flex-col sm:flex-row justify-center gap-10">
                  <Link href="/auth/signup">
-                    <Button className="h-20 px-16 bg-primary text-black rounded-3xl font-black uppercase italic text-2xl shadow-2xl shadow-primary/30 hover:scale-105 transition-all">Join Now</Button>
+                    <Button className="h-20 px-20 bg-primary text-white rounded-[2.5rem] font-black uppercase italic text-2xl shadow-2xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all">Join as Rider</Button>
                  </Link>
                  <Link href="/driver/signup">
-                    <Button variant="outline" className="h-20 px-16 border-2 border-primary text-primary rounded-3xl font-black uppercase italic text-2xl bg-white/5 hover:bg-white/10 transition-all">Join Fleet</Button>
+                    <Button variant="outline" className="h-20 px-20 border-2 border-primary text-primary rounded-[2.5rem] font-black uppercase italic text-2xl bg-white hover:bg-primary/5 transition-all">Join as Fleet</Button>
                  </Link>
               </div>
            </div>
+           <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
         </section>
       </main>
 
-      <footer className="border-t border-white/5 bg-background overflow-hidden">
-        <div className="container mx-auto px-6 lg:px-20 py-24">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-20">
-            <div className="col-span-1 lg:col-span-2 space-y-10">
+      <footer className="bg-white">
+        <div className="container mx-auto px-6 lg:px-20 py-32">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-24">
+            <div className="col-span-1 lg:col-span-2 space-y-12">
               <div className="flex items-center gap-4">
-                <div className="bg-primary p-3 rounded-2xl shadow-xl"><ConnectingDotsLogo className="h-8 w-8 text-black" /></div>
+                <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/20"><ConnectingDotsLogo className="h-8 w-8 text-white" /></div>
                 <span className="text-4xl font-black italic uppercase tracking-tighter text-primary">AAGO</span>
               </div>
-              <p className="max-w-md text-lg font-bold text-muted-foreground italic leading-relaxed uppercase tracking-tight">
-                Empowering scholars with the smartest, safest, and most affordable campus transit network.
+              <p className="max-w-md text-xl font-bold text-muted-foreground italic leading-relaxed">
+                Reimagining city transit through intelligent grids and professional-grade mobility solutions.
               </p>
             </div>
             <div className="space-y-10">
-              <p className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">Terminals</p>
-              <nav className="flex flex-col gap-6 text-sm font-black uppercase italic text-muted-foreground">
-                <Link href="/auth/login" className="hover:text-primary transition-all">Scholar Login</Link>
-                <Link href="/driver/login" className="hover:text-primary transition-all">Driver Login</Link>
-                <Link href="/admin/login" className="hover:text-primary transition-all">Ops Terminal</Link>
+              <p className="text-[13px] font-black uppercase tracking-[0.3em] text-foreground">Navigation</p>
+              <nav className="flex flex-col gap-6 text-base font-black uppercase italic text-muted-foreground">
+                <Link href="/auth/login" className="hover:text-primary transition-all flex items-center gap-2 group">Rider Hub <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" /></Link>
+                <Link href="/driver/login" className="hover:text-primary transition-all flex items-center gap-2 group">Operator Hub <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" /></Link>
+                <Link href="/admin/login" className="hover:text-primary transition-all flex items-center gap-2 group">Ops Terminal <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" /></Link>
               </nav>
             </div>
             <div className="space-y-10">
-              <p className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">Support</p>
-              <nav className="flex flex-col gap-6 text-sm font-black uppercase italic text-muted-foreground">
-                <span className="cursor-default">Privacy Protocol</span>
+              <p className="text-[13px] font-black uppercase tracking-[0.3em] text-foreground">Security</p>
+              <nav className="flex flex-col gap-6 text-base font-black uppercase italic text-muted-foreground">
+                <span className="cursor-default">Privacy Matrix</span>
                 <span className="cursor-default">Grid Security</span>
               </nav>
             </div>
           </div>
-          <div className="mt-24 pt-12 border-t border-white/5 text-[10px] font-black uppercase tracking-[0.5em] text-white/20 italic">
-            <p>© 2024 AAGO GRID. DESIGNED FOR SCHOLARS.</p>
+          <div className="mt-32 pt-12 border-t border-black/5 flex flex-col sm:flex-row justify-between items-center gap-6">
+            <p className="text-[11px] font-black uppercase tracking-[0.4em] text-slate-300 italic">© 2024 AAGO GRID. UNIVERSAL MOBILITY PROTOCOL.</p>
+            <div className="flex gap-8">
+               <Globe className="h-6 w-6 text-slate-200" />
+               <Activity className="h-6 w-6 text-slate-200" />
+               <Zap className="h-6 w-6 text-slate-200" />
+            </div>
           </div>
         </div>
       </footer>
 
       <style jsx global>{`
         @keyframes shuttle-move {
-          0% { transform: translate(-150px, 0); opacity: 0; }
+          0% { transform: translate(-200px, 0); opacity: 0; }
           10% { opacity: 1; }
           90% { opacity: 1; }
-          100% { transform: translate(150px, 0); opacity: 0; }
+          100% { transform: translate(200px, 0); opacity: 0; }
+        }
+        .perspective-2000 {
+          perspective: 2000px;
         }
       `}</style>
     </div>
