@@ -4,13 +4,13 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%; /* Soft light gray/white */
+    --background: 210 40% 98%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 250 84% 54%; /* Vibrant Indigo */
+    --primary: 250 84% 54%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -23,7 +23,7 @@
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 250 84% 54%;
-    --radius: 1.5rem;
+    --radius: 1rem;
   }
 }
 
@@ -32,11 +32,11 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-body antialiased selection:bg-primary selection:text-white;
+    @apply bg-background text-foreground font-body antialiased;
     -webkit-tap-highlight-color: transparent;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-headline tracking-tighter leading-[1.1] uppercase italic font-black;
+    @apply font-headline tracking-tight leading-[1.2] font-bold;
   }
 }
 
@@ -48,24 +48,8 @@
   .safe-area-inset-bottom {
     padding-bottom: calc(1rem + env(safe-area-inset-bottom));
   }
-  .text-glow {
-    text-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
-  }
   .glass-card {
-    @apply bg-white/70 backdrop-blur-[20px] border border-white/40 shadow-figma;
-  }
-  .shadow-figma {
-    box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.05), 0px 10px 40px rgba(0, 0, 0, 0.03);
-  }
-  .perspective-2000 {
-    perspective: 2000px;
-  }
-  .animate-slow-float {
-    animation: float 12s ease-in-out infinite;
-  }
-  @keyframes float {
-    0%, 100% { transform: translateY(0) rotateX(5deg); }
-    50% { transform: translateY(-15px) rotateX(0deg); }
+    @apply bg-white/80 backdrop-blur-md border border-white/40 shadow-sm;
   }
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;

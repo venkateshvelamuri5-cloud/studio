@@ -51,12 +51,8 @@ export default {
       },
       borderRadius: {
         lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 1rem)',
-        sm: 'calc(var(--radius) - 2rem)',
-      },
-      fontSize: {
-        '8xl': ['6rem', { lineHeight: '1' }],
-        '9xl': ['7rem', { lineHeight: '1' }],
+        md: 'calc(var(--radius) - 0.5rem)',
+        sm: 'calc(var(--radius) - 0.75rem)',
       }
     },
   },
