@@ -17,14 +17,11 @@ import {
   LayoutGrid,
   Settings,
   Users,
-  MapPin,
-  Clock,
   Navigation,
   ArrowUpRight,
   Target,
   Trophy,
-  ShieldAlert,
-  Lock
+  ShieldAlert
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
 import { doc, updateDoc, collection, onSnapshot, query, where, arrayUnion, getDocs, increment } from 'firebase/firestore';
@@ -145,7 +142,7 @@ export default function DriverApp() {
         riderCount: increment(1) 
       });
       await updateDoc(doc(db, 'users', riderId), { activeOtp: null });
-      toast({ title: "Scholar Boarded", description: `${riderName} verified.` });
+      toast({ title: "Rider Boarded", description: `${riderName} verified.` });
       setVerificationOtp("");
     }
     setIsVerifying(false);
@@ -185,14 +182,14 @@ export default function DriverApp() {
           <ShieldAlert className="h-16 w-16" />
         </div>
         <div className="space-y-4 max-w-sm">
-          <h1 className="text-4xl font-black italic uppercase text-foreground leading-none tracking-tighter">Identity Pending</h1>
+          <h1 className="text-4xl font-black italic uppercase text-foreground leading-none tracking-tighter">Syncing Profile</h1>
           <p className="text-sm font-bold text-muted-foreground italic uppercase tracking-widest leading-relaxed">
-            Your operator profile is currently being reviewed by the AAGO Hub administration. Access to the grid will be granted shortly.
+            Your identity is being verified by the AAGO Hub. You will receive access to the fleet grid as soon as the administrator confirms your account.
           </p>
         </div>
         <div className="p-6 bg-white/5 rounded-3xl border border-white/10 w-full max-w-xs flex flex-col items-center gap-3">
            <Loader2 className="animate-spin h-6 w-6 text-primary" />
-           <p className="text-[10px] font-black uppercase text-primary tracking-[0.3em]">Syncing Hub Auth...</p>
+           <p className="text-[10px] font-black uppercase text-primary tracking-[0.3em]">Hub Connection Active</p>
         </div>
         <Button onClick={handleSignOut} variant="ghost" className="text-destructive font-black uppercase italic"><LogOut className="mr-2 h-4 w-4" /> Exit Terminal</Button>
       </div>
@@ -273,7 +270,7 @@ export default function DriverApp() {
               </div>
 
               <div className="bg-black/60 p-8 rounded-[3rem] space-y-6 border border-white/10 relative z-10 shadow-inner">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-4">Confirm Scholar Code</Label>
+                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-4">Confirm Rider Code</Label>
                 <div className="flex gap-4">
                   <input value={verificationOtp} onChange={(e) => setVerificationOtp(e.target.value)} placeholder="000000" className="h-20 w-full text-center font-black tracking-[0.5em] text-4xl rounded-3xl bg-white/5 border border-white/10 text-primary focus:border-primary outline-none transition-all" maxLength={6} />
                   <Button onClick={verifyPassenger} disabled={isVerifying || !verificationOtp} className="h-20 w-20 rounded-3xl bg-primary text-black shadow-2xl shadow-primary/20 active:scale-95"><CheckCircle2 className="h-10 w-10" /></Button>
@@ -347,7 +344,7 @@ export default function DriverApp() {
               </div>
             </div>
             <Button onClick={handleSignOut} className="w-full max-w-sm mx-auto h-20 bg-destructive/10 text-destructive rounded-[2.5rem] font-black uppercase italic border border-destructive/20 text-xl shadow-2xl hover:bg-destructive hover:text-white transition-all group">
-              <LogOut className="h-7 w-7 mr-4 group-hover:scale-110 transition-transform" /> De-Authenticate Grid
+              <LogOut className="h-7 w-7 mr-4 group-hover:scale-110 transition-transform" /> Exit Terminal
             </Button>
           </div>
         )}

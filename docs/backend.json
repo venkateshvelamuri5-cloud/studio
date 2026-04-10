@@ -3,7 +3,7 @@
   "entities": {
     "User": {
       "title": "User",
-      "description": "A rider, driver, or administrative user profile for the community grid.",
+      "description": "A community member (rider), operator (driver), or administrative profile.",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
@@ -35,7 +35,7 @@
     },
     "Trip": {
       "title": "Trip",
-      "description": "A record of a community shuttle trip.",
+      "description": "A record of a community mobility trip.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -88,13 +88,22 @@
         },
         "status": { "type": "string" }
       }
+    },
+    "AppConfig": {
+      "title": "AppConfig",
+      "description": "Global settings for the mobility grid.",
+      "type": "object",
+      "properties": {
+        "primaryUpiId": { "type": "string" },
+        "secondaryUpiId": { "type": "string" }
+      }
     }
   },
   "auth": {
     "providers": ["phone", "password"]
   },
   "firestore": {
-    "/users/{userId}": { "schema": "User", "description": "Community user profiles." },
+    "/users/{userId}": { "schema": "User", "description": "User and operator profiles." },
     "/trips/{tripId}": { "schema": "Trip", "description": "Grid trip records." },
     "/routes/{routeId}": { "schema": "Route", "description": "Transit corridors." },
     "/vouchers/{voucherId}": { "schema": "Voucher", "description": "Discount vouchers." },

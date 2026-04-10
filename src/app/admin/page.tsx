@@ -3,19 +3,17 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { 
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter
 } from "@/components/ui/dialog";
 import { 
   LayoutDashboard, 
@@ -26,31 +24,19 @@ import {
   QrCode,
   Route as RouteIcon,
   Sparkles,
-  Activity,
-  Plus,
-  Trash2,
   Search,
   Ticket,
   UserCheck,
-  MapPin,
-  Save,
   Car,
   User,
-  Zap,
-  Clock,
-  ChevronRight,
-  Brain,
-  CheckCircle2,
   ShieldCheck,
   ShieldAlert
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
-import { collection, query, doc, setDoc, updateDoc, orderBy, limit, addDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, doc, setDoc, updateDoc, orderBy, addDoc, deleteDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { generateShuttleRoutes, AdminGenerateShuttleRoutesInput } from '@/ai/flows/admin-generate-shuttle-routes';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -69,8 +55,8 @@ export default function AdminDashboard() {
   const { user, loading: authLoading } = useUser();
   
   const [activeTab, setActiveTab] = useState<'dashboard' | 'payments' | 'routes' | 'users' | 'ai-architect' | 'vouchers'>('dashboard');
-  const [vizagUpi, setVizagUpi] = useState('');
-  const [vzmUpi, setVzmUpi] = useState('');
+  const [primaryUpiId, setPrimaryUpiId] = useState('');
+  const [secondaryUpiId, setSecondaryUpiId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -79,7 +65,7 @@ export default function AdminDashboard() {
 
   // AI Architect State
   const [aiInput, setAiInput] = useState<AdminGenerateShuttleRoutesInput>({
-    studentDemandPatterns: "High demand from Vizag Central to Engineering College during 8 AM - 10 AM.",
+    studentDemandPatterns: "High demand from City Central to Business District during 8 AM - 10 AM.",
     historicalTrafficData: "Heavy congestion near the main junction between 9 AM and 10 AM.",
     preferredServiceHours: "6 AM to 9 PM daily.",
     numberOfShuttlesAvailable: 5
@@ -99,8 +85,8 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (globalConfig) {
-      setVizagUpi((globalConfig as any).vizagUpiId || '');
-      setVzmUpi((globalConfig as any).vzmUpiId || '');
+      setPrimaryUpiId((globalConfig as any).primaryUpiId || '');
+      setSecondaryUpiId((globalConfig as any).secondaryUpiId || '');
     }
   }, [globalConfig]);
 
@@ -121,15 +107,14 @@ export default function AdminDashboard() {
     if (!allUsers) return [];
     return allUsers.filter(u => 
       u.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.referralCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.phoneNumber?.includes(searchQuery)
     );
   }, [allUsers, searchQuery]);
 
   const stats = useMemo(() => {
-    if (!allUsers) return { totalScholars: 0, totalDrivers: 0, activeDrivers: 0, pendingDrivers: 0 };
+    if (!allUsers) return { totalRiders: 0, totalDrivers: 0, activeDrivers: 0, pendingDrivers: 0 };
     return {
-      totalScholars: allUsers.filter(u => u.role === 'rider').length,
+      totalRiders: allUsers.filter(u => u.role === 'rider').length,
       totalDrivers: allUsers.filter(u => u.role === 'driver').length,
       activeDrivers: allUsers.filter(u => u.role === 'driver' && u.status !== 'offline').length,
       pendingDrivers: allUsers.filter(u => u.role === 'driver' && !u.isVerified).length,
@@ -139,10 +124,10 @@ export default function AdminDashboard() {
   const handleUpdateConfig = () => {
     if (!globalConfigRef) return;
     setIsSaving(true);
-    const data = { vizagUpiId: vizagUpi, vzmUpiId: vzmUpi };
+    const data = { primaryUpiId: primaryUpiId, secondaryUpiId: secondaryUpiId };
     setDoc(globalConfigRef, data, { merge: true })
       .then(() => { setIsSaving(false); toast({ title: "Config Updated" }); })
-      .catch(async (err) => { setIsSaving(false); });
+      .catch(() => { setIsSaving(false); });
   };
 
   const handleVerifyUser = (uid: string) => {
@@ -248,7 +233,7 @@ export default function AdminDashboard() {
             <div className="space-y-10 animate-in fade-in duration-700">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {[
-                  { label: 'Total Scholars', value: stats.totalScholars, icon: Users, color: 'text-primary' },
+                  { label: 'Total Riders', value: stats.totalRiders, icon: Users, color: 'text-primary' },
                   { label: 'Fleet Size', value: stats.totalDrivers, icon: Car, color: 'text-primary/60' },
                   { label: 'Pending Review', value: stats.pendingDrivers, icon: ShieldAlert, color: 'text-destructive' },
                   { label: 'Active Corridors', value: allRoutes?.length || 0, icon: RouteIcon, color: 'text-accent' },
@@ -281,7 +266,6 @@ export default function AdminDashboard() {
                       <thead>
                         <tr className="bg-white/5 text-[9px] font-black uppercase text-muted-foreground tracking-widest border-b border-white/10">
                           <th className="py-6 px-10">Identity</th>
-                          <th className="py-6">ID Type / No</th>
                           <th className="py-6">Role</th>
                           <th className="py-6">Hub Status</th>
                           <th className="py-6 px-10 text-right">Action</th>
@@ -300,9 +284,6 @@ export default function AdminDashboard() {
                                       <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mt-1">{u.phoneNumber}</p>
                                    </div>
                                 </div>
-                             </td>
-                             <td className="py-6">
-                                <Badge variant="outline" className="text-[9px] font-black uppercase italic border-primary/30 text-primary px-3 py-1">{u.identityNumber || 'N/A'}</Badge>
                              </td>
                              <td className="py-6">
                                 <Badge className={`${u.role === 'admin' ? 'bg-primary text-black' : u.role === 'driver' ? 'bg-primary/20 text-primary' : 'bg-white/5 text-muted-foreground'} border-none text-[8px] font-black uppercase px-4 py-1.5 rounded-full`}>{u.role}</Badge>
@@ -328,7 +309,25 @@ export default function AdminDashboard() {
                </Card>
             </div>
           )}
-          {/* Other tabs like routes, vouchers, payments, ai-architect remain unchanged from current architecture */}
+
+          {activeTab === 'payments' && (
+            <div className="space-y-10 animate-in fade-in duration-700 max-w-2xl">
+              <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Settlement Config</h3>
+              <Card className="bg-white/5 border-white/10 rounded-3xl p-10 space-y-8">
+                 <div className="space-y-4">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Primary Settlement UPI ID</Label>
+                    <Input value={primaryUpiId} onChange={e => setPrimaryUpiId(e.target.value)} placeholder="merchant@upi" className="h-16 bg-white/5 border-white/10 font-black italic text-lg" />
+                 </div>
+                 <div className="space-y-4">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Secondary Settlement UPI ID</Label>
+                    <Input value={secondaryUpiId} onChange={e => setSecondaryUpiId(e.target.value)} placeholder="merchant2@upi" className="h-16 bg-white/5 border-white/10 font-black italic text-lg" />
+                 </div>
+                 <Button onClick={handleUpdateConfig} disabled={isSaving} className="w-full bg-primary text-black h-18 rounded-2xl font-black uppercase italic text-lg shadow-lg active:scale-95 transition-all">
+                    {isSaving ? <Loader2 className="animate-spin h-6 w-6" /> : "Sync Payment Terminal"}
+                 </Button>
+              </Card>
+            </div>
+          )}
         </div>
       </main>
     </div>

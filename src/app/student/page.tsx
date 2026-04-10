@@ -12,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter
 } from "@/components/ui/dialog";
 import { 
   Bus, 
@@ -28,7 +27,6 @@ import {
   ShieldAlert,
   Zap,
   CheckCircle2,
-  UserCheck,
   ChevronRight,
   Clock,
   Target,
@@ -36,7 +34,8 @@ import {
   Gift,
   Copy,
   ShieldCheck,
-  ArrowRight
+  ArrowRight,
+  ZapIcon
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc, limit } from 'firebase/firestore';
@@ -243,13 +242,26 @@ export default function RiderApp() {
       amount: finalAmount * 100, 
       currency: "INR",
       name: "AAGO GRID",
-      description: `Hub Trip: ${selectedRoute.routeName}`,
+      description: `Trip: ${selectedRoute.routeName}`,
       handler: function (response: any) {
         processPaymentSuccess(response.razorpay_payment_id);
       },
       prefill: {
         name: profile?.fullName || "",
         contact: profile?.phoneNumber || "",
+        method: "upi" // Prioritize UPI as per user request
+      },
+      config: {
+        display: {
+          blocks: {
+            upi: {
+              name: 'Pay using UPI',
+              instruments: [{ method: 'upi' }],
+            },
+          },
+          sequence: ['block.upi'],
+          preferences: { show_default_blocks: true },
+        },
       },
       theme: {
         color: "#00FFFF",
@@ -327,7 +339,7 @@ export default function RiderApp() {
                       <div className="bg-black/40 p-5 rounded-2xl flex items-center gap-4 border border-white/5">
                          <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Bus className="h-5 w-5" /></div>
                          <div>
-                            <p className="text-[9px] font-black uppercase text-muted-foreground">Hub Path</p>
+                            <p className="text-[9px] font-black uppercase text-muted-foreground">Grid Path</p>
                             <p className="text-lg font-black italic uppercase text-foreground leading-none">{currentBooking.routeName}</p>
                          </div>
                       </div>
@@ -357,7 +369,7 @@ export default function RiderApp() {
                            <Loader2 className="animate-spin h-8 w-8 text-primary opacity-50" />
                            <div className="space-y-1">
                              <p className="text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Operator Matching</p>
-                             <p className="text-[9px] font-bold text-white/40 uppercase">Assigned 2hrs before departure</p>
+                             <p className="text-[9px] font-bold text-white/40 uppercase">Assigned before departure</p>
                            </div>
                         </div>
                       )}
@@ -371,7 +383,7 @@ export default function RiderApp() {
                     <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                     <h3 className="text-5xl font-black italic uppercase tracking-tighter relative z-10 leading-none">Find <br/> Ride</h3>
                     <div className="flex items-center justify-between mt-4 relative z-10">
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Scan Hub Network</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Scan Grid Network</p>
                       <Navigation className="h-8 w-8 group-hover:translate-x-2 transition-transform" />
                     </div>
                   </div>
@@ -406,7 +418,7 @@ export default function RiderApp() {
                     {bookingStep === 2 && selectedRoute && (
                       <div className="space-y-8 animate-in slide-in-from-right-8">
                         <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Departure Date</Label>
+                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Travel Date</Label>
                           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                              {[0, 1, 2, 3, 4].map((day) => {
                                const date = addDays(new Date(), day);
@@ -422,7 +434,7 @@ export default function RiderApp() {
 
                         <div className="space-y-6">
                           <div className="space-y-4">
-                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2 flex items-center gap-2"><MapPin className="h-3 w-3" /> Pickup Node</Label>
+                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2 flex items-center gap-2"><MapPin className="h-3 w-3" /> Pickup Stop</Label>
                              <div className="grid grid-cols-1 gap-2">
                                {selectedRoute.stops.map((stop: any, i: number) => (
                                  <button key={i} disabled={i === selectedRoute.stops.length - 1} onClick={() => setPickupStop(stop.name)} className={`p-5 rounded-2xl border text-left font-black italic text-sm transition-all ${pickupStop === stop.name ? 'bg-primary/20 border-primary text-primary shadow-lg shadow-primary/10' : 'bg-white/5 border-white/5 text-muted-foreground hover:bg-white/10'}`}>
@@ -433,7 +445,7 @@ export default function RiderApp() {
                           </div>
 
                           <div className="space-y-4">
-                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2 flex items-center gap-2"><Target className="h-3 w-3" /> Drop Node</Label>
+                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2 flex items-center gap-2"><Target className="h-3 w-3" /> Drop Stop</Label>
                              <div className="grid grid-cols-1 gap-2">
                                {selectedRoute.stops.map((stop: any, i: number) => {
                                  const pIdx = selectedRoute.stops.findIndex((s: any) => s.name === pickupStop);
@@ -453,14 +465,16 @@ export default function RiderApp() {
                     {bookingStep === 3 && (
                       <div className="space-y-8 py-4 animate-in zoom-in-95">
                          <div className="p-8 bg-black/40 rounded-[2.5rem] text-center space-y-3 border border-white/5">
-                            <p className="text-[10px] font-black uppercase text-primary tracking-[0.3em]">Grid Settlement</p>
-                            <h4 className="text-xl font-black italic text-foreground uppercase tracking-widest">Secure Checkout</h4>
+                            <Badge className="bg-primary/20 text-primary border-none uppercase text-[8px] font-black tracking-widest mb-2 px-4 py-1.5 rounded-full flex items-center gap-2 w-fit mx-auto">
+                               <ZapIcon className="h-3 w-3" /> Fast UPI Payment
+                            </Badge>
+                            <h4 className="text-xl font-black italic text-foreground uppercase tracking-widest">Safe Checkout</h4>
                             <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-2 italic flex items-center justify-center gap-2">
-                               <ShieldCheck className="h-3 w-3 text-primary" /> Razorpay Verified
+                               <ShieldCheck className="h-3 w-3 text-primary" /> India Secure Sync
                             </p>
                          </div>
                          <div className="space-y-3">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-3">Invite Code</Label>
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-3">Voucher Code</Label>
                            <div className="flex gap-3">
                               <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="CODE" className="h-16 w-full bg-white/5 border border-white/10 rounded-2xl font-black italic px-6 uppercase tracking-widest outline-none focus:border-primary transition-colors" />
                               <Button onClick={handleApplyVoucher} variant="outline" className="h-16 px-8 rounded-2xl font-black italic text-primary border-primary/30 hover:bg-primary/10">Apply</Button>
@@ -494,9 +508,9 @@ export default function RiderApp() {
 
                   <div className="pt-8 shrink-0 border-t border-white/5">
                     {bookingStep === 1 && <Button variant="ghost" onClick={() => setBookingStep(1)} className="w-full text-muted-foreground font-black uppercase italic tracking-widest h-14">Close Portal</Button>}
-                    {bookingStep === 2 && <Button onClick={() => setBookingStep(3)} disabled={!pickupStop || !destinationStop} className="w-full h-18 bg-primary text-black rounded-[2rem] font-black uppercase italic text-xl shadow-2xl active:scale-95">Next Segment</Button>}
+                    {bookingStep === 2 && <Button onClick={() => setBookingStep(3)} disabled={!pickupStop || !destinationStop} className="w-full h-18 bg-primary text-black rounded-[2rem] font-black uppercase italic text-xl shadow-2xl active:scale-95">Continue</Button>}
                     {bookingStep === 3 && <Button onClick={initiatePayment} disabled={isPaying} className="w-full h-20 bg-primary text-black rounded-[2rem] font-black uppercase italic text-2xl shadow-2xl active:scale-95 flex items-center justify-center gap-3">
-                      {isPaying ? <Loader2 className="animate-spin h-8 w-8" /> : <><CreditCard className="h-7 w-7" /> Pay ₹{Math.max(0, calculatedFare - appliedDiscount)}</>}
+                      {isPaying ? <Loader2 className="animate-spin h-8 w-8" /> : <><ZapIcon className="h-6 w-6" /> Pay with UPI ₹{Math.max(0, calculatedFare - appliedDiscount)}</>}
                     </Button>}
                     {bookingStep === 4 && <DialogTrigger asChild><Button className="w-full h-18 bg-white/5 rounded-[2rem] font-black uppercase italic text-lg">Return to Grid</Button></DialogTrigger>}
                   </div>
@@ -623,7 +637,7 @@ export default function RiderApp() {
                 <div className="space-y-2">
                    <h2 className="text-5xl font-black italic uppercase text-foreground leading-none tracking-tighter">{profile?.fullName}</h2>
                    <div className="flex flex-col items-center gap-2">
-                      <Badge className="bg-primary/20 text-primary border-none uppercase text-[9px] font-black tracking-widest px-6 py-1.5 rounded-full">{profile?.city} GRID HUB</Badge>
+                      <Badge className="bg-primary/20 text-primary border-none uppercase text-[9px] font-black tracking-widest px-6 py-1.5 rounded-full">GRID MEMBER</Badge>
                       <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest opacity-60">ID: {profile?.identityNumber || 'N/A'}</p>
                    </div>
                 </div>
