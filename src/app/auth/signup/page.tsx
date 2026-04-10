@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2 } from 'lucide-react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
-import { doc, setDoc, getDocs, collection, query, where, updateDoc, increment } from 'firebase/firestore';
+import { doc, setDoc, getDocs, collection, query, where, updateDoc, increment, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
@@ -49,20 +49,39 @@ export default function SignupPage() {
   const { toast } = useToast();
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
-  // Persistence Check
+  // Persistence Check & Redirect
   useEffect(() => {
     if (!authLoading && user && db) {
-      router.push('/student');
+      getDoc(doc(db, 'users', user.uid)).then((snap) => {
+        if (snap.exists()) {
+          const profile = snap.data();
+          if (profile.role === 'driver') router.push('/driver');
+          else router.push('/student');
+        }
+      });
     }
   }, [user, authLoading, router, db]);
 
   useEffect(() => {
-    if (auth && !recaptchaRef.current) {
-      recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup', {
-        size: 'invisible',
-      });
-    }
+    const initRecaptcha = () => {
+      if (auth && !recaptchaRef.current) {
+        const container = document.getElementById('recaptcha-container-signup');
+        if (container) {
+          try {
+            recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup', {
+              size: 'invisible',
+            });
+          } catch (error) {
+            console.error("reCAPTCHA initialization failed", error);
+          }
+        }
+      }
+    };
+
+    // Small delay to ensure DOM is ready
+    const timeout = setTimeout(initRecaptcha, 500);
     return () => {
+      clearTimeout(timeout);
       if (recaptchaRef.current) {
         recaptchaRef.current.clear();
         recaptchaRef.current = null;
@@ -72,7 +91,10 @@ export default function SignupPage() {
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth || !recaptchaRef.current) return;
+    if (!auth || !recaptchaRef.current) {
+      toast({ variant: "destructive", title: "System Busy", description: "Please wait a moment and try again." });
+      return;
+    }
     setLoading(true);
 
     try {
@@ -87,8 +109,8 @@ export default function SignupPage() {
       let message = "Could not send code. Try again later.";
       
       if (error.code === 'auth/billing-not-enabled') {
-        title = "Billing Required";
-        message = "SMS services require a billing plan. Please enable billing in Firebase Console.";
+        title = "Service Unavailable";
+        message = "SMS services are restricted. Please contact support or enable billing.";
       }
       
       toast({ variant: "destructive", title, description: message });
@@ -155,15 +177,15 @@ export default function SignupPage() {
       <div id="recaptcha-container-signup"></div>
       
       <div className="mb-6 flex flex-col items-center gap-3 animate-in fade-in duration-700">
-        <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/20">
+        <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/30">
           <ConnectingDotsLogo className="h-8 w-8 text-black" />
         </div>
-        <h1 className="text-xl font-black italic uppercase tracking-tighter text-primary">JOIN THE GRID</h1>
+        <h1 className="text-xl font-black italic uppercase tracking-tighter text-foreground text-center">JOIN THE GRID</h1>
       </div>
 
       <Card className="w-full max-w-md glass-card border-none rounded-[2.5rem] overflow-hidden shadow-2xl">
         <CardHeader className="pt-8 pb-4 text-center border-b border-white/5 bg-white/5">
-          <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-foreground leading-none">Rider Profile</CardTitle>
+          <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-foreground leading-none">Create Account</CardTitle>
           <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Step {step} of 4</CardDescription>
         </CardHeader>
         
@@ -172,7 +194,7 @@ export default function SignupPage() {
             <div className="space-y-5 animate-in slide-in-from-right-8 duration-500">
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Name" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Enter Name" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Gender</Label>
@@ -188,11 +210,11 @@ export default function SignupPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identity Number (Aadhaar/ID)</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identity ID (Govt/Professional)</Label>
                 <Input value={identityNumber} onChange={(e) => setIdentityNumber(e.target.value)} placeholder="ID Number" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Referral Code (Optional)</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Invite Code (Optional)</Label>
                 <Input value={referredByCode} onChange={(e) => setReferredByCode(e.target.value)} placeholder="AAGO-XXXX" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base uppercase" />
               </div>
               <Button onClick={() => setStep(2)} disabled={!fullName || !identityNumber} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl mt-2 active:scale-95 transition-all">Continue</Button>
@@ -210,7 +232,7 @@ export default function SignupPage() {
                 <Input value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)} placeholder="0000000000" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic text-base" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Community Hub</Label>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Primary Hub</Label>
                 <Select value={city} onValueChange={setCity}>
                   <SelectTrigger className="h-14 bg-white/5 border-white/10 text-foreground font-black italic rounded-xl">
                     <SelectValue />
@@ -262,7 +284,7 @@ export default function SignupPage() {
                 />
               </div>
               <Button type="submit" disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all active:scale-95">
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Me"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify & Finish"}
               </Button>
             </form>
           )}
@@ -270,8 +292,8 @@ export default function SignupPage() {
 
         <CardFooter className="flex flex-col space-y-4 bg-white/5 p-8 border-t border-white/5">
           <p className="text-[10px] text-center font-bold text-muted-foreground uppercase tracking-widest">
-            Existing Rider?{' '}
-            <Link href="/auth/login" className="text-primary font-black hover:underline italic">Sign In</Link>
+            Member Already?{' '}
+            <Link href="/auth/login" className="text-primary font-black hover:underline italic">Login</Link>
           </p>
         </CardFooter>
       </Card>

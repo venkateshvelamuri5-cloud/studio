@@ -35,7 +35,6 @@ import {
   CreditCard,
   Gift,
   Copy,
-  Info,
   ShieldCheck,
   ArrowRight
 } from 'lucide-react';
@@ -70,7 +69,7 @@ const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) =
   </svg>
 );
 
-export default function StudentApp() {
+export default function RiderApp() {
   const { user, loading: authLoading } = useUser();
   const auth = useAuth();
   const db = useFirestore();
@@ -95,9 +94,6 @@ export default function StudentApp() {
   const { data: activeRoutes } = useCollection(useMemo(() => (db) ? query(collection(db, 'routes'), where('status', '==', 'active')) : null, [db]));
   
   const { data: activeTrips } = useCollection(useMemo(() => (db) ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db]));
-  
-  const globalConfigRef = useMemo(() => db ? doc(db, 'config', 'global') : null, [db]);
-  const { data: globalConfig } = useDoc(globalConfigRef);
   
   const currentBooking = useMemo(() => {
     if (!activeTrips || !user?.uid) return null;
@@ -162,7 +158,7 @@ export default function StudentApp() {
     } else {
       const vData = snap.docs[0].data();
       setAppliedDiscount(vData.discountAmount);
-      toast({ title: "Voucher Applied", description: `₹${vData.discountAmount} off.` });
+      toast({ title: "Discount Active", description: `₹${vData.discountAmount} saved.` });
     }
   };
 
@@ -226,10 +222,10 @@ export default function StudentApp() {
       
       setIsPaying(false);
       setBookingStep(4);
-      toast({ title: "Seat Secured", description: "Your mission is active." });
+      toast({ title: "Booking Confirmed", description: "Seat secured in the grid." });
     } catch (e) {
       setIsPaying(false);
-      toast({ variant: "destructive", title: "Sync Error", description: "Payment recorded, but sync failed. Contact Hub Support." });
+      toast({ variant: "destructive", title: "Sync Error", description: "Payment recorded. Contact Hub Support." });
     }
   };
 
@@ -238,16 +234,16 @@ export default function StudentApp() {
 
     const finalAmount = Math.max(0, calculatedFare - appliedDiscount);
     if (finalAmount === 0) {
-      await processPaymentSuccess('FREE_BOOKING_' + Date.now());
+      await processPaymentSuccess('FREE_MEMBER_' + Date.now());
       return;
     }
 
     const options = {
       key: "rzp_test_SbhAeIVwQu3pji",
-      amount: finalAmount * 100, // paise
+      amount: finalAmount * 100, 
       currency: "INR",
       name: "AAGO GRID",
-      description: `Ride Booking: ${selectedRoute.routeName}`,
+      description: `Hub Trip: ${selectedRoute.routeName}`,
       handler: function (response: any) {
         processPaymentSuccess(response.razorpay_payment_id);
       },
@@ -269,7 +265,7 @@ export default function StudentApp() {
   const copyReferral = () => {
     if (profile?.referralCode) {
       navigator.clipboard.writeText(profile.referralCode);
-      toast({ title: "Code Copied", description: "Share with your community." });
+      toast({ title: "Copied", description: "Share with your network." });
     }
   };
 
@@ -279,13 +275,13 @@ export default function StudentApp() {
     <div className="min-h-screen bg-background text-foreground flex flex-col font-body pb-24 safe-area-inset overflow-x-hidden">
       <header className="px-6 py-6 flex items-center justify-between border-b border-white/5 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center text-black shadow-lg shadow-primary/20">
+          <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center text-black shadow-lg shadow-primary/30">
             <ConnectingDotsLogo className="h-5 w-5 text-black" />
           </div>
-          <h1 className="text-lg font-black italic uppercase tracking-tighter leading-none text-primary text-glow">AAGO</h1>
+          <h1 className="text-lg font-black italic uppercase tracking-tighter text-primary">AAGO GRID</h1>
         </div>
         <div className="flex items-center gap-2">
-           <Button variant="ghost" size="icon" onClick={() => { addDoc(collection(db!, 'alerts'), { type: 'SOS', uid: user?.uid, name: profile?.fullName, timestamp: new Date().toISOString() }); toast({ variant: 'destructive', title: 'SOS Broadcasted' }); }} className="text-destructive bg-destructive/10 h-11 w-11 rounded-2xl border border-destructive/20"><ShieldAlert className="h-5 w-5" /></Button>
+           <Button variant="ghost" size="icon" onClick={() => { addDoc(collection(db!, 'alerts'), { type: 'SOS', uid: user?.uid, name: profile?.fullName, timestamp: new Date().toISOString() }); toast({ variant: 'destructive', title: 'Alert Broadcasted' }); }} className="text-destructive bg-destructive/10 h-11 w-11 rounded-2xl border border-destructive/20"><ShieldAlert className="h-5 w-5" /></Button>
            <Button variant="ghost" size="icon" onClick={() => { navigator.share({ title: 'AAGO - Smart Rides', url: window.location.origin }); }} className="text-primary bg-primary/10 h-11 w-11 rounded-2xl border border-primary/20"><Share2 className="h-5 w-5" /></Button>
         </div>
       </header>
@@ -295,11 +291,11 @@ export default function StudentApp() {
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
             <div className="flex justify-between items-start gap-4">
               <div className="space-y-1">
-                <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest italic leading-none">Hello,</p>
+                <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest italic">Welcome back,</p>
                 <h2 className="text-3xl font-black text-foreground italic uppercase tracking-tighter mt-1">{profile?.fullName?.split(' ')[0]}</h2>
               </div>
               <div className="bg-white/5 p-4 rounded-2xl text-center border border-white/10 min-w-[100px]">
-                 <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Rewards</p>
+                 <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Points</p>
                  <div className="flex items-center justify-center gap-1 text-primary">
                    <Star className="h-4 w-4 fill-primary" />
                    <span className="text-2xl font-black text-foreground italic">{profile?.loyaltyPoints || 0}</span>
@@ -314,7 +310,7 @@ export default function StudentApp() {
                    
                    {!isVerified && profile?.activeOtp ? (
                      <div className="flex flex-col items-center gap-4 mb-8 relative z-10">
-                        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground italic">Boarding Code</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground italic">Boarding Pass</p>
                         <h3 className="text-7xl font-black tracking-tighter italic text-primary text-glow leading-none">{profile.activeOtp}</h3>
                      </div>
                    ) : (
@@ -322,8 +318,8 @@ export default function StudentApp() {
                         <div className="h-16 w-16 bg-primary/20 rounded-full flex items-center justify-center text-primary mb-2 shadow-xl shadow-primary/10">
                           <ShieldCheck className="h-10 w-10" />
                         </div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-primary italic">In Transit</p>
-                        <h3 className="text-2xl font-black tracking-tighter italic text-foreground uppercase leading-none">Mission Active</h3>
+                        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-primary italic">Journey Live</p>
+                        <h3 className="text-2xl font-black tracking-tighter italic text-foreground uppercase leading-none">In Transit</h3>
                      </div>
                    )}
                    
@@ -331,7 +327,7 @@ export default function StudentApp() {
                       <div className="bg-black/40 p-5 rounded-2xl flex items-center gap-4 border border-white/5">
                          <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Bus className="h-5 w-5" /></div>
                          <div>
-                            <p className="text-[9px] font-black uppercase text-muted-foreground">Corridor</p>
+                            <p className="text-[9px] font-black uppercase text-muted-foreground">Hub Path</p>
                             <p className="text-lg font-black italic uppercase text-foreground leading-none">{currentBooking.routeName}</p>
                          </div>
                       </div>
@@ -352,16 +348,16 @@ export default function StudentApp() {
                                <p className="text-sm font-black text-foreground uppercase italic tracking-tighter">{currentBooking.vehicleNumber}</p>
                             </div>
                           </div>
-                          <Button onClick={() => setActiveTab('radar')} className="w-full h-14 bg-primary text-black rounded-2xl font-black uppercase italic shadow-xl shadow-primary/10 flex items-center justify-center gap-3 active:scale-95">
-                             <Navigation className="h-5 w-5" /> Track Live Radar
+                          <Button onClick={() => setActiveTab('radar')} className="w-full h-14 bg-primary text-black rounded-2xl font-black uppercase italic shadow-xl shadow-primary/20 flex items-center justify-center gap-3 active:scale-95">
+                             <Navigation className="h-5 w-5" /> Track Radar
                           </Button>
                         </div>
                       ) : (
                         <div className="p-8 bg-black/40 border border-dashed border-white/10 rounded-[2.5rem] text-center flex flex-col items-center gap-4">
                            <Loader2 className="animate-spin h-8 w-8 text-primary opacity-50" />
                            <div className="space-y-1">
-                             <p className="text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Operator Pending</p>
-                             <p className="text-[9px] font-bold text-white/40 uppercase">Details shared 2 hours before trip</p>
+                             <p className="text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Operator Matching</p>
+                             <p className="text-[9px] font-bold text-white/40 uppercase">Assigned 2hrs before departure</p>
                            </div>
                         </div>
                       )}
@@ -373,9 +369,9 @@ export default function StudentApp() {
                 <DialogTrigger asChild>
                   <div className="p-12 bg-primary text-black rounded-[3rem] shadow-2xl flex flex-col gap-2 cursor-pointer active:scale-95 transition-all group overflow-hidden relative">
                     <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <h3 className="text-5xl font-black italic uppercase tracking-tighter relative z-10 leading-none">Book <br/> Ride</h3>
+                    <h3 className="text-5xl font-black italic uppercase tracking-tighter relative z-10 leading-none">Find <br/> Ride</h3>
                     <div className="flex items-center justify-between mt-4 relative z-10">
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Scan Active Grid</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Scan Hub Network</p>
                       <Navigation className="h-8 w-8 group-hover:translate-x-2 transition-transform" />
                     </div>
                   </div>
@@ -383,7 +379,7 @@ export default function StudentApp() {
                 <DialogContent className="bg-background border-white/5 rounded-[2.5rem] p-8 h-[92vh] flex flex-col shadow-2xl overflow-hidden">
                   <DialogHeader className="shrink-0 mb-6">
                     <DialogTitle className="text-3xl font-black italic uppercase text-primary tracking-tighter">
-                      {bookingStep === 1 ? "Corridors" : bookingStep === 2 ? "Schedule" : bookingStep === 3 ? "Payment" : "Done"}
+                      {bookingStep === 1 ? "Network" : bookingStep === 2 ? "Plan" : bookingStep === 3 ? "Payment" : "Done"}
                     </DialogTitle>
                   </DialogHeader>
 
@@ -393,13 +389,13 @@ export default function StudentApp() {
                         {activeRoutes?.length === 0 ? (
                           <div className="p-20 text-center italic text-muted-foreground flex flex-col items-center gap-4">
                             <Loader2 className="animate-spin h-8 w-8 opacity-20" />
-                            <p className="text-[10px] uppercase font-black tracking-widest">Updating Grid Corridors...</p>
+                            <p className="text-[10px] uppercase font-black tracking-widest">Scanning Grid Corridors...</p>
                           </div>
                         ) : activeRoutes?.map((route: any) => (
                           <div key={route.id} onClick={() => { setSelectedRoute(route); setBookingStep(2); }} className="p-8 bg-white/5 border border-white/10 rounded-3xl cursor-pointer hover:border-primary/50 hover:bg-white/10 transition-all flex justify-between items-center group">
                              <div className="space-y-1">
                                 <h4 className="text-xl font-black italic uppercase text-foreground group-hover:text-primary transition-colors">{route.routeName}</h4>
-                                <p className="text-[10px] font-black text-primary/60 uppercase tracking-widest">₹{route.baseFare} Base Fee</p>
+                                <p className="text-[10px] font-black text-primary/60 uppercase tracking-widest">₹{route.baseFare} Base</p>
                              </div>
                              <ChevronRight className="h-6 w-6 text-white/10 group-hover:text-primary transition-colors" />
                           </div>
@@ -410,7 +406,7 @@ export default function StudentApp() {
                     {bookingStep === 2 && selectedRoute && (
                       <div className="space-y-8 animate-in slide-in-from-right-8">
                         <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Select Date</Label>
+                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Departure Date</Label>
                           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                              {[0, 1, 2, 3, 4].map((day) => {
                                const date = addDays(new Date(), day);
@@ -426,7 +422,7 @@ export default function StudentApp() {
 
                         <div className="space-y-6">
                           <div className="space-y-4">
-                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2 flex items-center gap-2"><MapPin className="h-3 w-3" /> Pickup Hub</Label>
+                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2 flex items-center gap-2"><MapPin className="h-3 w-3" /> Pickup Node</Label>
                              <div className="grid grid-cols-1 gap-2">
                                {selectedRoute.stops.map((stop: any, i: number) => (
                                  <button key={i} disabled={i === selectedRoute.stops.length - 1} onClick={() => setPickupStop(stop.name)} className={`p-5 rounded-2xl border text-left font-black italic text-sm transition-all ${pickupStop === stop.name ? 'bg-primary/20 border-primary text-primary shadow-lg shadow-primary/10' : 'bg-white/5 border-white/5 text-muted-foreground hover:bg-white/10'}`}>
@@ -437,7 +433,7 @@ export default function StudentApp() {
                           </div>
 
                           <div className="space-y-4">
-                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2 flex items-center gap-2"><Target className="h-3 w-3" /> Destination Hub</Label>
+                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2 flex items-center gap-2"><Target className="h-3 w-3" /> Drop Node</Label>
                              <div className="grid grid-cols-1 gap-2">
                                {selectedRoute.stops.map((stop: any, i: number) => {
                                  const pIdx = selectedRoute.stops.findIndex((s: any) => s.name === pickupStop);
@@ -458,30 +454,27 @@ export default function StudentApp() {
                       <div className="space-y-8 py-4 animate-in zoom-in-95">
                          <div className="p-8 bg-black/40 rounded-[2.5rem] text-center space-y-3 border border-white/5">
                             <p className="text-[10px] font-black uppercase text-primary tracking-[0.3em]">Grid Settlement</p>
-                            <h4 className="text-xl font-black italic text-foreground uppercase tracking-widest">{profile?.city} Gateway</h4>
+                            <h4 className="text-xl font-black italic text-foreground uppercase tracking-widest">Secure Checkout</h4>
                             <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-2 italic flex items-center justify-center gap-2">
-                               <ShieldCheck className="h-3 w-3 text-primary" /> Secure Razorpay Interface
+                               <ShieldCheck className="h-3 w-3 text-primary" /> Razorpay Verified
                             </p>
                          </div>
                          <div className="space-y-3">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-3">Voucher Entry</Label>
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-3">Invite Code</Label>
                            <div className="flex gap-3">
-                              <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="AAGO50" className="h-16 w-full bg-white/5 border border-white/10 rounded-2xl font-black italic px-6 uppercase tracking-widest outline-none focus:border-primary transition-colors" />
+                              <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="CODE" className="h-16 w-full bg-white/5 border border-white/10 rounded-2xl font-black italic px-6 uppercase tracking-widest outline-none focus:border-primary transition-colors" />
                               <Button onClick={handleApplyVoucher} variant="outline" className="h-16 px-8 rounded-2xl font-black italic text-primary border-primary/30 hover:bg-primary/10">Apply</Button>
                            </div>
                          </div>
                          <div className="p-12 bg-primary/5 rounded-[3.5rem] text-center border-2 border-primary/20 shadow-2xl">
-                            <p className="text-[10px] font-black uppercase text-primary mb-3 tracking-[0.4em]">Final Fare</p>
+                            <p className="text-[10px] font-black uppercase text-primary mb-3 tracking-[0.4em]">Fare Due</p>
                             <h3 className="text-7xl font-black italic text-foreground tracking-tighter leading-none">₹{Math.max(0, calculatedFare - appliedDiscount)}</h3>
                          </div>
                          {isPaying && (
                            <div className="fixed inset-0 bg-background/90 z-[100] flex flex-col items-center justify-center p-10 text-center animate-in fade-in">
                               <div className="bg-primary/10 p-10 rounded-[3rem] border border-primary/20 space-y-6">
                                 <Loader2 className="animate-spin h-16 w-16 text-primary mx-auto" />
-                                <div className="space-y-2">
-                                  <h3 className="text-2xl font-black italic uppercase text-primary">Verifying Transaction</h3>
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Grid Sync Protocol Active</p>
-                                </div>
+                                <h3 className="text-2xl font-black italic uppercase text-primary">Confirming Hub Sync</h3>
                               </div>
                            </div>
                          )}
@@ -492,8 +485,8 @@ export default function StudentApp() {
                       <div className="flex flex-col items-center justify-center text-center space-y-8 py-20 animate-in zoom-in-95">
                          <div className="h-32 w-32 bg-primary text-black rounded-full flex items-center justify-center shadow-2xl animate-bounce"><CheckCircle2 className="h-16 w-16" /></div>
                          <div className="space-y-3">
-                            <h3 className="text-5xl font-black italic uppercase text-primary tracking-tighter leading-none">Mission <br/> Secured</h3>
-                            <p className="text-sm font-bold text-muted-foreground italic uppercase tracking-widest px-6 mt-4">Seat confirmed on the Grid. View boarding pass on Home.</p>
+                            <h3 className="text-5xl font-black italic uppercase text-primary tracking-tighter leading-none">Trip <br/> Secured</h3>
+                            <p className="text-sm font-bold text-muted-foreground italic uppercase tracking-widest px-6 mt-4">Telemetry synced. Check Home for boarding pass.</p>
                          </div>
                       </div>
                     )}
@@ -516,9 +509,9 @@ export default function StudentApp() {
                  <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Gift className="h-6 w-6" /></div>
                  <h4 className="text-xl font-black italic uppercase tracking-tighter">Referral Hub</h4>
               </div>
-              <p className="text-xs font-bold text-muted-foreground italic px-2 leading-relaxed">Refer a friend to the Grid and earn 50 Scholar Points instantly upon their first journey.</p>
+              <p className="text-xs font-bold text-muted-foreground italic px-2 leading-relaxed">Earn points for every new member you bring to the grid. Instant credit on their first journey.</p>
               <div className="flex gap-3 bg-black/40 p-4 rounded-2xl border border-white/5">
-                 <p className="flex-1 font-black italic text-foreground uppercase tracking-widest pt-2.5 px-2">{profile?.referralCode || 'GEN-PENDING'}</p>
+                 <p className="flex-1 font-black italic text-foreground uppercase tracking-widest pt-2.5 px-2">{profile?.referralCode || 'SYNCING...'}</p>
                  <Button onClick={copyReferral} variant="ghost" className="h-10 w-10 p-0 text-primary hover:bg-primary/10"><Copy className="h-5 w-5" /></Button>
               </div>
             </Card>
@@ -530,15 +523,15 @@ export default function StudentApp() {
             <div className="flex items-center justify-between px-2">
                <h2 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Live Radar</h2>
                <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-4 py-1.5 rounded-full flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 bg-primary rounded-full animate-pulse" /> Grid Syncing
+                  <div className="h-1.5 w-1.5 bg-primary rounded-full animate-pulse" /> Grid Active
                </Badge>
             </div>
             
             <div className="bg-white/5 border border-white/10 rounded-3xl p-4 flex items-center gap-4">
                {isVerified ? <ShieldCheck className="h-5 w-5 text-primary" /> : <ShieldAlert className="h-5 w-5 text-accent animate-pulse" />}
                <div>
-                  <p className={`text-[10px] font-black uppercase tracking-widest leading-none ${isVerified ? 'text-primary' : 'text-accent'}`}>{isVerified ? 'Mission In Progress' : 'Safety Sync Active'}</p>
-                  <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1 italic leading-tight">{isVerified ? 'Operator hub linked with scholar telemetry.' : `SOS Protocol synchronized with hub alerts.`}</p>
+                  <p className={`text-[10px] font-black uppercase tracking-widest leading-none ${isVerified ? 'text-primary' : 'text-accent'}`}>{isVerified ? 'Synchronized In Transit' : 'Safety Sync Active'}</p>
+                  <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1 italic leading-tight">Emergency contacts and hub telemetry are live.</p>
                </div>
             </div>
 
@@ -581,13 +574,13 @@ export default function StudentApp() {
              <div className="space-y-6">
                {upcomingTrips.length > 0 && (
                  <div className="space-y-4">
-                   <p className="text-[10px] font-black uppercase tracking-widest text-primary ml-4">Scheduled Missions</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest text-primary ml-4">Scheduled Trips</p>
                    {upcomingTrips.map((trip: any) => (
                       <Card key={trip.id} className="bg-primary/5 border border-primary/20 rounded-[2.5rem] p-8 flex justify-between items-center group">
                          <div className="space-y-2">
                             <h4 className="font-black text-foreground uppercase italic text-xl leading-none">{trip.routeName}</h4>
                             <div className="flex items-center gap-3">
-                               <Badge className="bg-primary text-black text-[8px] font-black uppercase px-3 py-0.5 rounded-full">Secure</Badge>
+                               <Badge className="bg-primary text-black text-[8px] font-black uppercase px-3 py-0.5 rounded-full">Booked</Badge>
                                <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-2"><Clock className="h-3 w-3" /> {trip.scheduledDate}</p>
                             </div>
                          </div>
@@ -598,11 +591,11 @@ export default function StudentApp() {
                )}
 
                <div className="space-y-4">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Past Travels</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Journey History</p>
                   {pastTrips?.length === 0 ? (
                     <div className="p-24 text-center italic text-muted-foreground bg-white/5 rounded-[3rem] border border-dashed border-white/10 flex flex-col items-center gap-4">
                        <History className="h-12 w-12 opacity-10" />
-                       <p className="text-[10px] font-black uppercase tracking-widest italic opacity-40">No past logs found on the Grid.</p>
+                       <p className="text-[10px] font-black uppercase tracking-widest italic opacity-40">No records found.</p>
                     </div>
                   ) : [...pastTrips].sort((a,b) => b.endTime.localeCompare(a.endTime)).map((trip: any) => (
                     <Card key={trip.id} className="bg-white/5 border border-white/5 rounded-[2.5rem] p-8 flex justify-between items-center shadow-xl group hover:border-primary/30 transition-all">
@@ -631,24 +624,24 @@ export default function StudentApp() {
                    <h2 className="text-5xl font-black italic uppercase text-foreground leading-none tracking-tighter">{profile?.fullName}</h2>
                    <div className="flex flex-col items-center gap-2">
                       <Badge className="bg-primary/20 text-primary border-none uppercase text-[9px] font-black tracking-widest px-6 py-1.5 rounded-full">{profile?.city} GRID HUB</Badge>
-                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest opacity-60">Scholar ID: {profile?.studentId || 'N/A'}</p>
+                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest opacity-60">ID: {profile?.identityNumber || 'N/A'}</p>
                    </div>
                 </div>
              </div>
 
              <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto">
                 <div className="p-8 bg-white/5 rounded-3xl border border-white/5 text-center">
-                   <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-1">Grid Rating</p>
-                   <p className="text-2xl font-black italic text-foreground">5.0</p>
+                   <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-1">Rank</p>
+                   <p className="text-2xl font-black italic text-foreground uppercase">Elite</p>
                 </div>
                 <div className="p-8 bg-white/5 rounded-3xl border border-white/5 text-center">
-                   <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-1">Tier</p>
-                   <p className="text-2xl font-black italic text-primary">Elite</p>
+                   <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-1">Trust Score</p>
+                   <p className="text-2xl font-black italic text-primary uppercase">5.0</p>
                 </div>
              </div>
 
-             <Button variant="ghost" onClick={handleSignOut} className="w-full max-w-sm mx-auto h-20 bg-destructive/10 text-destructive rounded-[2.5rem] font-black uppercase italic border border-destructive/20 text-xl shadow-xl shadow-destructive/5 hover:bg-destructive hover:text-white transition-all group">
-                <LogOut className="mr-3 h-6 w-6 group-hover:scale-110 transition-transform" /> De-Authenticate Grid
+             <Button variant="ghost" onClick={handleSignOut} className="w-full max-w-sm mx-auto h-20 bg-destructive/10 text-destructive rounded-[2.5rem] font-black uppercase italic border border-destructive/20 text-xl shadow-xl hover:bg-destructive hover:text-white transition-all group">
+                <LogOut className="mr-3 h-6 w-6 group-hover:scale-110 transition-transform" /> Logout
              </Button>
           </div>
         )}
@@ -662,7 +655,7 @@ export default function StudentApp() {
           <Zap className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Radar</span>
         </Button>
         <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl transition-all ${activeTab === 'history' ? 'text-primary bg-primary/5' : 'text-muted-foreground hover:bg-white/5'}`}>
-          <History className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Log</span>
+          <History className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">History</span>
         </Button>
         <Button variant="ghost" onClick={() => setActiveTab('me')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl transition-all ${activeTab === 'me' ? 'text-primary bg-primary/5' : 'text-muted-foreground hover:bg-white/5'}`}>
           <UserIcon className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Me</span>

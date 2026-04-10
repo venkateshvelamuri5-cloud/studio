@@ -50,16 +50,24 @@ export default function DriverLoginPage() {
   }, [user, authLoading, db, router]);
 
   useEffect(() => {
-    if (auth && !recaptchaRef.current) {
-      try {
-        recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-driver', {
-          size: 'invisible',
-        });
-      } catch (error) {
-        console.error("reCAPTCHA initialization failed", error);
+    const initRecaptcha = () => {
+      if (auth && !recaptchaRef.current) {
+        const container = document.getElementById('recaptcha-container-driver');
+        if (container) {
+          try {
+            recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-driver', {
+              size: 'invisible',
+            });
+          } catch (error) {
+            console.error("reCAPTCHA initialization failed", error);
+          }
+        }
       }
-    }
+    };
+
+    const timeout = setTimeout(initRecaptcha, 500);
     return () => {
+      clearTimeout(timeout);
       if (recaptchaRef.current) {
         recaptchaRef.current.clear();
         recaptchaRef.current = null;
@@ -77,17 +85,15 @@ export default function DriverLoginPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaRef.current);
       setConfirmationResult(result);
       setStep(2);
-      toast({ title: "Code Sent", description: "Verification code sent to your phone." });
+      toast({ title: "Code Sent" });
     } catch (error: any) {
       console.error(error);
       let title = "Error";
-      let message = "Check your signal.";
+      let message = "Try again later.";
       
       if (error.code === 'auth/billing-not-enabled') {
-        title = "Billing Required";
-        message = "SMS services require a billing plan. Please enable billing in Firebase Console.";
-      } else if (error.code === 'auth/too-many-requests') {
-        message = "Too many attempts. Please wait.";
+        title = "Restricted Access";
+        message = "SMS service is blocked. Contact Grid Support.";
       }
       
       toast({ variant: "destructive", title, description: message });
@@ -112,7 +118,6 @@ export default function DriverLoginPage() {
       const userSnap = await getDoc(doc(db, 'users', loggedUser.uid));
 
       if (!userSnap.exists()) {
-        toast({ title: "Join Fleet", description: "Profile not found. Please join the team." });
         router.push('/driver/signup');
         return;
       }
@@ -120,25 +125,19 @@ export default function DriverLoginPage() {
       const profile = userSnap.data();
       if (profile.role !== 'driver') {
         await signOut(auth!);
-        toast({ variant: "destructive", title: "Wrong Portal", description: "Please use the Scholar login." });
+        toast({ variant: "destructive", title: "Portal Mismatch", description: "Use the Member Login." });
         router.push('/auth/login');
       } else {
         router.push('/driver');
       }
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Invalid Code", description: "Verification failed." });
+      toast({ variant: "destructive", title: "Invalid Code" });
     } finally {
       setLoading(false);
     }
   };
 
-  if (authLoading) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-background">
-        <Loader2 className="animate-spin h-12 w-12 text-primary" />
-      </div>
-    );
-  }
+  if (authLoading) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin h-12 w-12 text-primary" /></div>;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 font-body safe-area-inset">
@@ -150,18 +149,18 @@ export default function DriverLoginPage() {
         </div>
         <div className="text-center">
           <h1 className="text-4xl font-black font-headline italic uppercase tracking-tighter text-foreground leading-none">DRIVER</h1>
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mt-2">Operator Login</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mt-2">Operator Hub</p>
         </div>
       </div>
 
       <Card className="w-full max-w-md glass-card border-none rounded-[3.5rem] overflow-hidden shadow-2xl">
-        <CardHeader className="pt-14 pb-8 text-center">
-          <CardTitle className="text-2xl font-black uppercase italic tracking-tighter text-foreground leading-none">Secure Login</CardTitle>
+        <CardHeader className="pt-14 pb-8 text-center border-b border-white/5 bg-white/5">
+          <CardTitle className="text-2xl font-black uppercase italic tracking-tighter text-foreground leading-none">Login</CardTitle>
           <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic mt-2">
-            Verify Identity
+            Operator Verification
           </CardDescription>
         </CardHeader>
-        <CardContent className="px-12 pb-10">
+        <CardContent className="px-12 py-10 pb-10">
           {step === 1 ? (
             <form onSubmit={handleSendOtp} className="space-y-8">
               <div className="space-y-3">
@@ -203,16 +202,15 @@ export default function DriverLoginPage() {
               <Button 
                 type="submit" 
                 disabled={loading || otp.length < 6}
-                className="w-full bg-accent hover:bg-accent/90 text-black h-20 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all active:scale-95"
+                className="w-full bg-primary hover:bg-primary/90 text-black h-20 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all active:scale-95"
               >
                 {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Me"}
               </Button>
-              <Button variant="ghost" type="button" onClick={() => setStep(1)} className="w-full font-black text-muted-foreground uppercase italic text-[10px] tracking-widest">Change Phone</Button>
             </form>
           )}
         </CardContent>
-        <CardFooter className="bg-white/5 p-10 flex flex-col gap-6">
-          <Link href="/driver/signup" className="text-xs font-black uppercase italic text-primary hover:underline">New Driver? Join Team</Link>
+        <CardFooter className="bg-white/5 p-10 flex flex-col gap-6 border-t border-white/5">
+          <Link href="/driver/signup" className="text-xs font-black uppercase italic text-primary hover:underline">Join the Fleet</Link>
         </CardFooter>
       </Card>
     </div>
