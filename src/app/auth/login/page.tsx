@@ -8,12 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult, signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -28,7 +27,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
-  const [step, setStep] = useState(1); // 1: Phone, 2: OTP
+  const [step, setStep] = useState(1); 
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   
   const router = useRouter();
@@ -38,13 +37,12 @@ export default function LoginPage() {
   const { toast } = useToast();
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
-  // Persistent login guard
   useEffect(() => {
     if (!authLoading && user && db) {
       getDoc(doc(db, 'users', user.uid)).then((snap) => {
         if (snap.exists()) {
-          const role = snap.data().role;
-          if (role === 'driver') router.push('/driver');
+          const profile = snap.data();
+          if (profile.role === 'driver') router.push('/driver');
           else router.push('/student');
         }
       });
@@ -87,11 +85,9 @@ export default function LoginPage() {
       
       if (error.code === 'auth/billing-not-enabled') {
         title = "Billing Required";
-        message = "Firebase Phone Auth requires a billing account (Blaze plan) to be enabled in the Firebase Console.";
+        message = "SMS services require a billing plan. Please enable billing in Firebase Console.";
       } else if (error.code === 'auth/too-many-requests') {
         message = "Too many attempts. Please wait a few minutes.";
-      } else if (error.code === 'auth/unauthorized-domain') {
-        message = "Terminal access restricted for this domain.";
       }
       
       toast({ variant: "destructive", title, description: message });
@@ -172,12 +168,12 @@ export default function LoginPage() {
                 <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Phone Number</Label>
                 <div className="relative">
                   <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary italic z-20">+91</span>
-                  <Input 
+                  <input 
                     type="tel" 
                     value={phoneNumber} 
                     onChange={(e) => setPhoneNumber(e.target.value)} 
                     placeholder="0000000000" 
-                    className="h-16 pl-20 rounded-2xl bg-white/5 border-white/10 font-black italic text-xl focus:ring-2 focus:ring-primary relative z-10" 
+                    className="h-16 w-full pl-20 rounded-2xl bg-white/5 border border-white/10 font-black italic text-xl focus:border-primary outline-none relative z-10 transition-colors" 
                     required
                   />
                 </div>
@@ -194,12 +190,12 @@ export default function LoginPage() {
             <form onSubmit={handleVerifyOtp} className="space-y-8">
               <div className="space-y-3">
                 <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Verification Code</Label>
-                <Input 
+                <input 
                   type="text" 
                   value={otp} 
                   onChange={(e) => setOtp(e.target.value)} 
                   placeholder="000000" 
-                  className="h-20 text-center text-4xl tracking-[0.4em] rounded-2xl bg-white/5 border-white/10 font-black text-primary outline-none" 
+                  className="h-20 w-full text-center text-4xl tracking-[0.4em] rounded-2xl bg-white/5 border border-white/10 font-black text-primary outline-none focus:border-primary transition-colors" 
                   maxLength={6}
                   required
                 />

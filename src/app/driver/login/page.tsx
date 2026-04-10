@@ -27,7 +27,7 @@ export default function DriverLoginPage() {
   const [loading, setLoading] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
-  const [step, setStep] = useState(1); // 1: Phone, 2: OTP
+  const [step, setStep] = useState(1); 
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   
   const router = useRouter();
@@ -37,13 +37,12 @@ export default function DriverLoginPage() {
   const { toast } = useToast();
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
-  // Persistent login guard
   useEffect(() => {
     if (!authLoading && user && db) {
       getDoc(doc(db, 'users', user.uid)).then((snap) => {
         if (snap.exists()) {
-          const role = snap.data().role;
-          if (role === 'driver') router.push('/driver');
+          const profile = snap.data();
+          if (profile.role === 'driver') router.push('/driver');
           else router.push('/student');
         }
       });
@@ -86,7 +85,7 @@ export default function DriverLoginPage() {
       
       if (error.code === 'auth/billing-not-enabled') {
         title = "Billing Required";
-        message = "Firebase Phone Auth requires a billing account (Blaze plan) to be enabled in the Firebase Console.";
+        message = "SMS services require a billing plan. Please enable billing in Firebase Console.";
       } else if (error.code === 'auth/too-many-requests') {
         message = "Too many attempts. Please wait.";
       }
@@ -169,12 +168,12 @@ export default function DriverLoginPage() {
                 <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Phone Number</Label>
                 <div className="relative">
                   <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary italic z-20">+91</span>
-                  <Input 
+                  <input 
                     type="tel" 
                     value={phoneNumber} 
                     onChange={(e) => setPhoneNumber(e.target.value)} 
                     placeholder="0000000000" 
-                    className="h-16 w-full pl-20 rounded-2xl bg-white/5 border-white/10 font-black text-foreground text-xl italic outline-none relative z-10" 
+                    className="h-16 w-full pl-20 rounded-2xl bg-white/5 border border-white/10 font-black text-foreground text-xl italic outline-none relative z-10 transition-colors focus:border-primary" 
                     required
                   />
                 </div>
@@ -191,12 +190,12 @@ export default function DriverLoginPage() {
             <form onSubmit={handleVerifyOtp} className="space-y-8">
               <div className="space-y-3">
                 <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Verification Code</Label>
-                <Input 
+                <input 
                   type="text" 
                   value={otp} 
                   onChange={(e) => setOtp(e.target.value)} 
                   placeholder="000000" 
-                  className="h-24 w-full text-center text-4xl tracking-[0.6em] rounded-2xl bg-white/5 border-white/10 font-black text-primary outline-none" 
+                  className="h-24 w-full text-center text-4xl tracking-[0.6em] rounded-2xl bg-white/5 border border-white/10 font-black text-primary outline-none focus:border-primary transition-colors" 
                   maxLength={6}
                   required
                 />
