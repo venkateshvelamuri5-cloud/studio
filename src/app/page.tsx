@@ -134,7 +134,7 @@ export default function GlobalLandingPage() {
                         />
                         <div className="absolute inset-0 flex items-center justify-center">
                            <div className="h-4 w-4 bg-primary rounded-full absolute top-1/3 left-1/4 animate-ping" />
-                           <div className="absolute animate-[shuttle-move_10s_linear_infinite] flex flex-col items-center">
+                           <div className="absolute flex flex-col items-center">
                               <Bus className="h-10 w-10 text-primary drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
                            </div>
                         </div>
