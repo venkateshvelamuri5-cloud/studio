@@ -30,7 +30,9 @@ import {
   Car,
   User,
   ShieldCheck,
-  ShieldAlert
+  ShieldAlert,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
 import { collection, query, doc, setDoc, updateDoc, orderBy, addDoc, deleteDoc } from 'firebase/firestore';
@@ -310,6 +312,103 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {activeTab === 'routes' && (
+            <div className="space-y-10 animate-in fade-in duration-700">
+               <div className="flex justify-between items-center">
+                  <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Corridor Deployer</h3>
+                  <Dialog open={isRouteDialogOpen} onOpenChange={setIsRouteDialogOpen}>
+                     <DialogTrigger asChild>
+                        <Button className="bg-primary text-black font-black uppercase italic h-14 px-8 rounded-2xl shadow-xl shadow-primary/20 flex items-center gap-3">
+                           <Plus className="h-5 w-5" /> Deploy New Corridor
+                        </Button>
+                     </DialogTrigger>
+                     <DialogContent className="bg-background border-white/10 rounded-[2rem] p-10">
+                        <DialogHeader><DialogTitle className="text-2xl font-black italic uppercase text-primary">New Grid Corridor</DialogTitle></DialogHeader>
+                        <div className="space-y-6 mt-6">
+                           <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Corridor Name</Label>
+                              <Input value={newRoute.name} onChange={e => setNewRoute({...newRoute, name: e.target.value})} placeholder="e.g. City Central Hub" className="h-14 bg-white/5 border-white/10 font-black italic" />
+                           </div>
+                           <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Base Fare (₹)</Label>
+                              <Input type="number" value={newRoute.fare} onChange={e => setNewRoute({...newRoute, fare: Number(e.target.value)})} className="h-14 bg-white/5 border-white/10 font-black italic" />
+                           </div>
+                           <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Stops (comma separated)</Label>
+                              <Input value={newRoute.stops} onChange={e => setNewRoute({...newRoute, stops: e.target.value})} placeholder="Hub A, Hub B, Hub C" className="h-14 bg-white/5 border-white/10 font-black italic" />
+                           </div>
+                           <Button onClick={handleAddRoute} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl">Activate Corridor</Button>
+                        </div>
+                     </DialogContent>
+                  </Dialog>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {allRoutes?.map((route: any) => (
+                    <Card key={route.id} className="bg-white/5 border-white/10 rounded-3xl overflow-hidden group hover:border-primary/50 transition-all">
+                       <CardContent className="p-8 space-y-6">
+                          <div className="flex justify-between items-start">
+                             <div>
+                                <h4 className="text-xl font-black italic uppercase text-foreground leading-none">{route.routeName}</h4>
+                                <p className="text-[10px] font-black uppercase text-primary tracking-widest mt-2">₹{route.baseFare} Base</p>
+                             </div>
+                             <Button variant="ghost" size="icon" onClick={() => handleDeleteRoute(route.id)} className="text-destructive hover:bg-destructive/10"><Trash2 className="h-5 w-5" /></Button>
+                          </div>
+                          <div className="space-y-2">
+                             <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Active Nodes</p>
+                             <div className="flex flex-wrap gap-2">
+                                {route.stops?.map((s: any, i: number) => (
+                                  <Badge key={i} className="bg-white/5 text-muted-foreground border-none font-black text-[8px] uppercase px-3 py-1 rounded-full">{s.name}</Badge>
+                                ))}
+                             </div>
+                          </div>
+                       </CardContent>
+                    </Card>
+                  ))}
+               </div>
+            </div>
+          )}
+
+          {activeTab === 'vouchers' && (
+             <div className="space-y-10 animate-in fade-in duration-700">
+                <div className="flex justify-between items-center">
+                   <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Voucher Hub</h3>
+                   <Dialog open={isVoucherDialogOpen} onOpenChange={setIsVoucherDialogOpen}>
+                      <DialogTrigger asChild>
+                         <Button className="bg-primary text-black font-black uppercase italic h-14 px-8 rounded-2xl shadow-xl shadow-primary/20 flex items-center gap-3">
+                            <Plus className="h-5 w-5" /> Issue New Voucher
+                         </Button>
+                      </DialogTrigger>
+                      <DialogContent className="bg-background border-white/10 rounded-[2rem] p-10">
+                         <DialogHeader><DialogTitle className="text-2xl font-black italic uppercase text-primary">Issue Grid Voucher</DialogTitle></DialogHeader>
+                         <div className="space-y-6 mt-6">
+                            <div className="space-y-2">
+                               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Voucher Code</Label>
+                               <Input value={newVoucher.code} onChange={e => setNewVoucher({...newVoucher, code: e.target.value.toUpperCase()})} placeholder="AAGO50" className="h-14 bg-white/5 border-white/10 font-black italic" />
+                            </div>
+                            <div className="space-y-2">
+                               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Discount Amount (₹)</Label>
+                               <Input type="number" value={newVoucher.amount} onChange={e => setNewVoucher({...newVoucher, amount: Number(e.target.value)})} className="h-14 bg-white/5 border-white/10 font-black italic" />
+                            </div>
+                            <Button onClick={handleAddVoucher} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl">Issue Voucher</Button>
+                         </div>
+                      </DialogContent>
+                   </Dialog>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                   {allVouchers?.map((v: any) => (
+                     <Card key={v.id} className="bg-white/5 border-white/10 rounded-3xl p-8 relative group overflow-hidden">
+                        <div className="absolute top-0 right-0 p-4 opacity-5"><Ticket className="h-12 w-12" /></div>
+                        <p className="text-[10px] font-black uppercase text-primary tracking-widest mb-1">{v.code}</p>
+                        <h4 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">₹{v.discountAmount}</h4>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteVoucher(v.id)} className="absolute top-4 right-4 text-destructive opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="h-4 w-4" /></Button>
+                     </Card>
+                   ))}
+                </div>
+             </div>
+          )}
+
           {activeTab === 'payments' && (
             <div className="space-y-10 animate-in fade-in duration-700 max-w-2xl">
               <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Settlement Config</h3>
@@ -327,6 +426,55 @@ export default function AdminDashboard() {
                  </Button>
               </Card>
             </div>
+          )}
+
+          {activeTab === 'ai-architect' && (
+             <div className="space-y-10 animate-in fade-in duration-700">
+                <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">AI Grid Architect</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                   <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-8">
+                      <div className="space-y-4">
+                         <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Student Demand Patterns</Label>
+                         <textarea value={aiInput.studentDemandPatterns} onChange={e => setAiInput({...aiInput, studentDemandPatterns: e.target.value})} className="w-full h-32 bg-white/5 border border-white/10 rounded-2xl p-6 font-black italic text-sm text-foreground focus:border-primary outline-none" />
+                      </div>
+                      <div className="space-y-4">
+                         <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Historical Traffic Context</Label>
+                         <textarea value={aiInput.historicalTrafficData} onChange={e => setAiInput({...aiInput, historicalTrafficData: e.target.value})} className="w-full h-32 bg-white/5 border border-white/10 rounded-2xl p-6 font-black italic text-sm text-foreground focus:border-primary outline-none" />
+                      </div>
+                      <Button onClick={handleRunAiArchitect} disabled={isAiLoading} className="w-full h-18 bg-primary text-black rounded-2xl font-black uppercase italic text-lg shadow-xl shadow-primary/20 transition-all active:scale-95">
+                         {isAiLoading ? <Loader2 className="animate-spin h-6 w-6" /> : "Initiate AI Grid Planning"}
+                      </Button>
+                   </Card>
+
+                   <Card className="bg-black/40 border-white/5 rounded-[2.5rem] p-10 overflow-hidden relative">
+                      {!aiResult ? (
+                        <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
+                           <Sparkles className="h-20 w-20 mb-6" />
+                           <p className="font-black italic uppercase tracking-widest text-[10px]">AI Insight Idle</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-8 animate-in fade-in">
+                           <div className="space-y-2">
+                              <p className="text-[10px] font-black uppercase text-primary tracking-widest">Optimized Strategy</p>
+                              <p className="text-sm font-medium italic text-muted-foreground leading-relaxed">{aiResult.optimizationSummary}</p>
+                           </div>
+                           <div className="space-y-4">
+                              <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Proposed Corridors</p>
+                              <div className="space-y-4 max-h-96 overflow-y-auto pr-4 custom-scrollbar">
+                                 {aiResult.optimizedRoutes.map((r: any, i: number) => (
+                                   <div key={i} className="p-6 bg-white/5 rounded-2xl border border-white/10">
+                                      <h5 className="font-black italic uppercase text-foreground leading-none">{r.routeName}</h5>
+                                      <p className="text-[8px] font-black text-primary uppercase mt-1 italic">{r.schedule}</p>
+                                      <p className="text-[10px] italic text-muted-foreground mt-3">{r.description}</p>
+                                   </div>
+                                 ))}
+                              </div>
+                           </div>
+                        </div>
+                      )}
+                   </Card>
+                </div>
+             </div>
           )}
         </div>
       </main>
