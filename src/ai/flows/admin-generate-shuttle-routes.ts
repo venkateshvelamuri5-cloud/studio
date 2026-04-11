@@ -1,85 +1,38 @@
 'use server';
 /**
- * @fileOverview An AI agent for generating and optimizing shuttle routes.
- *
- * - generateShuttleRoutes - A function that handles the shuttle route generation process.
- * - AdminGenerateShuttleRoutesInput - The input type for the generateShuttleRoutes function.
- * - AdminGenerateShuttleRoutesOutput - The return type for the generateShuttleRoutes function.
+ * @fileOverview High-fidelity AI agent for generating optimized mobility corridors.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
 const ShuttleRouteSchema = z.object({
-  routeName: z.string().describe('The name of the generated shuttle route.'),
-  description: z
-    .string()
-    .describe('A brief summary and description of the route, including its purpose.'),
-  stops: z.array(z.string()).describe('An ordered list of stops for this route.'),
-  schedule: z
-    .string()
-    .describe('The operational schedule for this route, e.g., "Every 15 minutes from 6 AM to 11 PM".'),
-  estimatedDurationMinutes: z.number().describe('The estimated one-way duration of the route in minutes.'),
-  peakDemandCoverage: z
-    .string()
-    .describe(
-      'Description of how well this route covers student demand during peak hours, e.g., "Covers 90% of morning peak demand from North Campus to Main Library".'
-    ),
-  notes: z.string().optional().describe('Any specific recommendations, considerations, or warnings for this route.'),
+  routeName: z.string().describe('The name of the generated corridor.'),
+  description: z.string().describe('Brief summary of the route purpose.'),
+  stops: z.array(z.string()).describe('Ordered list of stops from Start to End.'),
+  suggestedBaseFare: z.number().describe('The calculated base fare in ₹ based on distance and demand.'),
+  schedule: z.string().describe('Operational frequency recommendation.'),
+  estimatedDurationMinutes: z.number().describe('One-way duration in minutes.'),
+  peakDemandCoverage: z.string().describe('How it handles high volume periods.'),
+  aiJustification: z.string().describe('Reasoning for the fare and stops suggested.'),
 });
 
 const AdminGenerateShuttleRoutesInputSchema = z.object({
-  studentDemandPatterns: z
-    .string()
-    .describe(
-      'A detailed description of student demand patterns, including locations, times, and volume, e.g., "high demand from North Campus to Main Library during morning peak hours (8-10 AM) and evening (4-6 PM), moderate demand from dorms to athletic facilities on weekends".'
-    ),
-  historicalTrafficData: z
-    .string()
-    .describe(
-      'Summary of historical traffic conditions, e.g., "heavy congestion on Elm Street between 7-9 AM and 5-7 PM, light traffic on weekends, moderate traffic near downtown during lunch".'
-    ),
-  preferredServiceHours: z
-    .string()
-    .describe('The preferred operational hours for shuttle services, e.g., "Monday-Friday, 6 AM to 11 PM; Saturday-Sunday, 8 AM to 9 PM".'),
-  currentRoutesDescription: z
-    .string()
-    .optional()
-    .describe('A description of existing routes, their coverage, and any known performance issues or areas for improvement, if applicable.'),
-  numberOfShuttlesAvailable: z
-    .number()
-    .optional()
-    .describe('The total number of shuttles available for deployment across all routes.'),
-  maxRouteDurationMinutes: z
-    .number()
-    .optional()
-    .describe('The maximum desired duration for a single route from start to end in minutes, if any.'),
+  startPoint: z.string().describe('The starting geographic node of the corridor.'),
+  endPoint: z.string().describe('The terminal geographic node of the corridor.'),
+  demandVolume: z.string().describe('Description of student/rider demand (e.g., "500+ daily", "High morning peak").'),
+  trafficContext: z.string().describe('Traffic conditions like "Heavy at 9 AM", "Commercial zone delays".'),
+  preferredServiceHours: z.string().optional().describe('Operational hours (e.g., "6 AM - 10 PM").'),
 });
-export type AdminGenerateShuttleRoutesInput = z.infer<
-  typeof AdminGenerateShuttleRoutesInputSchema
->;
+export type AdminGenerateShuttleRoutesInput = z.infer<typeof AdminGenerateShuttleRoutesInputSchema>;
 
 const AdminGenerateShuttleRoutesOutputSchema = z.object({
-  optimizedRoutes: z
-    .array(ShuttleRouteSchema)
-    .describe('An array of newly generated or optimized shuttle route configurations.'),
-  optimizationSummary: z
-    .string()
-    .describe(
-      'A summary of the overall optimization strategy applied and the key benefits of the generated routes, considering all input factors.'
-    ),
-  potentialIssues: z
-    .string()
-    .optional()
-    .describe('Any potential issues, trade-offs, or areas that might require further manual review or adjustment for the generated routes.'),
+  optimizedRoutes: z.array(ShuttleRouteSchema).describe('The newly architected corridor suggestions.'),
+  optimizationSummary: z.string().describe('Overall strategy for this corridor.'),
 });
-export type AdminGenerateShuttleRoutesOutput = z.infer<
-  typeof AdminGenerateShuttleRoutesOutputSchema
->;
+export type AdminGenerateShuttleRoutesOutput = z.infer<typeof AdminGenerateShuttleRoutesOutputSchema>;
 
-export async function generateShuttleRoutes(
-  input: AdminGenerateShuttleRoutesInput
-): Promise<AdminGenerateShuttleRoutesOutput> {
+export async function generateShuttleRoutes(input: AdminGenerateShuttleRoutesInput): Promise<AdminGenerateShuttleRoutesOutput> {
   return adminGenerateShuttleRoutesFlow(input);
 }
 
@@ -87,44 +40,25 @@ const prompt = ai.definePrompt({
   name: 'adminGenerateShuttleRoutesPrompt',
   input: { schema: AdminGenerateShuttleRoutesInputSchema },
   output: { schema: AdminGenerateShuttleRoutesOutputSchema },
-  prompt: `You are an expert transportation planner tasked with optimizing a shuttle service.
-Your goal is to generate new and optimized shuttle routes based on the provided data.
-Consider student demand patterns, historical traffic data, and preferred service hours to create efficient and effective routes.
+  prompt: `You are the AAGO Grid Architect, a specialist in Indian urban mobility and corridor planning.
+Your task is to design a high-efficiency mobility route between two specific points.
 
-### Input Data:
-
-Student Demand Patterns: {{{studentDemandPatterns}}}
-
-Historical Traffic Data: {{{historicalTrafficData}}}
-
-Preferred Service Hours: {{{preferredServiceHours}}}
-
-{{#if currentRoutesDescription}}
-Current Existing Routes and Performance: {{{currentRoutesDescription}}}
+### Input Parameters:
+- Start Node: {{{startPoint}}}
+- End Node: {{{endPoint}}}
+- Demand Context: {{{demandVolume}}}
+- Traffic Context: {{{trafficContext}}}
+{{#if preferredServiceHours}}
+- Service Hours: {{{preferredServiceHours}}}
 {{/if}}
 
-{{#if numberOfShuttlesAvailable}}
-Number of Shuttles Available: {{{numberOfShuttlesAvailable}}}
-{{/if}}
+### Your Architecture Guidelines:
+1. **Node Selection**: Identify logical intermediate stops based on common commute patterns in an Indian city context.
+2. **Fare Calculation**: Suggest a 'suggestedBaseFare' in ₹. Base it on typical segment lengths (usually ₹15-20 per 5km) but adjust for demand complexity.
+3. **Efficiency**: Ensure the route estimatedDurationMinutes accounts for the traffic context provided.
+4. **Naming**: Create a professional corridor name (e.g., "Tech-City Express", "Central-Market Hub").
 
-{{#if maxRouteDurationMinutes}}
-Maximum Desired Route Duration: {{{maxRouteDurationMinutes}}} minutes
-{{/if}}
-
-### Task:
-
-Generate a set of optimized shuttle routes. For each route, provide:
-- A unique route name.
-- A clear description of the route and its primary purpose.
-- An ordered list of stops.
-- Its operational schedule.
-- The estimated one-way duration in minutes.
-- A description of how it addresses peak student demand.
-- Any specific notes or considerations.
-
-Also, provide an overall summary of your optimization strategy and highlight any potential issues or trade-offs.
-
-Ensure the output strictly adheres to the provided JSON schema.
+Generate 1-2 variations of the optimized corridor. Provide a justification for the fare choice based on the demand.
 `,
 });
 
@@ -136,9 +70,7 @@ const adminGenerateShuttleRoutesFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await prompt(input);
-    if (!output) {
-      throw new Error('Failed to generate shuttle routes. No output from prompt.');
-    }
+    if (!output) throw new Error('Grid Architect failed to respond.');
     return output;
   }
 );

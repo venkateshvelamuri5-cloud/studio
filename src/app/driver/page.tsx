@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -106,7 +105,7 @@ export default function DriverApp() {
     if (!db || !user || !profile) return;
     setIsUpdating(true);
     if (trip.driverId && trip.driverId !== user.uid) {
-      toast({ variant: "destructive", title: "Mission Locked", description: "Another operator has claimed this route." });
+      toast({ variant: "destructive", title: "Mission Locked", description: "Another operator has claimed this corridor." });
       setIsUpdating(false);
       return;
     }
@@ -122,7 +121,11 @@ export default function DriverApp() {
         status: 'active',
         startTime: new Date().toISOString()
       });
-      await updateDoc(userRef!, { status: 'on-trip', activeTripId: trip.id });
+      await updateDoc(userRef!, { 
+        status: 'on-trip', 
+        activeTripId: trip.id,
+        currentRouteName: trip.routeName 
+      });
       toast({ title: "Mission Started" });
     } finally { setIsUpdating(false); }
   };
@@ -164,6 +167,7 @@ export default function DriverApp() {
       await updateDoc(userRef, { 
         status: 'available', 
         activeTripId: null, 
+        currentRouteName: null,
         totalEarnings: increment(driverPayout) 
       });
       toast({ title: "Mission Done", description: `Payout ₹${driverPayout.toFixed(0)} credited.` });
@@ -174,7 +178,6 @@ export default function DriverApp() {
 
   if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin text-primary h-12 w-12" /></div>;
 
-  // VERIFICATION GATE
   if (profile && !profile.isVerified) {
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-10 text-center space-y-8 safe-area-inset">
@@ -232,7 +235,7 @@ export default function DriverApp() {
             </div>
 
             <div className="flex items-center justify-between px-2 mt-4">
-              <h2 className="text-xl font-black italic uppercase text-foreground flex items-center gap-2"><Target className="h-5 w-5 text-primary" /> Hub Discovery</h2>
+              <h2 className="text-xl font-black italic uppercase text-foreground flex items-center gap-2"><Target className="h-5 w-5 text-primary" /> Corridor Discovery</h2>
               <Badge variant="outline" className="border-white/10 text-[8px] uppercase tracking-widest">ACTIVE GRID</Badge>
             </div>
             
@@ -240,7 +243,7 @@ export default function DriverApp() {
               {jobPool?.filter(j => !j.driverId).length === 0 ? (
                 <div className="p-20 text-center text-muted-foreground italic bg-white/5 rounded-[2.5rem] border border-dashed border-white/10 flex flex-col items-center gap-4">
                    <Loader2 className="animate-spin h-6 w-6 opacity-20" />
-                   <p className="text-[10px] font-black uppercase tracking-widest">Scanning active demand...</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest">Scanning demand pool...</p>
                 </div>
               ) : jobPool?.filter(j => !j.driverId).map((job: any) => (
                 <Card key={job.id} className="glass-card rounded-[2.5rem] p-8 flex justify-between items-center border-white/5 group hover:border-primary/40 hover:bg-white/10 transition-all">
@@ -248,7 +251,7 @@ export default function DriverApp() {
                     <h3 className="font-black text-2xl text-foreground uppercase italic leading-none">{job.routeName}</h3>
                     <div className="flex items-center gap-3">
                        <Badge className="bg-primary/20 text-primary border-none text-[9px] font-black uppercase px-3 py-1 rounded-full">{job.passengerManifest?.length || 0} Bookings</Badge>
-                       <span className="text-[10px] font-bold text-muted-foreground uppercase">{job.scheduledDate === format(new Date(), 'yyyy-MM-dd') ? 'Today' : job.scheduledDate}</span>
+                       <span className="text-[10px] font-bold text-muted-foreground uppercase">{job.scheduledDate}</span>
                     </div>
                   </div>
                   <Button onClick={() => startJob(job)} disabled={profile?.status === 'offline' || isUpdating} className="rounded-2xl h-16 w-16 p-0 bg-primary text-black shadow-2xl shadow-primary/20 hover:scale-105 active:scale-90 transition-all">
@@ -264,13 +267,13 @@ export default function DriverApp() {
               <div className="flex justify-between items-start relative z-10">
                 <div className="space-y-1">
                   <h2 className="text-4xl font-black italic uppercase leading-none text-primary tracking-tighter">{activeTrip.routeName}</h2>
-                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-2 italic">Active Mission Flow</p>
+                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-2 italic">Active Mission Hub</p>
                 </div>
-                <Badge className="bg-primary/20 text-primary border-none text-[10px] font-black uppercase px-5 py-2 rounded-full">LIVE TELEMETRY</Badge>
+                <Badge className="bg-primary/20 text-primary border-none text-[10px] font-black uppercase px-5 py-2 rounded-full">LIVE GRID</Badge>
               </div>
 
               <div className="bg-black/60 p-8 rounded-[3rem] space-y-6 border border-white/10 relative z-10 shadow-inner">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-4">Confirm Rider Code</Label>
+                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-4">Verify Boarding Code</Label>
                 <div className="flex gap-4">
                   <input value={verificationOtp} onChange={(e) => setVerificationOtp(e.target.value)} placeholder="000000" className="h-20 w-full text-center font-black tracking-[0.5em] text-4xl rounded-3xl bg-white/5 border border-white/10 text-primary focus:border-primary outline-none transition-all" maxLength={6} />
                   <Button onClick={verifyPassenger} disabled={isVerifying || !verificationOtp} className="h-20 w-20 rounded-3xl bg-primary text-black shadow-2xl shadow-primary/20 active:scale-95"><CheckCircle2 className="h-10 w-10" /></Button>
@@ -278,7 +281,7 @@ export default function DriverApp() {
               </div>
 
               <div className="space-y-4 relative z-10">
-                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-3 ml-4"><Users className="h-4 w-4 text-primary" /> Grid Manifest</h3>
+                 <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-3 ml-4"><Users className="h-4 w-4 text-primary" /> Manifest</h3>
                  <div className="space-y-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
                     {activeTrip.passengerManifest?.map((m: any, i: number) => {
                       const isVerified = activeTrip.verifiedPassengers?.includes(m.uid);
@@ -291,14 +294,14 @@ export default function DriverApp() {
                                  <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1 italic">{m.pickup} → {m.destination}</p>
                               </div>
                            </div>
-                           {isVerified ? <CheckCircle2 className="text-primary h-6 w-6" /> : <Badge className="text-[8px] bg-accent/20 text-accent border-none animate-pulse px-4 py-1 rounded-full uppercase italic">Waiting</Badge>}
+                           {isVerified ? <CheckCircle2 className="text-primary h-6 w-6" /> : <Badge className="text-[8px] bg-accent/20 text-accent border-none animate-pulse px-4 py-1 rounded-full uppercase italic">Boarding</Badge>}
                         </div>
                       );
                     })}
                  </div>
               </div>
 
-              <Button onClick={endTrip} disabled={isUpdating} className="w-full h-20 bg-primary/10 border-2 border-primary/50 text-primary rounded-[3rem] font-black uppercase italic text-xl shadow-2xl hover:bg-primary hover:text-black transition-all active:scale-95">End Grid Mission</Button>
+              <Button onClick={endTrip} disabled={isUpdating} className="w-full h-20 bg-primary/10 border-2 border-primary/50 text-primary rounded-[3rem] font-black uppercase italic text-xl shadow-2xl hover:bg-primary hover:text-black transition-all active:scale-95">Complete Mission</Button>
             </Card>
           </div>
         ))}
@@ -314,7 +317,7 @@ export default function DriverApp() {
                   <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Trophy className="h-6 w-6" /></div>
                   <div>
                     <h4 className="text-xl font-black italic uppercase text-foreground">Mission Goal</h4>
-                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic mt-1">Daily Grid Progress</p>
+                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic mt-1">Daily Progress</p>
                   </div>
                 </div>
                 <div className="space-y-4">
@@ -344,7 +347,7 @@ export default function DriverApp() {
               </div>
             </div>
             <Button onClick={handleSignOut} className="w-full max-w-sm mx-auto h-20 bg-destructive/10 text-destructive rounded-[2.5rem] font-black uppercase italic border border-destructive/20 text-xl shadow-2xl hover:bg-destructive hover:text-white transition-all group">
-              <LogOut className="h-7 w-7 mr-4 group-hover:scale-110 transition-transform" /> Exit Terminal
+              <LogOut className="h-7 w-7 mr-4 group-hover:scale-110 transition-transform" /> Exit Hub
             </Button>
           </div>
         )}
