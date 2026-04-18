@@ -48,7 +48,7 @@ import { useToast } from '@/hooks/use-toast';
 import { generateShuttleRoutes, AdminGenerateShuttleRoutesInput } from '@/ai/flows/admin-generate-shuttle-routes';
 import { analyzeDemandIntelligence, DemandIntelligenceInput } from '@/ai/flows/admin-demand-intelligence-flow';
 
-const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
+const Logo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
     <circle cx="10" cy="10" r="3" fill="currentColor" className="animate-pulse" />
     <circle cx="30" cy="10" r="3" fill="currentColor" />
@@ -64,36 +64,36 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useUser();
   
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'routes' | 'fleet' | 'riders' | 'ai-architect' | 'coupons'>('dashboard');
-  const [aiSubTab, setAiSubTab] = useState<'generator' | 'intelligence'>('generator');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'routes' | 'drivers' | 'customers' | 'ai-planner' | 'discounts'>('dashboard');
+  const [aiSubTab, setAiSubTab] = useState<'generator' | 'demand'>('generator');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isPurging, setIsPurging] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
 
   // Edit State
   const [editingUser, setEditingUser] = useState<any>(null);
   const [viewingDocs, setViewingDocs] = useState<any>(null);
 
-  // New Coupon State
+  // New Discount State
   const [newCoupon, setNewCoupon] = useState({ code: '', discount: 0, status: 'active' });
 
-  // Route Deployment State
+  // Route State
   const [newRoute, setNewRoute] = useState({ name: '', fare: '', stops: '', schedule: '' });
 
   // AI Architect State
   const [aiInput, setAiInput] = useState<AdminGenerateShuttleRoutesInput>({
-    startPoint: "Main Hub",
-    endPoint: "Market Center",
-    demandVolume: "High demand",
-    trafficContext: "Heavy traffic at 9 AM"
+    startPoint: "Central Hub",
+    endPoint: "Main Market",
+    demandVolume: "High",
+    trafficContext: "Busy"
   });
   const [aiResult, setAiResult] = useState<any>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  // Demand Intel State
+  // Demand State
   const [demandInput, setDemandInput] = useState<DemandIntelligenceInput>({
-    gridSnapshot: "Capacity at 40%",
-    unmetRequests: "High demand for Airport hub",
-    externalContext: "Heavy rains in city center"
+    gridSnapshot: "Capacity at 50%",
+    unmetRequests: "High demand near airport",
+    externalContext: ""
   });
   const [demandResult, setDemandResult] = useState<any>(null);
   const [isDemandLoading, setIsDemandLoading] = useState(false);
@@ -104,20 +104,19 @@ export default function AdminDashboard() {
 
   const { data: allUsers } = useCollection(useMemo(() => db ? query(collection(db, 'users')) : null, [db]));
   const { data: allRoutes } = useCollection(useMemo(() => db ? query(collection(db, 'routes'), orderBy('createdAt', 'desc')) : null, [db]));
-  const { data: activeTrips } = useCollection(useMemo(() => db ? query(collection(db, 'trips'), where('status', 'in', ['active', 'scheduled', 'on-trip'])) : null, [db]));
-  const { data: allCoupons } = useCollection(useMemo(() => db ? query(collection(db, 'vouchers')) : null, [db]));
+  const { data: trips } = useCollection(useMemo(() => db ? query(collection(db, 'trips'), where('status', 'in', ['active', 'scheduled', 'on-trip'])) : null, [db]));
+  const { data: coupons } = useCollection(useMemo(() => db ? query(collection(db, 'vouchers')) : null, [db]));
 
   const stats = useMemo(() => {
-    if (!allUsers) return { totalRiders: 0, totalDrivers: 0, utilization: 0, pendingDrivers: 0, activeFleet: 0 };
+    if (!allUsers) return { totalCustomers: 0, totalDrivers: 0, utilization: 0, activeDrivers: 0 };
     const drivers = allUsers.filter(u => u.role === 'driver');
-    const riders = allUsers.filter(u => u.role === 'rider');
+    const customers = allUsers.filter(u => u.role === 'rider');
     const onTrip = drivers.filter(d => d.status === 'on-trip').length;
     return {
-      totalRiders: riders.length,
+      totalCustomers: customers.length,
       totalDrivers: drivers.length,
-      activeFleet: drivers.filter(d => d.status === 'available' || d.status === 'on-trip').length,
+      activeDrivers: drivers.filter(d => d.status === 'available' || d.status === 'on-trip').length,
       utilization: drivers.length > 0 ? Math.round((onTrip / drivers.length) * 100) : 0,
-      pendingDrivers: drivers.filter(u => u.role === 'driver' && !u.isVerified).length
     };
   }, [allUsers]);
 
@@ -125,91 +124,91 @@ export default function AdminDashboard() {
     if (!db) return;
     try {
       await updateDoc(doc(db, 'users', uid), data);
-      toast({ title: "Updated", description: "Member profile synchronized." });
+      toast({ title: "Updated", description: "Details saved." });
       setEditingUser(null);
     } catch (e) {
-      toast({ variant: 'destructive', title: "Error", description: "Failed to update member." });
+      toast({ variant: 'destructive', title: "Error", description: "Failed to update." });
     }
   };
 
-  const handleVerifyUser = (uid: string) => {
+  const handleApprove = (uid: string) => {
     if (!db) return;
     updateDoc(doc(db, 'users', uid), { isVerified: true })
-      .then(() => toast({ title: "Approved", description: "Driver verified for Hub access." }));
+      .then(() => toast({ title: "Approved", description: "Driver can now start working." }));
   };
 
   const handleDeleteUser = async (uid: string) => {
     if (!db) return;
-    if (!confirm("Delete member permanently?")) return;
+    if (!confirm("Remove this person permanently?")) return;
     try {
       await deleteDoc(doc(db, 'users', uid));
-      toast({ title: "Deleted", description: "Member removed from Hub." });
+      toast({ title: "Removed", description: "Person deleted." });
     } catch (e) {
-      toast({ variant: 'destructive', title: "Error", description: "Failed to delete member." });
+      toast({ variant: 'destructive', title: "Error", description: "Failed to remove." });
     }
   };
 
-  const handlePurgeTestData = async () => {
-    if (!db || !confirm("Clear all Hub data for live start?")) return;
-    setIsPurging(true);
+  const handleCleanData = async () => {
+    if (!db || !confirm("Clear all trips and non-admin users?")) return;
+    setIsCleaning(true);
     try {
       const tripsSnap = await getDocs(collection(db, 'trips'));
       const usersSnap = await getDocs(query(collection(db, 'users'), where('role', '!=', 'admin')));
       const tripsDeletes = tripsSnap.docs.map(d => deleteDoc(d.ref));
       const usersDeletes = usersSnap.docs.map(d => deleteDoc(d.ref));
       await Promise.all([...tripsDeletes, ...usersDeletes]);
-      toast({ title: "Hub Reset", description: "All test data cleared." });
-    } finally { setIsPurging(false); }
+      toast({ title: "Cleaned", description: "Service reset." });
+    } finally { setIsCleaning(false); }
   };
 
-  const deployRoute = (routeData: any) => {
+  const addRoute = (data: any) => {
     if (!db) return;
-    const stopsArray = Array.isArray(routeData.stops) 
-      ? routeData.stops.map((s: any) => ({ name: typeof s === 'string' ? s : s.name }))
-      : routeData.stops.split(',').map((s: string) => ({ name: s.trim() }));
+    const stops = Array.isArray(data.stops) 
+      ? data.stops.map((s: any) => ({ name: typeof s === 'string' ? s : s.name }))
+      : data.stops.split(',').map((s: string) => ({ name: s.trim() }));
     
     addDoc(collection(db, 'routes'), {
-      routeName: routeData.routeName || routeData.name,
-      baseFare: Number(routeData.suggestedBaseFare || routeData.fare),
-      stops: stopsArray,
-      schedule: routeData.schedule || "08:00 AM, 05:30 PM",
+      routeName: data.routeName || data.name,
+      baseFare: Number(data.suggestedBaseFare || data.fare),
+      stops: stops,
+      schedule: data.schedule || "08:00 AM, 05:30 PM",
       status: 'active',
       createdAt: new Date().toISOString()
     }).then(() => {
-      toast({ title: "Route Deployed", description: "New Hub path is now active." });
+      toast({ title: "Route Added", description: "New path is live." });
       setNewRoute({ name: '', fare: '', stops: '', schedule: '' });
       setActiveTab('routes');
     });
   };
 
-  const handleAddCoupon = async () => {
+  const addDiscount = async () => {
     if (!db || !newCoupon.code) return;
     try {
       await addDoc(collection(db, 'vouchers'), { ...newCoupon, code: newCoupon.code.toUpperCase() });
-      toast({ title: "Coupon Active", description: "Voucher added to Hub." });
+      toast({ title: "Added", description: "Discount code created." });
       setNewCoupon({ code: '', discount: 0, status: 'active' });
     } catch (e) {
-      toast({ variant: 'destructive', title: "Error", description: "Failed to add voucher." });
+      toast({ variant: 'destructive', title: "Error", description: "Failed to add code." });
     }
   };
 
-  const handleRunAiArchitect = async () => {
+  const runPlanner = async () => {
     setIsAiLoading(true);
     try {
       const result = await generateShuttleRoutes(aiInput);
       setAiResult(result);
     } catch (e) {
-      toast({ variant: 'destructive', title: 'AI Error', description: 'Architect failed to respond.' });
+      toast({ variant: 'destructive', title: 'AI Error', description: 'Failed to plan.' });
     } finally { setIsAiLoading(false); }
   };
 
-  const handleRunDemandIntel = async () => {
+  const runDemandCheck = async () => {
     setIsDemandLoading(true);
     try {
       const result = await analyzeDemandIntelligence(demandInput);
       setDemandResult(result);
     } catch (e) {
-      toast({ variant: 'destructive', title: 'AI Error', description: 'Intel synth failed.' });
+      toast({ variant: 'destructive', title: 'AI Error', description: 'Check failed.' });
     } finally { setIsDemandLoading(false); }
   };
 
@@ -219,8 +218,8 @@ export default function AdminDashboard() {
 
   const filteredUsers = allUsers?.filter(u => {
     const matchesSearch = searchQuery === '' || u.phoneNumber?.includes(searchQuery) || u.fullName?.toLowerCase().includes(searchQuery.toLowerCase());
-    if (activeTab === 'fleet') return u.role === 'driver' && matchesSearch;
-    if (activeTab === 'riders') return u.role === 'rider' && matchesSearch;
+    if (activeTab === 'drivers') return u.role === 'driver' && matchesSearch;
+    if (activeTab === 'customers') return u.role === 'rider' && matchesSearch;
     return matchesSearch;
   });
 
@@ -229,25 +228,25 @@ export default function AdminDashboard() {
       <aside className="w-72 bg-black/40 flex flex-col shrink-0 border-r border-white/5 backdrop-blur-xl">
         <div className="p-8 h-28 flex items-center border-b border-white/5">
           <div className="flex items-center gap-4">
-            <div className="p-2.5 bg-primary rounded-xl text-black"><ConnectingDotsLogo className="h-5 w-5" /></div>
-            <span className="text-2xl font-black italic tracking-tighter uppercase text-primary">AAGO OPS</span>
+            <div className="p-2.5 bg-primary rounded-xl text-black"><Logo className="h-5 w-5" /></div>
+            <span className="text-2xl font-black italic tracking-tighter uppercase text-primary">ADMIN</span>
           </div>
         </div>
-        <nav className="flex-1 p-6 space-y-2 overflow-y-auto custom-scrollbar">
+        <nav className="flex-1 p-6 space-y-2 overflow-y-auto">
           {[
             { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-            { id: 'fleet', label: 'Drivers', icon: Car },
-            { id: 'riders', label: 'Riders', icon: Users },
+            { id: 'drivers', label: 'Drivers', icon: Car },
+            { id: 'customers', label: 'Customers', icon: Users },
             { id: 'routes', label: 'Routes', icon: RouteIcon },
-            { id: 'ai-architect', label: 'AI Planner', icon: Sparkles },
-            { id: 'coupons', label: 'Coupons', icon: Gift },
+            { id: 'ai-planner', label: 'AI Planner', icon: Sparkles },
+            { id: 'discounts', label: 'Discounts', icon: Gift },
           ].map((item) => (
             <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`w-full flex items-center justify-start rounded-xl font-black uppercase italic h-14 px-5 transition-all ${activeTab === item.id ? 'bg-primary text-black' : 'text-muted-foreground hover:bg-white/5'}`}>
               <item.icon className="mr-4 h-5 w-5" /> {item.label}
             </button>
           ))}
           <div className="pt-8 mt-8 border-t border-white/5">
-            <button className="w-full flex items-center justify-start text-destructive hover:bg-destructive/10 font-black uppercase italic h-14 px-5 rounded-xl transition-all" onClick={handleSignOut}>
+            <button className="w-full flex items-center justify-start text-destructive hover:bg-destructive/10 font-black uppercase italic h-14 px-5 rounded-xl" onClick={handleSignOut}>
               <LogOut className="mr-4 h-5 w-5" /> Logout
             </button>
           </div>
@@ -255,31 +254,28 @@ export default function AdminDashboard() {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-28 bg-background/50 border-b border-white/5 px-10 flex items-center justify-between backdrop-blur-3xl">
+        <header className="h-28 border-b border-white/5 px-10 flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-black text-foreground italic uppercase tracking-tighter">{activeTab}</h2>
-            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-2 flex items-center gap-2">
-               <Activity className="h-3 w-3 text-primary animate-pulse" /> Hub Status: Online
-            </p>
           </div>
           <div className="flex items-center gap-4">
-             <Button onClick={handlePurgeTestData} disabled={isPurging} variant="outline" className="border-destructive/20 text-destructive h-12 px-6 rounded-xl font-black uppercase italic">
-                {isPurging ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />} Reset Hub
+             <Button onClick={handleCleanData} disabled={isCleaning} variant="outline" className="border-destructive/20 text-destructive h-12 px-6 rounded-xl font-black uppercase italic">
+                {isCleaning ? "Cleaning..." : "Reset Service"}
              </Button>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-10 space-y-10">
           {activeTab === 'dashboard' && (
             <div className="space-y-10 animate-in fade-in">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {[
-                  { label: 'Active Fleet', value: stats.activeFleet, icon: Car },
-                  { label: 'Total Riders', value: stats.totalRiders, icon: Users },
-                  { label: 'Utilization', value: `${stats.utilization}%`, icon: Target },
-                  { label: 'Live Routes', value: allRoutes?.length || 0, icon: RouteIcon },
+                  { label: 'Drivers', value: stats.activeDrivers, icon: Car },
+                  { label: 'Customers', value: stats.totalCustomers, icon: Users },
+                  { label: 'Active Trip %', value: `${stats.utilization}%`, icon: Target },
+                  { label: 'Total Routes', value: allRoutes?.length || 0, icon: RouteIcon },
                 ].map((metric, i) => (
-                  <Card key={i} className="bg-white/5 border-white/10 rounded-2xl group hover:border-primary/50 transition-all">
+                  <Card key={i} className="bg-white/5 border-white/10 rounded-2xl">
                     <CardContent className="p-6">
                       <div className="p-3 bg-primary/10 rounded-xl w-fit mb-4"><metric.icon className="h-5 w-5 text-primary" /></div>
                       <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">{metric.label}</p>
@@ -289,33 +285,20 @@ export default function AdminDashboard() {
                 ))}
               </div>
 
-              {stats.pendingDrivers > 0 && (
-                <Card className="bg-destructive/10 border-destructive/20 rounded-2xl p-6 flex items-center justify-between border">
-                   <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 bg-destructive/20 rounded-xl flex items-center justify-center text-destructive"><ShieldAlert className="h-5 w-5" /></div>
-                      <div>
-                         <p className="text-[10px] font-black uppercase text-destructive">Approval Required</p>
-                         <p className="text-sm font-bold italic uppercase">{stats.pendingDrivers} drivers are waiting for Hub approval.</p>
-                      </div>
-                   </div>
-                   <Button onClick={() => setActiveTab('fleet')} className="bg-destructive text-white font-black uppercase italic h-10 px-6 rounded-xl">Review</Button>
-                </Card>
-              )}
-
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                  <Card className="bg-white/5 border-white/10 rounded-[2.5rem] overflow-hidden">
                     <CardHeader className="p-8 border-b border-white/5">
-                       <CardTitle className="text-xl font-black italic uppercase text-primary">Recent Rides</CardTitle>
+                       <CardTitle className="text-xl font-black italic uppercase text-primary">Live Trips</CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
                        <div className="divide-y divide-white/5">
-                          {activeTrips?.slice(0, 5).map((trip: any) => (
-                            <div key={trip.id} className="p-6 flex items-center justify-between hover:bg-white/5 transition-all">
+                          {trips?.slice(0, 5).map((trip: any) => (
+                            <div key={trip.id} className="p-6 flex items-center justify-between">
                                <div className="flex items-center gap-4">
                                   <div className="h-10 w-10 rounded-xl bg-white/10 text-white/40 flex items-center justify-center"><RouteIcon className="h-5 w-5" /></div>
                                   <div>
                                      <p className="font-black italic uppercase text-foreground leading-none">{trip.routeName}</p>
-                                     <p className="text-[9px] font-bold text-muted-foreground uppercase mt-1 italic">{trip.riderCount} Seats • {trip.status}</p>
+                                     <p className="text-[9px] font-bold text-muted-foreground uppercase mt-1 italic">{trip.riderCount} Seats Booked</p>
                                   </div>
                                </div>
                                <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-3 py-1 rounded-full">{trip.status}</Badge>
@@ -328,34 +311,34 @@ export default function AdminDashboard() {
                  <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 flex flex-col justify-center items-center text-center space-y-6">
                     <div className="h-20 w-20 bg-primary/10 rounded-full flex items-center justify-center text-primary shadow-2xl animate-pulse"><TrendingUp className="h-10 w-10" /></div>
                     <div className="space-y-2">
-                       <h3 className="text-4xl font-black italic uppercase tracking-tighter">AI Hub Planner</h3>
-                       <p className="text-sm font-bold text-muted-foreground italic uppercase tracking-widest max-w-xs">Optimized Route Deployment</p>
+                       <h3 className="text-4xl font-black italic uppercase tracking-tighter">AI Planner</h3>
+                       <p className="text-sm font-bold text-muted-foreground italic uppercase tracking-widest max-w-xs">Plan better routes</p>
                     </div>
-                    <Button onClick={() => setActiveTab('ai-architect')} className="bg-primary text-black font-black uppercase italic px-10 h-14 rounded-2xl">Open AI Planner</Button>
+                    <Button onClick={() => setActiveTab('ai-planner')} className="bg-primary text-black font-black uppercase italic px-10 h-14 rounded-2xl">Open Planner</Button>
                  </Card>
               </div>
             </div>
           )}
 
-          {(activeTab === 'fleet' || activeTab === 'riders') && (
+          {(activeTab === 'drivers' || activeTab === 'customers') && (
             <div className="space-y-10 animate-in fade-in">
                <div className="flex justify-between items-center">
-                  <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">{activeTab === 'fleet' ? 'Drivers' : 'Riders'}</h3>
+                  <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">{activeTab === 'drivers' ? 'Drivers' : 'Customers'}</h3>
                   <div className="relative w-80">
                      <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-white/10" />
                      <Input placeholder="Search name or phone..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="h-14 pl-14 rounded-2xl bg-white/5 border-white/10 font-black italic" />
                   </div>
                </div>
                
-               <Card className="bg-white/5 border-white/10 rounded-3xl overflow-hidden shadow-2xl">
+               <Card className="bg-white/5 border-white/10 rounded-3xl overflow-hidden">
                   <CardContent className="p-0">
                     <table className="w-full text-left">
                       <thead>
                         <tr className="bg-white/5 text-[9px] font-black uppercase text-muted-foreground tracking-widest border-b border-white/10">
                           <th className="py-6 px-10">Name</th>
                           <th className="py-6">Status</th>
-                          <th className="py-6">ID Status</th>
-                          <th className="py-6 px-10 text-right">Actions</th>
+                          <th className="py-6">Details</th>
+                          <th className="py-6 px-10 text-right">Edit</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
@@ -363,12 +346,12 @@ export default function AdminDashboard() {
                           <tr key={u.uid} className="hover:bg-white/5 transition-all">
                              <td className="py-6 px-10">
                                 <div className="flex items-center gap-5">
-                                   <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black overflow-hidden italic border border-white/5">
+                                   <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-black overflow-hidden italic">
                                       {u.photoUrl ? <img src={u.photoUrl} className="h-full w-full object-cover" /> : <User className="h-6 w-6 opacity-30" />}
                                    </div>
                                    <div>
                                       <p className="font-black text-foreground uppercase italic text-sm leading-none">{u.fullName}</p>
-                                      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mt-1">{u.phoneNumber}</p>
+                                      <p className="text-[9px] font-black text-muted-foreground uppercase mt-1">{u.phoneNumber}</p>
                                    </div>
                                 </div>
                              </td>
@@ -379,7 +362,7 @@ export default function AdminDashboard() {
                              </td>
                              <td className="py-6">
                                 <div className="flex items-center gap-2">
-                                   {u.isVerified ? <Badge className="bg-primary/20 text-primary uppercase text-[8px]">Verified</Badge> : <Badge className="bg-destructive/20 text-destructive uppercase text-[8px]">Pending</Badge>}
+                                   {u.isVerified ? <Badge className="bg-primary/20 text-primary uppercase text-[8px]">Verified</Badge> : <Badge className="bg-destructive/20 text-destructive uppercase text-[8px]">Checking</Badge>}
                                 </div>
                              </td>
                              <td className="py-6 px-10 text-right">
@@ -400,27 +383,27 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {activeTab === 'coupons' && (
+          {activeTab === 'discounts' && (
             <div className="space-y-10 animate-in fade-in">
-              <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Voucher Hub</h3>
+              <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Discount Codes</h3>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                 <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-6">
                    <div className="space-y-2">
-                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Coupon Code</Label>
-                      <input value={newCoupon.code} onChange={e => setNewCoupon({...newCoupon, code: e.target.value})} placeholder="e.g. AAGO20" className="h-14 w-full px-6 rounded-xl bg-white/5 border border-white/10 font-black italic uppercase outline-none focus:border-primary" />
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Code</Label>
+                      <input value={newCoupon.code} onChange={e => setNewCoupon({...newCoupon, code: e.target.value})} placeholder="e.g. SAVE20" className="h-14 w-full px-6 rounded-xl bg-white/5 border border-white/10 font-black italic uppercase outline-none focus:border-primary" />
                    </div>
                    <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Discount (₹)</Label>
                       <input type="number" value={newCoupon.discount} onChange={e => setNewCoupon({...newCoupon, discount: parseInt(e.target.value)})} placeholder="20" className="h-14 w-full px-6 rounded-xl bg-white/5 border border-white/10 font-black italic outline-none focus:border-primary" />
                    </div>
-                   <Button onClick={handleAddCoupon} className="w-full h-16 bg-primary text-black font-black uppercase italic rounded-2xl">
-                      Add Voucher
+                   <Button onClick={addDiscount} className="w-full h-16 bg-primary text-black font-black uppercase italic rounded-2xl">
+                      Add Code
                    </Button>
                 </Card>
                 <div className="space-y-4">
-                   <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Active Vouchers</Label>
+                   <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Active Codes</Label>
                    <div className="grid gap-4">
-                      {allCoupons?.map((c: any) => (
+                      {coupons?.map((c: any) => (
                         <Card key={c.id} className="p-6 bg-white/5 border-white/10 rounded-3xl flex justify-between items-center">
                            <div>
                               <p className="text-xl font-black italic uppercase text-foreground leading-none">{c.code}</p>
@@ -437,12 +420,12 @@ export default function AdminDashboard() {
 
           {activeTab === 'routes' && (
             <div className="space-y-10 animate-in fade-in">
-               <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Hub Routes</h3>
+               <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Routes</h3>
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                   <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-6">
                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Route Name</Label>
-                        <input value={newRoute.name} onChange={e => setNewRoute({...newRoute, name: e.target.value})} placeholder="e.g. Airport Hub Express" className="h-14 w-full px-6 rounded-xl bg-white/5 border border-white/10 font-black italic outline-none focus:border-primary" />
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Name</Label>
+                        <input value={newRoute.name} onChange={e => setNewRoute({...newRoute, name: e.target.value})} placeholder="e.g. Airport Express" className="h-14 w-full px-6 rounded-xl bg-white/5 border border-white/10 font-black italic outline-none focus:border-primary" />
                      </div>
                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -450,16 +433,16 @@ export default function AdminDashboard() {
                            <input type="number" value={newRoute.fare} onChange={e => setNewRoute({...newRoute, fare: e.target.value})} placeholder="150" className="h-14 w-full px-6 rounded-xl bg-white/5 border border-white/10 font-black italic outline-none focus:border-primary" />
                         </div>
                         <div className="space-y-2">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Departure Times</Label>
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Times</Label>
                            <input value={newRoute.schedule} onChange={e => setNewRoute({...newRoute, schedule: e.target.value})} placeholder="08:00 AM, 05:30 PM" className="h-14 w-full px-6 rounded-xl bg-white/5 border border-white/10 font-black italic outline-none focus:border-primary" />
                         </div>
                      </div>
                      <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Hub Stops (Stop 1, Stop 2...)</Label>
-                        <textarea value={newRoute.stops} onChange={e => setNewRoute({...newRoute, stops: e.target.value})} placeholder="Main Gate, Library, Hostel" className="w-full h-32 bg-white/5 border border-white/10 rounded-2xl p-6 font-black italic text-sm text-foreground focus:border-primary outline-none" />
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Stops (Stop 1, Stop 2...)</Label>
+                        <textarea value={newRoute.stops} onChange={e => setNewRoute({...newRoute, stops: e.target.value})} placeholder="Point A, Point B" className="w-full h-32 bg-white/5 border border-white/10 rounded-2xl p-6 font-black italic text-sm text-foreground focus:border-primary outline-none" />
                      </div>
-                     <Button onClick={() => deployRoute(newRoute)} className="w-full h-16 bg-primary text-black font-black uppercase italic rounded-2xl">
-                        Deploy Route
+                     <Button onClick={() => addRoute(newRoute)} className="w-full h-16 bg-primary text-black font-black uppercase italic rounded-2xl">
+                        Add Route
                      </Button>
                   </Card>
 
@@ -467,7 +450,7 @@ export default function AdminDashboard() {
                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Active Routes</Label>
                      <div className="grid gap-4">
                         {allRoutes?.map((r: any) => (
-                        <Card key={r.id} className="p-6 bg-white/5 border-white/10 rounded-3xl flex justify-between items-center group hover:border-primary/50 transition-all">
+                        <Card key={r.id} className="p-6 bg-white/5 border-white/10 rounded-3xl flex justify-between items-center group">
                            <div>
                               <p className="text-xl font-black italic uppercase text-foreground leading-none">{r.routeName}</p>
                               <div className="flex items-center gap-3 mt-2">
@@ -484,7 +467,7 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {activeTab === 'ai-architect' && (
+          {activeTab === 'ai-planner' && (
              <div className="space-y-10 animate-in fade-in">
                 <div className="flex items-center justify-between">
                    <div className="flex items-center gap-4">
@@ -493,7 +476,7 @@ export default function AdminDashboard() {
                    </div>
                    <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10">
                       <Button onClick={() => setAiSubTab('generator')} className={`h-12 px-6 rounded-xl font-black uppercase italic text-[10px] tracking-widest transition-all ${aiSubTab === 'generator' ? 'bg-primary text-black' : 'bg-transparent text-muted-foreground'}`}>Generator</Button>
-                      <Button onClick={() => setAiSubTab('intelligence')} className={`h-12 px-6 rounded-xl font-black uppercase italic text-[10px] tracking-widest transition-all ${aiSubTab === 'intelligence' ? 'bg-primary text-black' : 'bg-transparent text-muted-foreground'}`}>Demand Intel</Button>
+                      <Button onClick={() => setAiSubTab('demand')} className={`h-12 px-6 rounded-xl font-black uppercase italic text-[10px] tracking-widest transition-all ${aiSubTab === 'demand' ? 'bg-primary text-black' : 'bg-transparent text-muted-foreground'}`}>Demand Check</Button>
                    </div>
                 </div>
 
@@ -502,51 +485,41 @@ export default function AdminDashboard() {
                      <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-8 h-fit">
                         <div className="grid grid-cols-2 gap-6">
                            <div className="space-y-2">
-                              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Start Hub</Label>
-                              <input value={aiInput.startPoint} onChange={e => setAiInput({...aiInput, startPoint: e.target.value})} className="h-14 w-full px-6 rounded-xl bg-white/5 border border-white/10 font-black italic text-foreground outline-none focus:border-primary" />
+                              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Start</Label>
+                              <input value={aiInput.startPoint} onChange={e => setAiInput({...aiInput, startPoint: e.target.value})} className="h-14 w-full px-4 rounded-xl bg-white/5 border border-white/10 font-black italic text-foreground outline-none" />
                            </div>
                            <div className="space-y-2">
-                              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">End Hub</Label>
-                              <input value={aiInput.endPoint} onChange={e => setAiInput({...aiInput, endPoint: e.target.value})} className="h-14 w-full px-6 rounded-xl bg-white/5 border border-white/10 font-black italic text-foreground outline-none focus:border-primary" />
+                              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">End</Label>
+                              <input value={aiInput.endPoint} onChange={e => setAiInput({...aiInput, endPoint: e.target.value})} className="h-14 w-full px-4 rounded-xl bg-white/5 border border-white/10 font-black italic text-foreground outline-none" />
                            </div>
                         </div>
-                        <div className="space-y-4">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Demand Context</Label>
-                           <textarea value={aiInput.demandVolume} onChange={e => setAiInput({...aiInput, demandVolume: e.target.value})} className="w-full h-32 bg-white/5 border border-white/10 rounded-2xl p-6 font-black italic text-sm text-foreground focus:border-primary outline-none" />
-                        </div>
-                        <Button onClick={handleRunAiArchitect} disabled={isAiLoading} className="w-full h-18 bg-primary text-black rounded-2xl font-black uppercase italic text-lg">
-                           {isAiLoading ? <Loader2 className="animate-spin h-6 w-6" /> : "Plan Hub Route with AI"}
+                        <Button onClick={runPlanner} disabled={isAiLoading} className="w-full h-18 bg-primary text-black rounded-2xl font-black uppercase italic text-lg">
+                           {isAiLoading ? <Loader2 className="animate-spin h-6 w-6" /> : "Plan Route with AI"}
                         </Button>
                      </Card>
 
-                     <Card className="bg-black/40 border-white/5 rounded-[2.5rem] p-10 overflow-hidden min-h-[500px]">
+                     <Card className="bg-black/40 border-white/5 rounded-[2.5rem] p-10 min-h-[500px]">
                         {!aiResult ? (
                            <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
                               <MapIcon className="h-24 w-24 mb-6" />
-                              <p className="font-black italic uppercase tracking-widest text-[10px]">Ready to Plan Hubs</p>
+                              <p className="font-black italic uppercase tracking-widest text-[10px]">Ready to Plan</p>
                            </div>
                         ) : (
                            <div className="space-y-10">
-                              <div className="space-y-3">
-                                 <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-4 py-1.5 rounded-full">Proposal</Badge>
-                                 <p className="text-sm font-medium italic text-muted-foreground leading-relaxed">{aiResult.optimizationSummary}</p>
-                              </div>
-                              <div className="space-y-6">
-                                 {aiResult.optimizedRoutes.map((r: any, i: number) => (
+                              {aiResult.optimizedRoutes.map((r: any, i: number) => (
                                  <Card key={i} className="p-8 bg-white/5 rounded-3xl border border-white/10 space-y-6">
                                     <div className="flex justify-between items-start">
                                        <div className="space-y-1">
                                           <h5 className="text-2xl font-black italic uppercase text-foreground">{r.routeName}</h5>
-                                          <p className="text-[10px] font-black text-primary uppercase italic flex items-center gap-1"><Clock className="h-3 w-3" /> {r.schedule}</p>
+                                          <p className="text-[10px] font-black text-primary uppercase italic"> {r.schedule}</p>
                                        </div>
                                        <p className="text-3xl font-black italic text-foreground">₹{r.suggestedBaseFare}</p>
                                     </div>
-                                    <Button onClick={() => deployRoute(r)} className="w-full h-16 bg-primary text-black font-black uppercase italic rounded-2xl">
-                                       Deploy Hub Route
+                                    <Button onClick={() => addRoute(r)} className="w-full h-16 bg-primary text-black font-black uppercase italic rounded-2xl">
+                                       Add this Route
                                     </Button>
                                  </Card>
-                                 ))}
-                              </div>
+                              ))}
                            </div>
                         )}
                      </Card>
@@ -555,30 +528,22 @@ export default function AdminDashboard() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                      <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-8 h-fit">
                         <div className="space-y-4">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Grid Snapshot</Label>
-                           <textarea value={demandInput.gridSnapshot} onChange={e => setDemandInput({...demandInput, gridSnapshot: e.target.value})} className="w-full h-24 bg-white/5 border border-white/10 rounded-2xl p-6 font-black italic text-sm text-foreground focus:border-primary outline-none" />
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Service Status</Label>
+                           <textarea value={demandInput.gridSnapshot} onChange={e => setDemandInput({...demandInput, gridSnapshot: e.target.value})} className="w-full h-24 bg-white/5 border border-white/10 rounded-2xl p-6 font-black italic outline-none" />
                         </div>
-                        <div className="space-y-4">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Unmet Demand Hubs</Label>
-                           <textarea value={demandInput.unmetRequests} onChange={e => setDemandInput({...demandInput, unmetRequests: e.target.value})} className="w-full h-32 bg-white/5 border border-white/10 rounded-2xl p-6 font-black italic text-sm text-foreground focus:border-primary outline-none" />
-                        </div>
-                        <Button onClick={handleRunDemandIntel} disabled={isDemandLoading} className="w-full h-18 bg-primary text-black rounded-2xl font-black uppercase italic text-lg">
-                           {isDemandLoading ? <Loader2 className="animate-spin h-6 w-6" /> : "Run AI Hub Intel"}
+                        <Button onClick={runDemandCheck} disabled={isDemandLoading} className="w-full h-18 bg-primary text-black rounded-2xl font-black uppercase italic text-lg">
+                           {isDemandLoading ? <Loader2 className="animate-spin h-6 w-6" /> : "Check Demand"}
                         </Button>
                      </Card>
 
-                     <Card className="bg-black/40 border-white/5 rounded-[2.5rem] p-10 overflow-hidden min-h-[500px]">
+                     <Card className="bg-black/40 border-white/5 rounded-[2.5rem] p-10 min-h-[500px]">
                         {!demandResult ? (
                            <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
                               <Zap className="h-24 w-24 mb-6" />
-                              <p className="font-black italic uppercase tracking-widest text-[10px]">Analyzing Hub Patterns</p>
+                              <p className="font-black italic uppercase tracking-widest text-[10px]">Analyzing...</p>
                            </div>
                         ) : (
                            <div className="space-y-10">
-                              <div className="space-y-3">
-                                 <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-4 py-1.5 rounded-full">Analysis Report</Badge>
-                                 <p className="text-sm font-medium italic text-muted-foreground leading-relaxed">{demandResult.strategicSummary}</p>
-                              </div>
                               <div className="space-y-6">
                                  {demandResult.hotspots.map((h: any, i: number) => (
                                  <Card key={i} className="p-8 bg-white/5 rounded-3xl border border-white/10 space-y-4">
@@ -601,19 +566,19 @@ export default function AdminDashboard() {
       {editingUser && (
         <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
           <DialogContent className="bg-background border-white/10 rounded-[2.5rem] p-10 max-w-md">
-            <DialogHeader><DialogTitle className="text-2xl font-black italic uppercase text-primary">Edit Member</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle className="text-2xl font-black italic uppercase text-primary">Edit Person</DialogTitle></DialogHeader>
             <div className="space-y-6 py-4">
                <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground">Full Name</Label>
-                  <input value={editingUser.fullName} onChange={e => setEditingUser({...editingUser, fullName: e.target.value})} className="h-12 w-full px-4 rounded-xl bg-white/5 border border-white/10 font-black italic text-foreground outline-none focus:border-primary" />
+                  <input value={editingUser.fullName} onChange={e => setEditingUser({...editingUser, fullName: e.target.value})} className="h-12 w-full px-4 rounded-xl bg-white/5 border border-white/10 font-black italic outline-none" />
                </div>
                <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground">Phone</Label>
-                  <input value={editingUser.phoneNumber} onChange={e => setEditingUser({...editingUser, phoneNumber: e.target.value})} className="h-12 w-full px-4 rounded-xl bg-white/5 border border-white/10 font-black italic text-foreground outline-none focus:border-primary" />
+                  <input value={editingUser.phoneNumber} onChange={e => setEditingUser({...editingUser, phoneNumber: e.target.value})} className="h-12 w-full px-4 rounded-xl bg-white/5 border border-white/10 font-black italic outline-none" />
                </div>
             </div>
             <DialogFooter className="flex gap-4">
-               <Button onClick={() => handleUpdateUser(editingUser.uid, editingUser)} className="bg-primary text-black font-black uppercase italic px-10 rounded-xl">Save Hub Profile</Button>
+               <Button onClick={() => handleUpdateUser(editingUser.uid, editingUser)} className="bg-primary text-black font-black uppercase italic px-10 rounded-xl">Save Changes</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -640,9 +605,9 @@ export default function AdminDashboard() {
                </div>
                <div className="flex gap-4">
                   {!viewingDocs.isVerified ? (
-                    <Button onClick={() => { handleVerifyUser(viewingDocs.uid); setViewingDocs(null); }} className="flex-1 bg-primary text-black font-black uppercase italic h-14 rounded-2xl shadow-xl">Approve Driver</Button>
+                    <Button onClick={() => { handleApprove(viewingDocs.uid); setViewingDocs(null); }} className="flex-1 bg-primary text-black font-black uppercase italic h-14 rounded-2xl shadow-xl">Approve Person</Button>
                   ) : (
-                    <Badge className="w-full justify-center bg-primary/20 text-primary h-14 text-lg font-black italic uppercase rounded-2xl">Verified Hub Member</Badge>
+                    <Badge className="w-full justify-center bg-primary/20 text-primary h-14 text-lg font-black italic uppercase rounded-2xl">Approved</Badge>
                   )}
                </div>
             </div>

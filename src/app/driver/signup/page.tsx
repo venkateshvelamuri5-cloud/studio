@@ -17,7 +17,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
+const Logo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
     <circle cx="10" cy="10" r="3" fill="currentColor" className="animate-pulse" />
     <circle cx="30" cy="10" r="3" fill="currentColor" />
@@ -83,7 +83,6 @@ export default function DriverSignupPage() {
   };
 
   const getCameraPermission = async () => {
-    // Stop any existing tracks first to avoid "Could not start video source"
     if (videoRef.current && videoRef.current.srcObject) {
       (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
     }
@@ -101,8 +100,8 @@ export default function DriverSignupPage() {
       setHasCameraPermission(false);
       toast({ 
         variant: 'destructive', 
-        title: 'Camera Access Error', 
-        description: 'Please enable camera permissions in your settings.' 
+        title: 'Camera Error', 
+        description: 'Please let us use your camera in settings.' 
       });
     }
   };
@@ -161,9 +160,9 @@ export default function DriverSignupPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(3); 
-      toast({ title: "OTP Sent", description: "Check your messages." });
+      toast({ title: "Code Sent", description: "Check your messages." });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to send code. Try again." });
+      toast({ variant: "destructive", title: "Error", description: "Try again in a bit." });
     } finally {
       setLoading(false);
     }
@@ -176,7 +175,7 @@ export default function DriverSignupPage() {
 
     try {
       const result = await confirmationResult.confirm(otp);
-      const referralCode = `FLEET-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      const referralCode = `AAGO-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
       await setDoc(doc(db, 'users', result.user.uid), {
         uid: result.user.uid,
@@ -199,7 +198,7 @@ export default function DriverSignupPage() {
       });
       router.push('/driver');
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Wrong OTP", description: "Check code and try again." });
+      toast({ variant: "destructive", title: "Wrong Code", description: "Try again." });
     } finally {
       setLoading(false);
     }
@@ -213,15 +212,15 @@ export default function DriverSignupPage() {
       
       <div className="mb-6 flex flex-col items-center gap-3">
         <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/30">
-          <ConnectingDotsLogo className="h-6 w-6 text-black" />
+          <Logo className="h-6 w-6 text-black" />
         </div>
-        <h1 className="text-xl font-black italic uppercase tracking-tighter text-foreground text-center">DRIVER HUB</h1>
+        <h1 className="text-xl font-black italic uppercase text-foreground text-center">Driver Registration</h1>
       </div>
 
       <Card className="w-full max-w-md bg-white/5 border-none rounded-[2.5rem] overflow-hidden shadow-2xl">
-        <CardHeader className="pt-8 pb-4 text-center bg-white/5 border-b border-white/5">
-          <CardTitle className="text-lg font-black uppercase italic tracking-tighter">Join Driver Fleet</CardTitle>
-          <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">ID Check Portal</CardDescription>
+        <CardHeader className="pt-8 pb-4 text-center">
+          <CardTitle className="text-lg font-black uppercase italic tracking-tighter">Join as a Driver</CardTitle>
+          <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">ID Check</CardDescription>
         </CardHeader>
         
         <CardContent className="px-6 py-8">
@@ -229,7 +228,7 @@ export default function DriverSignupPage() {
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Full Name" className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" />
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Name" className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -237,14 +236,14 @@ export default function DriverSignupPage() {
                   <Input value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} placeholder="License" className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Aadhaar No.</Label>
-                  <Input value={aadhaarNumber} onChange={(e) => setAadhaarNumber(e.target.value)} placeholder="Aadhaar" className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" />
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">ID No.</Label>
+                  <Input value={aadhaarNumber} onChange={(e) => setAadhaarNumber(e.target.value)} placeholder="ID" className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Plate Number</Label>
-                  <Input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="Plate No." className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" />
+                  <Input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="Number" className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Car Type</Label>
@@ -257,15 +256,14 @@ export default function DriverSignupPage() {
                   </Select>
                 </div>
               </div>
-              <Button onClick={() => setStep(2)} disabled={!fullName || !vehicleNumber || !licenseNumber || !aadhaarNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4">Next: Photos</Button>
+              <Button onClick={() => setStep(2)} disabled={!fullName || !vehicleNumber || !licenseNumber || !aadhaarNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic mt-4">Next: Take Photo</Button>
             </div>
           )}
 
           {step === 2 && (
             <div className="space-y-8">
-              {/* Profile Photo - Still Camera Capture for verification */}
               <div className="space-y-4">
-                 <Label className="text-[10px] font-black uppercase text-center block tracking-widest text-muted-foreground">Take a Selfie</Label>
+                 <Label className="text-[10px] font-black uppercase text-center block tracking-widest text-muted-foreground">Take a Photo of Yourself</Label>
                  <div className="relative aspect-square w-48 mx-auto bg-black rounded-3xl overflow-hidden border-2 border-white/10 shadow-2xl">
                     {!photoUrl ? (
                       <>
@@ -277,13 +275,12 @@ export default function DriverSignupPage() {
                     )}
                  </div>
                  {!photoUrl ? (
-                   <Button onClick={capturePhoto} className="w-full h-12 bg-primary text-black rounded-xl font-black uppercase italic text-xs"><Camera className="mr-2 h-4 w-4" /> Capture Photo</Button>
+                   <Button onClick={capturePhoto} className="w-full h-12 bg-primary text-black rounded-xl font-black uppercase italic text-xs"><Camera className="mr-2 h-4 w-4" /> Take Photo</Button>
                  ) : (
-                   <Button onClick={() => setPhotoUrl(null)} variant="ghost" className="w-full text-primary font-black uppercase italic text-[10px] h-10 border border-primary/20 rounded-xl"><RefreshCcw className="mr-2 h-3 w-3" /> Retake Selfie</Button>
+                   <Button onClick={() => setPhotoUrl(null)} variant="ghost" className="w-full text-primary font-black uppercase italic text-[10px] h-10 border border-primary/20 rounded-xl"><RefreshCcw className="mr-2 h-3 w-3" /> Re-take Photo</Button>
                  )}
               </div>
 
-              {/* Documents - File Upload as requested */}
               <div className="grid grid-cols-2 gap-4">
                  <div className="space-y-2">
                     <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">License Photo</Label>
@@ -300,7 +297,7 @@ export default function DriverSignupPage() {
                     </div>
                  </div>
                  <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">ID Card Photo</Label>
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">ID Photo</Label>
                     <div className="relative h-32 w-full bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center p-4">
                        {aadhaarPhotoUrl ? (
                          <img src={aadhaarPhotoUrl} className="h-full w-full object-cover rounded-xl" />
@@ -330,11 +327,11 @@ export default function DriverSignupPage() {
                   </div>
                 </div>
                 {!confirmationResult ? (
-                  <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl">Verify Phone</Button>
+                  <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic">Send Code</Button>
                 ) : (
                   <div className="space-y-6">
-                     <Input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="Enter OTP" className="h-20 text-center text-4xl tracking-[0.4em] rounded-2xl bg-white/5 border-white/10 font-black text-primary" maxLength={6} required />
-                     <Button onClick={handleVerifyOtp} disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-18 rounded-2xl font-black uppercase italic shadow-xl">Finish Signup</Button>
+                     <Input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="Code" className="h-20 text-center text-4xl tracking-[0.4em] rounded-2xl bg-white/5 border-white/10 font-black text-primary" maxLength={6} required />
+                     <Button onClick={handleVerifyOtp} disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-18 rounded-2xl font-black uppercase italic">Verify & Register</Button>
                   </div>
                 )}
               </form>
