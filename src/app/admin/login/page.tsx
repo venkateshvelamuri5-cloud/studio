@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -9,7 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Loader2 } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
@@ -49,13 +50,15 @@ export default function AdminLoginPage() {
           fullName: 'Regional Administrator',
           role: 'admin',
           createdAt: new Date().toISOString(),
-          city: 'Vizag'
+          lastLogin: new Date().toISOString()
         });
+      } else if (userSnap.exists()) {
+        await updateDoc(userRef, { lastLogin: new Date().toISOString() });
       }
 
       router.push('/admin');
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Access Denied", description: "Invalid terminal key." });
+      toast({ variant: "destructive", title: "Access Denied", description: "Invalid login credentials." });
     } finally {
       setLoading(false);
     }
@@ -67,28 +70,28 @@ export default function AdminLoginPage() {
         <div className="bg-primary p-4 rounded-2xl shadow-xl shadow-primary/20 scale-110">
           <ConnectingDotsLogo className="h-8 w-8 text-black" />
         </div>
-        <h1 className="text-3xl font-black italic uppercase tracking-tighter text-primary">AAGO OPS</h1>
+        <h1 className="text-3xl font-black italic uppercase tracking-tighter text-primary">AAGO ADMIN</h1>
       </div>
 
-      <Card className="w-full max-w-md glass-card border-none rounded-[3rem] overflow-hidden shadow-2xl">
+      <Card className="w-full max-w-md bg-white/5 border-none rounded-[3rem] overflow-hidden shadow-2xl">
         <CardHeader className="space-y-3 pt-12 pb-8 text-center">
-          <CardTitle className="text-2xl font-black uppercase italic tracking-tighter text-foreground leading-none">Ops Terminal</CardTitle>
+          <CardTitle className="text-2xl font-black uppercase italic tracking-tighter text-foreground leading-none">Login</CardTitle>
           <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic mt-2">
-            Restricted Central Control
+            Control Center Access
           </CardDescription>
         </CardHeader>
         <CardContent className="px-12 pb-10">
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-2">Email Address</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-2">Email</Label>
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@aago.in" className="h-16 bg-white/5 border-white/10 font-black italic text-lg px-6" required />
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-2">Terminal Key</Label>
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-2">Password</Label>
               <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="h-16 bg-white/5 border-white/10 font-black italic text-lg px-6" required />
             </div>
             <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90 text-black h-18 rounded-2xl text-lg font-black uppercase italic shadow-xl transition-all active:scale-95">
-              {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Initiate Control"}
+              {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Access Now"}
             </Button>
           </form>
         </CardContent>

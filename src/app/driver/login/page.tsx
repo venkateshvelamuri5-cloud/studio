@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
@@ -37,9 +38,10 @@ export default function DriverLoginPage() {
 
   useEffect(() => {
     if (!authLoading && user && db) {
-      getDoc(doc(db, 'users', user.uid)).then((snap) => {
+      getDoc(doc(db, 'users', user.uid)).then(async (snap) => {
         if (snap.exists()) {
           const profile = snap.data();
+          await updateDoc(doc(db, 'users', user.uid), { lastLogin: new Date().toISOString() });
           if (profile.role === 'driver') router.push('/driver');
           else router.push('/student');
         }
@@ -73,16 +75,16 @@ export default function DriverLoginPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(2);
-      toast({ title: "OTP Sent", description: "Identity check code dispatched." });
+      toast({ title: "Code Sent", description: "Identity check code sent to phone." });
     } catch (error: any) {
       if (error.code === 'auth/too-many-requests') {
         toast({ 
           variant: "destructive", 
           title: "Limit Reached", 
-          description: "Please wait a few minutes before trying again." 
+          description: "Please wait 15 minutes and try again." 
         });
       } else {
-        toast({ variant: "destructive", title: "Error", description: "Failed to send code. Please try again." });
+        toast({ variant: "destructive", title: "Error", description: "Failed to send code. Try again." });
       }
     } finally {
       setLoading(false);
@@ -96,7 +98,8 @@ export default function DriverLoginPage() {
 
     try {
       const result = await confirmationResult.confirm(otp);
-      const userSnap = await getDoc(doc(db, 'users', result.user.uid));
+      const userRef = doc(db, 'users', result.user.uid);
+      const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
         router.push('/driver/signup');
@@ -106,13 +109,14 @@ export default function DriverLoginPage() {
       const profile = userSnap.data();
       if (profile.role !== 'driver') {
         await signOut(auth!);
-        toast({ variant: "destructive", title: "Wrong Portal", description: "Please use Member Hub login." });
+        toast({ variant: "destructive", title: "Wrong Hub", description: "Please use Member Hub login." });
         router.push('/auth/login');
       } else {
+        await updateDoc(userRef, { lastLogin: new Date().toISOString() });
         router.push('/driver');
       }
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Invalid OTP", description: "Please check and try again." });
+      toast({ variant: "destructive", title: "Wrong Code", description: "Check the OTP and try again." });
     } finally {
       setLoading(false);
     }
@@ -130,14 +134,14 @@ export default function DriverLoginPage() {
         </div>
         <div className="text-center">
           <h1 className="text-4xl font-black italic uppercase tracking-tighter text-foreground leading-none">DRIVER</h1>
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mt-2">Operator Hub</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mt-2">Driver Hub</p>
         </div>
       </div>
 
       <Card className="w-full max-w-md bg-white/5 border-none rounded-[3.5rem] overflow-hidden shadow-2xl">
         <CardHeader className="pt-14 pb-8 text-center border-b border-white/5">
           <CardTitle className="text-2xl font-black uppercase italic tracking-tighter">Login</CardTitle>
-          <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic mt-2">Driver Identity</CardDescription>
+          <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic mt-2">Verify Identity</CardDescription>
         </CardHeader>
         <CardContent className="px-12 py-10">
           {step === 1 ? (
@@ -163,7 +167,7 @@ export default function DriverLoginPage() {
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-8">
               <div className="space-y-3">
-                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Enter OTP</Label>
+                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Enter Code</Label>
                 <input 
                   type="text" 
                   value={otp} 
@@ -175,13 +179,13 @@ export default function DriverLoginPage() {
                 />
               </div>
               <Button type="submit" disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-20 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Code"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Now"}
               </Button>
             </form>
           )}
         </CardContent>
         <CardFooter className="bg-white/5 p-10 flex flex-col gap-6 border-t border-white/5">
-          <Link href="/driver/signup" className="text-xs font-black uppercase italic text-primary hover:underline">Apply to Fleet</Link>
+          <Link href="/driver/signup" className="text-xs font-black uppercase italic text-primary hover:underline">Apply to Drive</Link>
         </CardFooter>
       </Card>
     </div>

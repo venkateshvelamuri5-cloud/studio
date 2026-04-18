@@ -29,7 +29,8 @@
         "totalEarnings": { "type": "number", "default": 0 },
         "loyaltyPoints": { "type": "number", "default": 0 },
         "referralCode": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLogin": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "fullName", "role"]
     },
