@@ -12,7 +12,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter
 } from "@/components/ui/dialog";
 import { 
@@ -39,13 +38,15 @@ import {
   FileText,
   UserCheck,
   CheckCircle2,
-  Calendar
+  Edit,
+  Zap
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useAuth } from '@/firebase';
 import { collection, query, doc, updateDoc, orderBy, addDoc, where, deleteDoc, getDocs } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { generateShuttleRoutes, AdminGenerateShuttleRoutesInput } from '@/ai/flows/admin-generate-shuttle-routes';
+import { analyzeDemandIntelligence, DemandIntelligenceInput } from '@/ai/flows/admin-demand-intelligence-flow';
 
 const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -64,6 +65,7 @@ export default function AdminDashboard() {
   const { user, loading: authLoading } = useUser();
   
   const [activeTab, setActiveTab] = useState<'dashboard' | 'routes' | 'fleet' | 'riders' | 'ai-architect'>('dashboard');
+  const [aiSubTab, setAiSubTab] = useState<'generator' | 'intelligence'>('generator');
   const [searchQuery, setSearchQuery] = useState('');
   const [isProcessingQueue, setIsProcessingQueue] = useState(false);
   const [isPurging, setIsPurging] = useState(false);
@@ -84,6 +86,15 @@ export default function AdminDashboard() {
   });
   const [aiResult, setAiResult] = useState<any>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
+
+  // Demand Intel State
+  const [demandInput, setDemandInput] = useState<DemandIntelligenceInput>({
+    gridSnapshot: "Grid yielding at 40%. Several empty seats on Hub-East corridors.",
+    unmetRequests: "High volume of failed searches for 'Airport to City Center' after 8 PM.",
+    externalContext: "Heavy rains expected this evening. Corporate shifts ending at 7 PM."
+  });
+  const [demandResult, setDemandResult] = useState<any>(null);
+  const [isDemandLoading, setIsDemandLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/admin/login');
@@ -192,6 +203,16 @@ export default function AdminDashboard() {
     } catch (e) {
       toast({ variant: 'destructive', title: 'AI planning error.' });
     } finally { setIsAiLoading(false); }
+  };
+
+  const handleRunDemandIntel = async () => {
+    setIsDemandLoading(true);
+    try {
+      const result = await analyzeDemandIntelligence(demandInput);
+      setDemandResult(result);
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Intelligence synthesis error.' });
+    } finally { setIsDemandLoading(false); }
   };
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/admin/login'); };
@@ -441,71 +462,133 @@ export default function AdminDashboard() {
 
           {activeTab === 'ai-architect' && (
              <div className="space-y-10 animate-in fade-in duration-700">
-                <div className="flex items-center gap-4">
-                   <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Sparkles className="h-6 w-6" /></div>
-                   <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">AI Grid Architect</h3>
+                <div className="flex items-center justify-between">
+                   <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Sparkles className="h-6 w-6" /></div>
+                      <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">AI Grid Architect</h3>
+                   </div>
+                   <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10">
+                      <Button onClick={() => setAiSubTab('generator')} className={`h-12 px-6 rounded-xl font-black uppercase italic text-[10px] tracking-widest transition-all ${aiSubTab === 'generator' ? 'bg-primary text-black' : 'bg-transparent text-muted-foreground'}`}>Generator</Button>
+                      <Button onClick={() => setAiSubTab('intelligence')} className={`h-12 px-6 rounded-xl font-black uppercase italic text-[10px] tracking-widest transition-all ${aiSubTab === 'intelligence' ? 'bg-primary text-black' : 'bg-transparent text-muted-foreground'}`}>Demand Intel</Button>
+                   </div>
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                   <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-8 h-fit">
-                      <div className="grid grid-cols-2 gap-6">
-                         <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Start Landmark</Label>
-                            <Input value={aiInput.startPoint} onChange={e => setAiInput({...aiInput, startPoint: e.target.value})} className="h-14 bg-white/5 border-white/10 font-black italic" />
-                         </div>
-                         <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">End Terminal</Label>
-                            <Input value={aiInput.endPoint} onChange={e => setAiInput({...aiInput, endPoint: e.target.value})} className="h-14 bg-white/5 border-white/10 font-black italic" />
-                         </div>
-                      </div>
-                      <div className="space-y-4">
-                         <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Demand Intelligence Context</Label>
-                         <textarea value={aiInput.demandVolume} onChange={e => setAiInput({...aiInput, demandVolume: e.target.value})} className="w-full h-32 bg-white/5 border border-white/10 rounded-2xl p-6 font-black italic text-sm text-foreground focus:border-primary outline-none" />
-                      </div>
-                      <Button onClick={handleRunAiArchitect} disabled={isAiLoading} className="w-full h-18 bg-primary text-black rounded-2xl font-black uppercase italic text-lg shadow-xl">
-                         {isAiLoading ? <Loader2 className="animate-spin h-6 w-6" /> : "Synthesize Corridor"}
-                      </Button>
-                   </Card>
 
-                   <Card className="bg-black/40 border-white/5 rounded-[2.5rem] p-10 overflow-hidden min-h-[500px]">
-                      {!aiResult ? (
-                        <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
-                           <MapIcon className="h-24 w-24 mb-6" />
-                           <p className="font-black italic uppercase tracking-widest text-[10px]">Architect Idle</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-10 animate-in fade-in">
-                           <div className="space-y-3">
-                              <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-4 py-1.5 rounded-full">Proposed Architecture</Badge>
-                              <p className="text-sm font-medium italic text-muted-foreground leading-relaxed">{aiResult.optimizationSummary}</p>
+                {aiSubTab === 'generator' ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                     <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-8 h-fit">
+                        <div className="grid grid-cols-2 gap-6">
+                           <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Start Landmark</Label>
+                              <Input value={aiInput.startPoint} onChange={e => setAiInput({...aiInput, startPoint: e.target.value})} className="h-14 bg-white/5 border-white/10 font-black italic" />
                            </div>
-                           <div className="space-y-6">
-                              {aiResult.optimizedRoutes.map((r: any, i: number) => (
-                                <Card key={i} className="p-8 bg-white/5 rounded-3xl border border-white/10 space-y-6">
-                                   <div className="flex justify-between items-start">
-                                      <div className="space-y-1">
-                                         <h5 className="text-2xl font-black italic uppercase text-foreground">{r.routeName}</h5>
-                                         <p className="text-[10px] font-black text-primary uppercase italic flex items-center gap-1"><Clock className="h-3 w-3" /> {r.schedule}</p>
-                                      </div>
-                                      <p className="text-3xl font-black italic text-foreground">₹{r.suggestedBaseFare}</p>
-                                   </div>
-                                   <div className="space-y-3">
-                                      <p className="text-[9px] font-black uppercase text-muted-foreground ml-2 tracking-widest">Landmarks</p>
-                                      <div className="flex flex-wrap gap-2">
-                                         {r.stops.map((s: string, idx: number) => (
-                                           <Badge key={idx} variant="outline" className="bg-white/5 border-white/10 text-[8px] font-black italic">{s}</Badge>
-                                         ))}
-                                      </div>
-                                   </div>
-                                   <Button onClick={() => deployRoute(r)} className="w-full h-16 bg-primary text-black font-black uppercase italic rounded-2xl">
-                                      Activate to Grid
-                                   </Button>
-                                </Card>
-                              ))}
+                           <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">End Terminal</Label>
+                              <Input value={aiInput.endPoint} onChange={e => setAiInput({...aiInput, endPoint: e.target.value})} className="h-14 bg-white/5 border-white/10 font-black italic" />
                            </div>
                         </div>
-                      )}
-                   </Card>
-                </div>
+                        <div className="space-y-4">
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Demand Intelligence Context</Label>
+                           <textarea value={aiInput.demandVolume} onChange={e => setAiInput({...aiInput, demandVolume: e.target.value})} className="w-full h-32 bg-white/5 border border-white/10 rounded-2xl p-6 font-black italic text-sm text-foreground focus:border-primary outline-none" />
+                        </div>
+                        <Button onClick={handleRunAiArchitect} disabled={isAiLoading} className="w-full h-18 bg-primary text-black rounded-2xl font-black uppercase italic text-lg shadow-xl">
+                           {isAiLoading ? <Loader2 className="animate-spin h-6 w-6" /> : "Synthesize Corridor"}
+                        </Button>
+                     </Card>
+
+                     <Card className="bg-black/40 border-white/5 rounded-[2.5rem] p-10 overflow-hidden min-h-[500px]">
+                        {!aiResult ? (
+                           <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
+                              <MapIcon className="h-24 w-24 mb-6" />
+                              <p className="font-black italic uppercase tracking-widest text-[10px]">Architect Idle</p>
+                           </div>
+                        ) : (
+                           <div className="space-y-10 animate-in fade-in">
+                              <div className="space-y-3">
+                                 <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-4 py-1.5 rounded-full">Proposed Architecture</Badge>
+                                 <p className="text-sm font-medium italic text-muted-foreground leading-relaxed">{aiResult.optimizationSummary}</p>
+                              </div>
+                              <div className="space-y-6">
+                                 {aiResult.optimizedRoutes.map((r: any, i: number) => (
+                                 <Card key={i} className="p-8 bg-white/5 rounded-3xl border border-white/10 space-y-6">
+                                    <div className="flex justify-between items-start">
+                                       <div className="space-y-1">
+                                          <h5 className="text-2xl font-black italic uppercase text-foreground">{r.routeName}</h5>
+                                          <p className="text-[10px] font-black text-primary uppercase italic flex items-center gap-1"><Clock className="h-3 w-3" /> {r.schedule}</p>
+                                       </div>
+                                       <p className="text-3xl font-black italic text-foreground">₹{r.suggestedBaseFare}</p>
+                                    </div>
+                                    <div className="space-y-3">
+                                       <p className="text-[9px] font-black uppercase text-muted-foreground ml-2 tracking-widest">Landmarks</p>
+                                       <div className="flex flex-wrap gap-2">
+                                          {r.stops.map((s: string, idx: number) => (
+                                             <Badge key={idx} variant="outline" className="bg-white/5 border-white/10 text-[8px] font-black italic">{s}</Badge>
+                                          ))}
+                                       </div>
+                                    </div>
+                                    <Button onClick={() => deployRoute(r)} className="w-full h-16 bg-primary text-black font-black uppercase italic rounded-2xl">
+                                       Activate to Grid
+                                    </Button>
+                                 </Card>
+                                 ))}
+                              </div>
+                           </div>
+                        )}
+                     </Card>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                     <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-8 h-fit">
+                        <div className="space-y-4">
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Grid Snapshot</Label>
+                           <textarea value={demandInput.gridSnapshot} onChange={e => setDemandInput({...demandInput, gridSnapshot: e.target.value})} className="w-full h-24 bg-white/5 border border-white/10 rounded-2xl p-6 font-black italic text-sm text-foreground focus:border-primary outline-none" />
+                        </div>
+                        <div className="space-y-4">
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Unmet Requests</Label>
+                           <textarea value={demandInput.unmetRequests} onChange={e => setDemandInput({...demandInput, unmetRequests: e.target.value})} className="w-full h-32 bg-white/5 border border-white/10 rounded-2xl p-6 font-black italic text-sm text-foreground focus:border-primary outline-none" />
+                        </div>
+                        <Button onClick={handleRunDemandIntel} disabled={isDemandLoading} className="w-full h-18 bg-primary text-black rounded-2xl font-black uppercase italic text-lg shadow-xl">
+                           {isDemandLoading ? <Loader2 className="animate-spin h-6 w-6" /> : "Run Intelligence Sync"}
+                        </Button>
+                     </Card>
+
+                     <Card className="bg-black/40 border-white/5 rounded-[2.5rem] p-10 overflow-hidden min-h-[500px]">
+                        {!demandResult ? (
+                           <div className="h-full flex flex-col items-center justify-center text-center opacity-20">
+                              <Zap className="h-24 w-24 mb-6" />
+                              <p className="font-black italic uppercase tracking-widest text-[10px]">Intelligence Idle</p>
+                           </div>
+                        ) : (
+                           <div className="space-y-10 animate-in fade-in">
+                              <div className="space-y-3">
+                                 <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-4 py-1.5 rounded-full">Strategic Summary</Badge>
+                                 <p className="text-sm font-medium italic text-muted-foreground leading-relaxed">{demandResult.strategicSummary}</p>
+                              </div>
+                              <div className="space-y-6">
+                                 <h4 className="text-[10px] font-black uppercase tracking-widest text-primary ml-2">Identified Hotspots</h4>
+                                 {demandResult.hotspots.map((h: any, i: number) => (
+                                 <Card key={i} className="p-8 bg-white/5 rounded-3xl border border-white/10 space-y-4">
+                                    <div className="flex justify-between items-start">
+                                       <h5 className="text-2xl font-black italic uppercase text-foreground">{h.locationName}</h5>
+                                       <Badge className={`${h.demandLevel === 'CRITICAL' ? 'bg-destructive/20 text-destructive' : 'bg-primary/20 text-primary'} border-none text-[8px] font-black uppercase px-3 py-1 rounded-full`}>{h.demandLevel}</Badge>
+                                    </div>
+                                    <p className="text-[10px] font-black text-muted-foreground uppercase italic leading-none">Potential Riders: {h.unmetRiderCount}</p>
+                                    <p className="text-xs font-medium italic text-muted-foreground">{h.justification}</p>
+                                    <div className="pt-4 border-t border-white/5">
+                                       <p className="text-[9px] font-black uppercase text-primary mb-2">Recommended Strategy</p>
+                                       <p className="text-sm font-black italic uppercase">{h.recommendedCorridor}</p>
+                                    </div>
+                                 </Card>
+                                 ))}
+                              </div>
+                              <div className="p-8 bg-primary/5 border border-primary/20 rounded-3xl space-y-4">
+                                 <h4 className="text-[10px] font-black uppercase text-primary tracking-widest">Action Plan</h4>
+                                 <p className="text-xs font-medium italic text-muted-foreground leading-relaxed">{demandResult.actionPlan}</p>
+                              </div>
+                           </div>
+                        )}
+                     </Card>
+                  </div>
+                )}
              </div>
           )}
         </div>
