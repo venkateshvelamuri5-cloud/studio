@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview High-fidelity AI agent for generating optimized mobility corridors.
+ * @fileOverview High-fidelity AI agent for generating optimized mobility corridors with specific time schedules.
  */
 
 import { ai } from '@/ai/genkit';
@@ -11,7 +11,7 @@ const ShuttleRouteSchema = z.object({
   description: z.string().describe('Brief summary of the route purpose.'),
   stops: z.array(z.string()).describe('Ordered list of stops from Start to End.'),
   suggestedBaseFare: z.number().describe('The calculated base fare in ₹ based on distance and demand.'),
-  schedule: z.string().describe('Operational frequency recommendation.'),
+  schedule: z.string().describe('Operational time slots (e.g., "08:00 AM, 09:30 AM, 05:30 PM, 07:00 PM").'),
   estimatedDurationMinutes: z.number().describe('One-way duration in minutes.'),
   peakDemandCoverage: z.string().describe('How it handles high volume periods.'),
   aiJustification: z.string().describe('Reasoning for the fare and stops suggested.'),
@@ -55,8 +55,9 @@ Your task is to design a high-efficiency mobility route between two specific poi
 ### Your Architecture Guidelines:
 1. **Node Selection**: Identify logical intermediate stops based on common commute patterns in an Indian city context.
 2. **Fare Calculation**: Suggest a 'suggestedBaseFare' in ₹. Base it on typical segment lengths (usually ₹15-20 per 5km) but adjust for demand complexity.
-3. **Efficiency**: Ensure the route estimatedDurationMinutes accounts for the traffic context provided.
-4. **Naming**: Create a professional corridor name (e.g., "Tech-City Express", "Central-Market Hub").
+3. **Timed Scheduling**: Suggest specific time slots (e.g., "08:30 AM") instead of just frequencies. Focus on peak commute windows.
+4. **Efficiency**: Ensure the route estimatedDurationMinutes accounts for the traffic context provided.
+5. **Naming**: Create a professional corridor name (e.g., "Tech-City Express", "Central-Market Hub").
 
 Generate 1-2 variations of the optimized corridor. Provide a justification for the fare choice based on the demand.
 `,

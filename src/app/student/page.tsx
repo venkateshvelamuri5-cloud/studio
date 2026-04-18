@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -81,6 +80,7 @@ export default function RiderApp() {
   const [bookingStep, setBookingStep] = useState(1); 
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [bookingDate, setBookingDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [bookingTime, setBookingTime] = useState<string>("");
   const [pickupStop, setPickupStop] = useState("");
   const [destinationStop, setDestinationStop] = useState("");
   const [currentPosition, setCurrentPosition] = useState<{lat: number, lng: number} | null>(null);
@@ -124,6 +124,11 @@ export default function RiderApp() {
     const fare = (selectedRoute.baseFare / totalSegments) * segmentsTraveled;
     return Math.max(15, Math.ceil(fare));
   }, [selectedRoute, pickupStop, destinationStop]);
+
+  const availableTimeSlots = useMemo(() => {
+    if (!selectedRoute?.schedule) return [];
+    return selectedRoute.schedule.split(',').map((s: string) => s.trim());
+  }, [selectedRoute]);
 
   const mapCenter = useMemo(() => {
     if (currentBooking?.currentLat && currentBooking?.currentLng) return { lat: currentBooking.currentLat, lng: currentBooking.currentLng };
@@ -176,6 +181,7 @@ export default function RiderApp() {
         pickup: pickupStop,
         destination: destinationStop,
         bookingDate: bookingDate,
+        bookingTime: bookingTime,
         farePaid: finalFare,
         paymentId: paymentId,
         bookedAt: new Date().toISOString()
@@ -184,7 +190,8 @@ export default function RiderApp() {
       const tripQuery = query(
         collection(db, 'trips'), 
         where('routeName', '==', selectedRoute.routeName), 
-        where('scheduledDate', '==', bookingDate), 
+        where('scheduledDate', '==', bookingDate),
+        where('scheduledTime', '==', bookingTime),
         where('status', '==', 'active')
       );
       const tripSnap = await getDocs(tripQuery);
@@ -203,6 +210,7 @@ export default function RiderApp() {
         await addDoc(collection(db, 'trips'), {
           routeName: selectedRoute.routeName,
           scheduledDate: bookingDate,
+          scheduledTime: bookingTime,
           status: 'active',
           riderCount: 1,
           maxCapacity: 7,
@@ -219,7 +227,7 @@ export default function RiderApp() {
       });
       
       setIsPaying(false);
-      setBookingStep(4);
+      setBookingStep(5);
       toast({ title: "Mission Synchronized", description: "Ride locked in the grid." });
     } catch (e) {
       setIsPaying(false);
@@ -236,7 +244,7 @@ export default function RiderApp() {
       amount: finalAmount * 100, 
       currency: "INR",
       name: "AAGO GRID",
-      description: `Corridor: ${selectedRoute.routeName}`,
+      description: `Corridor: ${selectedRoute.routeName} @ ${bookingTime}`,
       handler: (res: any) => processPaymentSuccess(res.razorpay_payment_id),
       prefill: { name: profile?.fullName || "", contact: profile?.phoneNumber || "" },
       theme: { color: "#EAB308" },
@@ -256,6 +264,15 @@ export default function RiderApp() {
 
     const rzp = new (window as any).Razorpay(options);
     rzp.open();
+  };
+
+  const handleApplyVoucher = () => {
+    if (voucherCode.toUpperCase() === 'AAGO10') {
+      setAppliedDiscount(20);
+      toast({ title: "Promo Applied", description: "₹20 discount added." });
+    } else {
+      toast({ variant: "destructive", title: "Invalid Voucher" });
+    }
   };
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/auth/login'); };
@@ -295,7 +312,7 @@ export default function RiderApp() {
               <Card className="glass-card rounded-[3.5rem] p-10 shadow-2xl border-primary/30 relative overflow-hidden bg-gradient-to-b from-card to-background">
                  <div className="flex flex-col items-center gap-4 mb-10 text-center">
                     <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground italic">
-                      {currentBooking.status === 'active' ? 'Syncing Mission...' : 'Mission Synchronized'}
+                      {currentBooking.status === 'active' ? 'Synchronizing Mission...' : 'Mission Synchronized'}
                     </p>
                     <h3 className="text-7xl font-black tracking-tighter italic text-primary text-glow leading-none">
                       {(currentBooking.status === 'scheduled' || currentBooking.status === 'on-trip' || isVerified) ? 'SYNCED' : profile?.activeOtp}
@@ -303,7 +320,7 @@ export default function RiderApp() {
                     <div className="flex flex-col gap-2 mt-4">
                        <div className="flex items-center justify-center gap-2 bg-primary/10 px-6 py-2 rounded-full border border-primary/20">
                           <CalendarDays className="h-3 w-3 text-primary" />
-                          <span className="text-[9px] font-black uppercase text-primary">Mission: {currentBooking.scheduledDate}</span>
+                          <span className="text-[9px] font-black uppercase text-primary">Mission: {currentBooking.scheduledDate} @ {currentBooking.scheduledTime}</span>
                        </div>
                        {bookingManifestEntry?.bookedAt && (
                          <p className="text-[8px] font-black text-white/20 uppercase tracking-widest">Booked: {new Date(bookingManifestEntry.bookedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
@@ -341,7 +358,7 @@ export default function RiderApp() {
                          <div className="space-y-2">
                            <p className="text-[10px] font-black uppercase italic text-primary tracking-widest">Synchronizing Details</p>
                            <p className="text-[9px] font-bold text-white/30 uppercase max-w-[240px] mx-auto leading-relaxed">
-                             Grid is optimizing the route for the best possible experience. Operator details will be released 3 hours before departure.
+                             Grid is optimizing the route for the best possible experience. Details will be released 3 hours before departure.
                            </p>
                          </div>
                       </div>
@@ -367,7 +384,7 @@ export default function RiderApp() {
                 <DialogContent className="bg-background border-white/5 rounded-[3.5rem] p-10 h-[92vh] flex flex-col shadow-2xl overflow-hidden border-2">
                   <DialogHeader className="shrink-0 mb-6">
                     <DialogTitle className="text-4xl font-black italic uppercase text-primary leading-none tracking-tighter">
-                      {bookingStep === 1 ? "Corridors" : bookingStep === 2 ? "Landmarks" : bookingStep === 3 ? "UPI Sync" : "Synced"}
+                      {bookingStep === 1 ? "Corridors" : bookingStep === 2 ? "Schedule" : bookingStep === 3 ? "Landmarks" : bookingStep === 4 ? "UPI Sync" : "Synced"}
                     </DialogTitle>
                   </DialogHeader>
 
@@ -403,6 +420,22 @@ export default function RiderApp() {
                           </div>
                         </div>
                         <div className="space-y-5">
+                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.4em] ml-2">Mission Time</Label>
+                          <div className="grid grid-cols-2 gap-3">
+                             {availableTimeSlots.map((time) => (
+                               <Button key={time} onClick={() => setBookingTime(time)} variant={bookingTime === time ? 'default' : 'outline'} className={`h-16 rounded-2xl font-black italic text-base ${bookingTime === time ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'border-white/10 text-muted-foreground hover:border-primary/40'}`}>
+                                 <Clock className="mr-2 h-4 w-4" /> {time}
+                               </Button>
+                             ))}
+                          </div>
+                        </div>
+                        <Button onClick={() => setBookingStep(3)} disabled={!bookingTime} className="w-full h-20 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-2xl shadow-2xl active:scale-95 transition-all">Select Landmarks</Button>
+                      </div>
+                    )}
+
+                    {bookingStep === 3 && (
+                      <div className="space-y-10 animate-in slide-in-from-right-8 duration-500">
+                        <div className="space-y-5">
                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.4em] ml-2">Safe Landmarks</Label>
                           <div className="grid gap-3">
                              {selectedRoute?.stops.map((s: any, i: number) => (
@@ -427,7 +460,7 @@ export default function RiderApp() {
                       </div>
                     )}
 
-                    {bookingStep === 3 && (
+                    {bookingStep === 4 && (
                       <div className="space-y-10 py-6 text-center animate-in zoom-in duration-500">
                          <div className="p-14 bg-primary/5 rounded-[4rem] border-4 border-primary/20 shadow-2xl relative overflow-hidden">
                             <p className="text-[11px] font-black uppercase text-primary mb-5 tracking-[0.5em] italic">Mission Fare</p>
@@ -450,7 +483,7 @@ export default function RiderApp() {
                       </div>
                     )}
 
-                    {bookingStep === 4 && (
+                    {bookingStep === 5 && (
                       <div className="flex flex-col items-center justify-center text-center space-y-10 py-24 animate-in fade-in duration-1000">
                          <div className="h-40 w-40 bg-primary text-black rounded-full flex items-center justify-center shadow-3xl animate-bounce shadow-primary/30 border-8 border-background">
                            <CheckCircle2 className="h-20 w-20" />
@@ -464,11 +497,11 @@ export default function RiderApp() {
                   </div>
 
                   <div className="pt-10 shrink-0 border-t border-white/5">
-                    {bookingStep === 2 && <Button onClick={() => setBookingStep(3)} disabled={!pickupStop || !destinationStop} className="w-full h-20 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-2xl shadow-2xl active:scale-95 transition-all">Continue to Pay</Button>}
-                    {bookingStep === 3 && <Button onClick={initiatePayment} disabled={isPaying} className="w-full h-24 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-2xl shadow-3xl shadow-primary/20 flex items-center justify-center gap-4 active:scale-95 transition-all">
+                    {bookingStep === 3 && <Button onClick={() => setBookingStep(4)} disabled={!pickupStop || !destinationStop} className="w-full h-20 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-2xl shadow-2xl active:scale-95 transition-all">Continue to Pay</Button>}
+                    {bookingStep === 4 && <Button onClick={initiatePayment} disabled={isPaying} className="w-full h-24 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-2xl shadow-3xl shadow-primary/20 flex items-center justify-center gap-4 active:scale-95 transition-all">
                       {isPaying ? <Loader2 className="animate-spin h-10 w-10" /> : <><ZapIcon className="h-8 w-8" /> Pay ₹{Math.max(0, calculatedFare - appliedDiscount)} via UPI</>}
                     </Button>}
-                    {bookingStep === 4 && <DialogTrigger asChild><Button className="w-full h-20 bg-white/5 rounded-[2.5rem] font-black uppercase italic text-xl border border-white/10 hover:bg-primary hover:text-black transition-all">Close Terminal</Button></DialogTrigger>}
+                    {bookingStep === 5 && <DialogTrigger asChild><Button className="w-full h-20 bg-white/5 rounded-[2.5rem] font-black uppercase italic text-xl border border-white/10 hover:bg-primary hover:text-black transition-all">Close Terminal</Button></DialogTrigger>}
                   </div>
                 </DialogContent>
               </Dialog>
@@ -525,7 +558,7 @@ export default function RiderApp() {
                         <Badge className={`${t.status === 'completed' ? 'bg-green-500/20 text-green-500' : 'bg-primary/20 text-primary'} border-none text-[8px] font-black uppercase px-3 py-1 rounded-full`}>
                           {t.status.toUpperCase()}
                         </Badge>
-                        <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{t.scheduledDate}</span>
+                        <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{t.scheduledDate} @ {t.scheduledTime}</span>
                       </div>
                       <h4 className="font-black text-foreground uppercase italic text-2xl leading-none tracking-tight">{t.routeName}</h4>
                     </div>

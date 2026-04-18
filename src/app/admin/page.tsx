@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -37,11 +36,10 @@ import {
   Bus,
   Plus,
   Trash2,
-  RefreshCw,
-  Edit,
-  Eye,
   FileText,
-  UserCheck
+  UserCheck,
+  CheckCircle2,
+  Calendar
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useAuth } from '@/firebase';
 import { collection, query, doc, updateDoc, orderBy, addDoc, where, deleteDoc, getDocs } from 'firebase/firestore';
@@ -75,7 +73,7 @@ export default function AdminDashboard() {
   const [viewingDocs, setViewingDocs] = useState<any>(null);
 
   // Corridor Deployment State
-  const [newRoute, setNewRoute] = useState({ name: '', fare: '', stops: '' });
+  const [newRoute, setNewRoute] = useState({ name: '', fare: '', stops: '', schedule: '' });
 
   // AI Architect State
   const [aiInput, setAiInput] = useState<AdminGenerateShuttleRoutesInput>({
@@ -105,7 +103,7 @@ export default function AdminDashboard() {
       totalDrivers: drivers.length,
       activeFleet: drivers.filter(d => d.status === 'available' || d.status === 'on-trip').length,
       utilization: drivers.length > 0 ? Math.round((onTrip / drivers.length) * 100) : 0,
-      pendingDrivers: drivers.filter(u => !u.isVerified).length
+      pendingDrivers: drivers.filter(u => u.role === 'driver' && !u.isVerified).length
     };
   }, [allUsers]);
 
@@ -164,11 +162,12 @@ export default function AdminDashboard() {
       routeName: routeData.routeName || routeData.name,
       baseFare: Number(routeData.suggestedBaseFare || routeData.fare),
       stops: stopsArray,
+      schedule: routeData.schedule || "08:00 AM, 05:30 PM",
       status: 'active',
       createdAt: new Date().toISOString()
     }).then(() => {
       toast({ title: "Corridor Deployed" });
-      setNewRoute({ name: '', fare: '', stops: '' });
+      setNewRoute({ name: '', fare: '', stops: '', schedule: '' });
       setActiveTab('routes');
     });
   };
@@ -397,9 +396,15 @@ export default function AdminDashboard() {
                         <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Corridor Identifier</Label>
                         <Input value={newRoute.name} onChange={e => setNewRoute({...newRoute, name: e.target.value})} placeholder="e.g. Airport Hub Express" className="h-14 bg-white/5 border-white/10 font-black italic" />
                      </div>
-                     <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Base Yield (₹)</Label>
-                        <Input type="number" value={newRoute.fare} onChange={e => setNewRoute({...newRoute, fare: e.target.value})} placeholder="150" className="h-14 bg-white/5 border-white/10 font-black italic" />
+                     <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Base Yield (₹)</Label>
+                           <Input type="number" value={newRoute.fare} onChange={e => setNewRoute({...newRoute, fare: e.target.value})} placeholder="150" className="h-14 bg-white/5 border-white/10 font-black italic" />
+                        </div>
+                        <div className="space-y-2">
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Time Schedule</Label>
+                           <Input value={newRoute.schedule} onChange={e => setNewRoute({...newRoute, schedule: e.target.value})} placeholder="08:00 AM, 05:30 PM" className="h-14 bg-white/5 border-white/10 font-black italic" />
+                        </div>
                      </div>
                      <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Grid Landmarks (Comma Separated)</Label>
@@ -412,20 +417,23 @@ export default function AdminDashboard() {
 
                   <div className="space-y-4">
                      <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-2">Active Corridors</h4>
-                     {allRoutes?.map((r: any) => (
-                       <Card key={r.id} className="p-6 bg-white/5 border-white/10 rounded-3xl flex justify-between items-center group hover:border-primary/50 transition-all">
-                          <div>
-                             <p className="text-xl font-black italic uppercase text-foreground leading-none">{r.routeName}</p>
-                             <div className="flex items-center gap-3 mt-2">
-                                <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase px-3 py-1 rounded-full">₹{r.baseFare}</Badge>
-                                <span className="text-[8px] font-black text-muted-foreground uppercase">{r.stops?.length || 0} Nodes</span>
-                             </div>
-                          </div>
-                          <div className="flex gap-2">
-                             <Button variant="ghost" className="text-destructive h-8 w-8 p-0" onClick={() => deleteDoc(doc(db!, 'routes', r.id))}><Trash2 className="h-4 w-4" /></Button>
-                          </div>
-                       </Card>
-                     ))}
+                     <div className="grid gap-4">
+                        {allRoutes?.map((r: any) => (
+                        <Card key={r.id} className="p-6 bg-white/5 border-white/10 rounded-3xl flex justify-between items-center group hover:border-primary/50 transition-all">
+                           <div>
+                              <p className="text-xl font-black italic uppercase text-foreground leading-none">{r.routeName}</p>
+                              <div className="flex items-center gap-3 mt-2 flex-wrap">
+                                 <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black uppercase px-3 py-1 rounded-full">₹{r.baseFare}</Badge>
+                                 <span className="text-[8px] font-black text-muted-foreground uppercase flex items-center gap-1"><Clock className="h-3 w-3" /> {r.schedule}</span>
+                                 <span className="text-[8px] font-black text-muted-foreground uppercase">{r.stops?.length || 0} Nodes</span>
+                              </div>
+                           </div>
+                           <div className="flex gap-2">
+                              <Button variant="ghost" className="text-destructive h-8 w-8 p-0" onClick={() => deleteDoc(doc(db!, 'routes', r.id))}><Trash2 className="h-4 w-4" /></Button>
+                           </div>
+                        </Card>
+                        ))}
+                     </div>
                   </div>
                </div>
             </div>
@@ -476,7 +484,7 @@ export default function AdminDashboard() {
                                    <div className="flex justify-between items-start">
                                       <div className="space-y-1">
                                          <h5 className="text-2xl font-black italic uppercase text-foreground">{r.routeName}</h5>
-                                         <p className="text-[10px] font-black text-primary uppercase italic">{r.schedule}</p>
+                                         <p className="text-[10px] font-black text-primary uppercase italic flex items-center gap-1"><Clock className="h-3 w-3" /> {r.schedule}</p>
                                       </div>
                                       <p className="text-3xl font-black italic text-foreground">₹{r.suggestedBaseFare}</p>
                                    </div>
