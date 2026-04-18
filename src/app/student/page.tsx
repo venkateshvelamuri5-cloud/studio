@@ -122,7 +122,7 @@ export default function CustomerDashboard() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'AAGO - Track My Ride',
+          title: 'AAGO - Track My Trip',
           text: `Check where I am. My ride code is ${profile?.activeOtp}`,
           url: window.location.href,
         });
@@ -207,7 +207,7 @@ export default function CustomerDashboard() {
           });
         }
 
-        await updateDoc(userRef, { activeOtp: code, loyaltyPoints: increment(10) });
+        await updateDoc(userRef, { activeOtp: code, loyaltyPoints: increment(10), lastLogin: new Date().toISOString() });
         setBookingStep(4);
         toast({ title: "Seat Booked!" });
       } else {
@@ -223,13 +223,13 @@ export default function CustomerDashboard() {
   const startPayment = async () => {
     if (typeof window === 'undefined' || !selectedRoute) return;
     if (!(window as any).Razorpay) {
-      toast({ variant: 'destructive', title: 'Loading...', description: 'Please wait a second.' });
+      toast({ variant: 'destructive', title: 'Wait...', description: 'Loading payment system.' });
       return;
     }
     setIsPaying(true);
 
     try {
-      const price = Math.max(1, (calculatedFare - appliedDiscount) * 100);
+      const price = Math.max(100, (calculatedFare - appliedDiscount) * 100);
       const res = await fetch('/api/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -239,7 +239,7 @@ export default function CustomerDashboard() {
       const order = await res.json();
 
       const options = {
-        key: 'rzp_live_SeqhV0hEn1PXnz',
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SeqhV0hEn1PXnz',
         amount: order.amount,
         currency: order.currency,
         name: "AAGO",
@@ -254,7 +254,7 @@ export default function CustomerDashboard() {
       const rzp = new (window as any).Razorpay(options);
       rzp.open();
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Payment Error", description: e.message });
+      toast({ variant: "destructive", title: "Error", description: e.message });
       setIsPaying(false);
     }
   };
@@ -278,7 +278,7 @@ export default function CustomerDashboard() {
           <div className="space-y-6 animate-in fade-in">
             <div className="flex justify-between items-center px-2">
               <div className="space-y-1">
-                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic opacity-50">Welcome</p>
+                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic opacity-50">Hello,</p>
                 <h2 className="text-4xl font-black italic uppercase tracking-tighter">{profile?.fullName?.split(' ')[0]}</h2>
               </div>
               <div className="bg-white/5 p-4 rounded-3xl border border-white/10 flex items-center gap-2">
@@ -309,7 +309,7 @@ export default function CustomerDashboard() {
                     {currentRide.status === 'active' ? (
                       <div className="p-8 bg-black/40 border border-dashed border-white/10 rounded-[3rem] text-center">
                          <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest leading-relaxed">
-                           We are finding the best driver for your ride.
+                           We are finding a driver for you.
                          </p>
                       </div>
                     ) : (
@@ -335,7 +335,7 @@ export default function CustomerDashboard() {
                 <DialogContent className="bg-background border-white/5 rounded-[3.5rem] p-10 h-[90vh] flex flex-col shadow-2xl">
                   <DialogHeader className="shrink-0 mb-6">
                     <DialogTitle className="text-4xl font-black italic uppercase text-primary leading-none tracking-tighter">
-                      {bookingStep === 1 ? "Pick a Route" : bookingStep === 2 ? "Pick a Stop" : bookingStep === 3 ? "Payment" : "Done!"}
+                      {bookingStep === 1 ? "Pick a Route" : bookingStep === 2 ? "Pick a Time" : bookingStep === 3 ? "Payment" : "Done!"}
                     </DialogTitle>
                   </DialogHeader>
 
@@ -394,7 +394,7 @@ export default function CustomerDashboard() {
                               </select>
                            </div>
                         </div>
-                        <Button onClick={() => setBookingStep(3)} disabled={!bookingTime || !pickupStop || !dropStop} className="w-full h-18 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-xl">Continue to Pay</Button>
+                        <Button onClick={() => setBookingStep(3)} disabled={!bookingTime || !pickupStop || !dropStop} className="w-full h-18 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-xl">Review & Pay</Button>
                       </div>
                     )}
 
@@ -424,7 +424,7 @@ export default function CustomerDashboard() {
                          </div>
                          <div className="space-y-4">
                            <h3 className="text-4xl font-black italic uppercase text-primary tracking-tighter leading-none">Booked!</h3>
-                           <p className="text-[10px] font-bold text-muted-foreground italic uppercase tracking-[0.2em]">We will find a driver for you soon.</p>
+                           <p className="text-[10px] font-bold text-muted-foreground italic uppercase tracking-[0.2em]">We are finding a driver for you soon.</p>
                          </div>
                          <Button onClick={() => setBookingStep(1)} className="w-full h-18 bg-white/5 rounded-2xl border border-white/10 font-black uppercase italic">Go Back</Button>
                       </div>
@@ -465,7 +465,7 @@ export default function CustomerDashboard() {
 
         {activeTab === 'history' && (
           <div className="space-y-8 pb-12 animate-in fade-in">
-             <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">My Rides</h2>
+             <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">My History</h2>
              <div className="space-y-4">
                 {allTrips?.filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid))?.length === 0 ? (
                   <div className="p-24 text-center italic text-muted-foreground bg-white/5 rounded-[3.5rem] border-2 border-dashed border-white/5 opacity-40 uppercase tracking-[0.4em] font-black text-[11px]">
@@ -496,7 +496,7 @@ export default function CustomerDashboard() {
                    <Badge className="bg-primary/20 text-primary border-none uppercase text-[10px] font-black tracking-widest px-8 py-2 rounded-full">CUSTOMER</Badge>
                 </div>
              </div>
-             <Button onClick={handleSignOut} className="w-full max-w-sm mx-auto h-18 bg-destructive/10 text-destructive rounded-3xl font-black uppercase italic border-2 border-destructive/20 text-lg">
+             <Button onClick={async () => { if (auth) await signOut(auth); router.push('/auth/login'); }} className="w-full max-w-sm mx-auto h-18 bg-destructive/10 text-destructive rounded-3xl font-black uppercase italic border-2 border-destructive/20 text-lg">
                 <LogOut className="mr-4 h-6 w-6" /> Logout
              </Button>
           </div>

@@ -8,11 +8,9 @@ export async function POST(req: Request) {
     const key_secret = process.env.RAZORPAY_KEY_SECRET;
 
     if (!key_id || !key_secret) {
-      console.error('Missing Razorpay credentials');
       return NextResponse.json({ error: 'Razorpay keys not configured' }, { status: 500 });
     }
 
-    // Initialize inside the request to avoid build-time errors with missing env vars
     const razorpay = new Razorpay({
       key_id,
       key_secret,
@@ -28,7 +26,7 @@ export async function POST(req: Request) {
     }
 
     const options = {
-      amount: Math.round(amount), // amount in paise
+      amount: Math.round(amount),
       currency,
       receipt,
     };
