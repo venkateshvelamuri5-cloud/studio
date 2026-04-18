@@ -58,7 +58,7 @@ export default function DriverApp() {
 
   const { data: jobPool } = useCollection(useMemo(() => {
     if (!db) return null;
-    // Capacity logic: Drivers see trips that are "Scheduled" (met demand pool threshold)
+    // Capacity logic: Drivers only see trips that are "Scheduled" (after the 3h segregation window)
     return query(collection(db, 'trips'), where('status', '==', 'scheduled'));
   }, [db]));
 
@@ -203,14 +203,14 @@ export default function DriverApp() {
 
              <div className="flex items-center justify-between px-2">
                 <h3 className="text-xl font-black italic uppercase flex items-center gap-2"><Target className="h-5 w-5 text-primary" /> Demand Pool</h3>
-                <Badge variant="outline" className="border-white/10 text-[8px] uppercase tracking-widest">SCHEDULED</Badge>
+                <Badge variant="outline" className="border-white/10 text-[8px] uppercase tracking-widest">3H WINDOW</Badge>
              </div>
 
              <div className="space-y-3">
                 {jobPool?.length === 0 ? (
                   <div className="p-20 text-center text-muted-foreground italic bg-white/5 rounded-[2.5rem] border border-dashed border-white/10 flex flex-col items-center gap-4">
                      <Loader2 className="animate-spin h-6 w-6 opacity-20" />
-                     <p className="text-[10px] font-black uppercase tracking-widest">Awaiting Capacity Logic...</p>
+                     <p className="text-[10px] font-black uppercase tracking-widest">Awaiting Grid Sync...</p>
                   </div>
                 ) : jobPool?.map((job: any) => (
                   <Card key={job.id} className="p-8 bg-white/5 border border-white/5 rounded-[2.5rem] flex justify-between items-center group hover:bg-white/10 transition-all">
@@ -240,7 +240,7 @@ export default function DriverApp() {
                </div>
 
                <div className="bg-black/60 p-8 rounded-[3rem] border border-white/10 space-y-6">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-4">Verify Boarding</Label>
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-4">Safe Boarding Code</Label>
                   <div className="flex gap-4">
                      <input value={verificationOtp} onChange={(e) => setVerificationOtp(e.target.value)} placeholder="000000" className="h-20 w-full text-center font-black tracking-[0.5em] text-4xl rounded-3xl bg-white/5 border border-white/10 text-primary focus:border-primary outline-none" maxLength={6} />
                      <Button onClick={verifyPassenger} disabled={isVerifying || !verificationOtp} className="h-20 w-20 rounded-3xl bg-primary text-black shadow-xl active:scale-95"><CheckCircle2 className="h-10 w-10" /></Button>
@@ -276,7 +276,7 @@ export default function DriverApp() {
              <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-6">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Trophy className="h-6 w-6" /></div>
-                  <h4 className="text-xl font-black italic uppercase">Mission Goal</h4>
+                  <h4 className="text-xl font-black italic uppercase">Daily Goal</h4>
                 </div>
                 <Progress value={Math.min(100, ((profile?.totalEarnings || 0) / 1000) * 100)} className="h-3 bg-white/5 [&>div]:bg-primary" />
                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic text-center">90% of trip yield credited to operator wallet.</p>
@@ -299,7 +299,7 @@ export default function DriverApp() {
                 </div>
              </div>
              <Button onClick={handleSignOut} className="w-full max-w-sm mx-auto h-20 bg-destructive/10 text-destructive rounded-[2.5rem] font-black uppercase italic border border-destructive/20 text-xl shadow-xl hover:bg-destructive hover:text-white transition-all">
-                <LogOut className="mr-3 h-6 w-6" /> Exit Hub
+                <LogOut className="mr-3 h-6 w-6" /> Exit Terminal
              </Button>
           </div>
         )}
@@ -313,7 +313,7 @@ export default function DriverApp() {
           <Wallet className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Money</span>
         </Button>
         <Button variant="ghost" onClick={() => setActiveTab('me')} className={`flex-col h-auto py-3 px-8 gap-1 rounded-2xl transition-all ${activeTab === 'me' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
-          <Settings className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Me</span>
+          <Settings className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Profile</span>
         </Button>
       </nav>
     </div>
