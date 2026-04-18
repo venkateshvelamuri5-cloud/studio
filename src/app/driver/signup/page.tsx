@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Camera, RefreshCcw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, Camera, RefreshCcw, CheckCircle2, AlertCircle, Upload, FileText } from 'lucide-react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
@@ -42,7 +42,6 @@ export default function DriverSignupPage() {
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [captureType, setCaptureType] = useState<'profile' | 'dl' | 'aadhaar'>('profile');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -84,8 +83,15 @@ export default function DriverSignupPage() {
   };
 
   const getCameraPermission = async () => {
+    // Stop any existing tracks first to avoid "Could not start video source"
+    if (videoRef.current && videoRef.current.srcObject) {
+      (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+    }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'user' } 
+      });
       setHasCameraPermission(true);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -95,23 +101,22 @@ export default function DriverSignupPage() {
       setHasCameraPermission(false);
       toast({ 
         variant: 'destructive', 
-        title: 'Camera Blocked', 
-        description: 'Please allow camera access in your browser settings to finish signup.' 
+        title: 'Camera Access Error', 
+        description: 'Please enable camera permissions in your settings.' 
       });
     }
   };
 
   useEffect(() => {
-    if (step === 2) {
+    if (step === 2 && !photoUrl) {
       getCameraPermission();
     }
-    // Cleanup stream on step change or unmount
     return () => {
       if (videoRef.current && videoRef.current.srcObject) {
         (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
       }
     };
-  }, [step]);
+  }, [step, photoUrl]);
 
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -123,16 +128,26 @@ export default function DriverSignupPage() {
       
       const ctx = canvas.getContext('2d');
       ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
       
-      if (captureType === 'profile') setPhotoUrl(dataUrl);
-      if (captureType === 'dl') setDlPhotoUrl(dataUrl);
-      if (captureType === 'aadhaar') setAadhaarPhotoUrl(dataUrl);
+      setPhotoUrl(dataUrl);
 
       if (videoRef.current.srcObject) {
         (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
       }
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'dl' | 'aadhaar') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (target === 'dl') setDlPhotoUrl(reader.result as string);
+      else setAadhaarPhotoUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSendOtp = async (e: React.FormEvent) => {
@@ -146,7 +161,7 @@ export default function DriverSignupPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(3); 
-      toast({ title: "OTP Sent", description: "Please check your messages." });
+      toast({ title: "OTP Sent", description: "Check your messages." });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: "Failed to send code. Try again." });
     } finally {
@@ -184,7 +199,7 @@ export default function DriverSignupPage() {
       });
       router.push('/driver');
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Wrong OTP", description: "Check the code and try again." });
+      toast({ variant: "destructive", title: "Wrong OTP", description: "Check code and try again." });
     } finally {
       setLoading(false);
     }
@@ -206,7 +221,7 @@ export default function DriverSignupPage() {
       <Card className="w-full max-w-md bg-white/5 border-none rounded-[2.5rem] overflow-hidden shadow-2xl">
         <CardHeader className="pt-8 pb-4 text-center bg-white/5 border-b border-white/5">
           <CardTitle className="text-lg font-black uppercase italic tracking-tighter">Join Driver Fleet</CardTitle>
-          <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Driver Onboarding</CardDescription>
+          <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">ID Check Portal</CardDescription>
         </CardHeader>
         
         <CardContent className="px-6 py-8">
@@ -242,69 +257,65 @@ export default function DriverSignupPage() {
                   </Select>
                 </div>
               </div>
-              <Button onClick={() => setStep(2)} disabled={!fullName || !vehicleNumber || !licenseNumber || !aadhaarNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4">Next: Photo ID</Button>
+              <Button onClick={() => setStep(2)} disabled={!fullName || !vehicleNumber || !licenseNumber || !aadhaarNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4">Next: Photos</Button>
             </div>
           )}
 
           {step === 2 && (
-            <div className="space-y-6 text-center">
-              <div className="relative aspect-[4/3] w-full bg-black rounded-[2rem] overflow-hidden border border-white/10">
-                <video 
-                  ref={videoRef} 
-                  className={`h-full w-full object-cover ${((captureType === 'profile' && photoUrl) || (captureType === 'dl' && dlPhotoUrl) || (captureType === 'aadhaar' && aadhaarPhotoUrl)) ? 'hidden' : 'block'}`} 
-                  autoPlay 
-                  muted 
-                  playsInline 
-                />
-                
-                {((captureType === 'profile' && photoUrl) || (captureType === 'dl' && dlPhotoUrl) || (captureType === 'aadhaar' && aadhaarPhotoUrl)) && (
-                  <img src={captureType === 'profile' ? photoUrl! : captureType === 'dl' ? dlPhotoUrl! : aadhaarPhotoUrl!} className="h-full w-full object-cover" alt="Capture Preview" />
-                )}
-                
-                <canvas ref={canvasRef} className="hidden" />
-              </div>
-              
-              <div className="flex justify-center gap-2">
-                 <Badge onClick={() => { setCaptureType('profile'); getCameraPermission(); }} className={`cursor-pointer h-8 px-4 font-black italic uppercase transition-all ${captureType === 'profile' ? 'bg-primary text-black' : 'bg-white/5 text-muted-foreground'}`}>Your Photo</Badge>
-                 <Badge onClick={() => { setCaptureType('dl'); getCameraPermission(); }} className={`cursor-pointer h-8 px-4 font-black italic uppercase transition-all ${captureType === 'dl' ? 'bg-primary text-black' : 'bg-white/5 text-muted-foreground'}`}>License</Badge>
-                 <Badge onClick={() => { setCaptureType('aadhaar'); getCameraPermission(); }} className={`cursor-pointer h-8 px-4 font-black italic uppercase transition-all ${captureType === 'aadhaar' ? 'bg-primary text-black' : 'bg-white/5 text-muted-foreground'}`}>ID Card</Badge>
+            <div className="space-y-8">
+              {/* Profile Photo - Still Camera Capture for verification */}
+              <div className="space-y-4">
+                 <Label className="text-[10px] font-black uppercase text-center block tracking-widest text-muted-foreground">Take a Selfie</Label>
+                 <div className="relative aspect-square w-48 mx-auto bg-black rounded-3xl overflow-hidden border-2 border-white/10 shadow-2xl">
+                    {!photoUrl ? (
+                      <>
+                        <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
+                        <canvas ref={canvasRef} className="hidden" />
+                      </>
+                    ) : (
+                      <img src={photoUrl} className="h-full w-full object-cover" />
+                    )}
+                 </div>
+                 {!photoUrl ? (
+                   <Button onClick={capturePhoto} className="w-full h-12 bg-primary text-black rounded-xl font-black uppercase italic text-xs"><Camera className="mr-2 h-4 w-4" /> Capture Photo</Button>
+                 ) : (
+                   <Button onClick={() => setPhotoUrl(null)} variant="ghost" className="w-full text-primary font-black uppercase italic text-[10px] h-10 border border-primary/20 rounded-xl"><RefreshCcw className="mr-2 h-3 w-3" /> Retake Selfie</Button>
+                 )}
               </div>
 
-              {hasCameraPermission === false && (
-                <Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-left">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle className="font-black italic uppercase text-[10px]">Camera Access Required</AlertTitle>
-                  <AlertDescription className="text-[10px] font-bold opacity-70">Please allow camera access in browser settings to finish signup.</AlertDescription>
-                </Alert>
-              )}
+              {/* Documents - File Upload as requested */}
+              <div className="grid grid-cols-2 gap-4">
+                 <div className="space-y-2">
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">License Photo</Label>
+                    <div className="relative h-32 w-full bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center p-4">
+                       {dlPhotoUrl ? (
+                         <img src={dlPhotoUrl} className="h-full w-full object-cover rounded-xl" />
+                       ) : (
+                         <div className="flex flex-col items-center gap-2">
+                           <Upload className="h-5 w-5 opacity-20" />
+                           <span className="text-[8px] font-black uppercase opacity-40">Choose File</span>
+                         </div>
+                       )}
+                       <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'dl')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                    </div>
+                 </div>
+                 <div className="space-y-2">
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">ID Card Photo</Label>
+                    <div className="relative h-32 w-full bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center p-4">
+                       {aadhaarPhotoUrl ? (
+                         <img src={aadhaarPhotoUrl} className="h-full w-full object-cover rounded-xl" />
+                       ) : (
+                         <div className="flex flex-col items-center gap-2">
+                           <Upload className="h-5 w-5 opacity-20" />
+                           <span className="text-[8px] font-black uppercase opacity-40">Choose File</span>
+                         </div>
+                       )}
+                       <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'aadhaar')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                    </div>
+                 </div>
+              </div>
 
-              {((captureType === 'profile' && !photoUrl) || (captureType === 'dl' && !dlPhotoUrl) || (captureType === 'aadhaar' && !aadhaarPhotoUrl)) ? (
-                <Button onClick={capturePhoto} disabled={hasCameraPermission === false} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-lg active:scale-95 transition-all">
-                  <Camera className="mr-3 h-6 w-6" /> Take Photo
-                </Button>
-              ) : (
-                <div className="flex gap-4">
-                  <Button onClick={() => { 
-                    if (captureType === 'profile') setPhotoUrl(null);
-                    if (captureType === 'dl') setDlPhotoUrl(null);
-                    if (captureType === 'aadhaar') setAadhaarPhotoUrl(null);
-                    getCameraPermission(); 
-                  }} variant="ghost" className="flex-1 text-primary font-black uppercase italic text-[10px] h-16 border-2 border-primary/20 rounded-2xl">
-                    <RefreshCcw className="mr-2 h-4 w-4" /> Retake
-                  </Button>
-                  <Button onClick={() => {
-                    if (photoUrl && dlPhotoUrl && aadhaarPhotoUrl) setStep(3);
-                    else {
-                      if (!photoUrl) setCaptureType('profile');
-                      else if (!dlPhotoUrl) setCaptureType('dl');
-                      else if (!aadhaarPhotoUrl) setCaptureType('aadhaar');
-                      getCameraPermission();
-                    }
-                  }} className="flex-1 bg-primary text-black font-black uppercase italic h-16 rounded-2xl shadow-xl">
-                    { (photoUrl && dlPhotoUrl && aadhaarPhotoUrl) ? "Finish Photos" : "Next Photo" }
-                  </Button>
-                </div>
-              )}
+              <Button onClick={() => setStep(3)} disabled={!photoUrl || !dlPhotoUrl || !aadhaarPhotoUrl} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl">Confirm Photos</Button>
             </div>
           )}
 
