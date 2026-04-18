@@ -202,6 +202,7 @@ export default function CustomerDashboard() {
             farePerRider: selectedRoute.baseFare,
             passengerManifest: [entry],
             verifiedPassengers: [],
+            driverId: null,
             createdAt: new Date().toISOString()
           });
         }
@@ -291,7 +292,7 @@ export default function CustomerDashboard() {
                  <div className="flex flex-col items-center gap-4 mb-10 text-center">
                     <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground italic">Ride Code</p>
                     <h3 className="text-7xl font-black tracking-tighter italic text-primary leading-none">
-                      {currentRide.status === 'active' ? profile?.activeOtp : 'READY'}
+                      {currentRide.status === 'on-trip' ? profile?.activeOtp : 'READY'}
                     </h3>
                     <p className="text-[9px] font-black uppercase text-primary mt-4">{currentRide.scheduledDate} • {currentRide.scheduledTime}</p>
                  </div>
@@ -308,7 +309,7 @@ export default function CustomerDashboard() {
                     {currentRide.status === 'active' ? (
                       <div className="p-8 bg-black/40 border border-dashed border-white/10 rounded-[3rem] text-center">
                          <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest leading-relaxed">
-                           We are setting up your ride for the best experience.
+                           We are finding the best driver for your ride.
                          </p>
                       </div>
                     ) : (
@@ -423,7 +424,7 @@ export default function CustomerDashboard() {
                          </div>
                          <div className="space-y-4">
                            <h3 className="text-4xl font-black italic uppercase text-primary tracking-tighter leading-none">Booked!</h3>
-                           <p className="text-[10px] font-bold text-muted-foreground italic uppercase tracking-[0.2em]">We will send details soon.</p>
+                           <p className="text-[10px] font-bold text-muted-foreground italic uppercase tracking-[0.2em]">We will find a driver for you soon.</p>
                          </div>
                          <Button onClick={() => setBookingStep(1)} className="w-full h-18 bg-white/5 rounded-2xl border border-white/10 font-black uppercase italic">Go Back</Button>
                       </div>
@@ -451,7 +452,7 @@ export default function CustomerDashboard() {
 
         {activeTab === 'map' && (
           <div className="flex-1 flex flex-col space-y-6 h-[calc(100vh-240px)] animate-in fade-in">
-            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">Map</h2>
+            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">Radar</h2>
             <div className="flex-1 rounded-[4rem] overflow-hidden border-4 border-white/5 shadow-3xl bg-black relative">
                {isLoaded ? (
                  <GoogleMap mapContainerStyle={mapContainerStyle} center={driverLocation || DEFAULT_CENTER} zoom={15} options={mapOptions}>
@@ -507,7 +508,7 @@ export default function CustomerDashboard() {
           <LayoutGrid className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Home</span>
         </Button>
         <Button variant="ghost" onClick={() => setActiveTab('map')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl ${activeTab === 'map' ? 'text-primary bg-primary/10 shadow-lg shadow-primary/10' : 'text-muted-foreground opacity-50'}`}>
-          <MapPin className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Map</span>
+          <Navigation className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Radar</span>
         </Button>
         <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl ${activeTab === 'history' ? 'text-primary bg-primary/10 shadow-lg shadow-primary/10' : 'text-muted-foreground opacity-50'}`}>
           <History className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">History</span>
