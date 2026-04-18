@@ -48,7 +48,6 @@ import { collection, query, doc, updateDoc, orderBy, addDoc, where, deleteDoc, g
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { generateShuttleRoutes, AdminGenerateShuttleRoutesInput } from '@/ai/flows/admin-generate-shuttle-routes';
-import { analyzeDemandIntelligence, DemandIntelligenceInput } from '@/ai/flows/admin-demand-intelligence-flow';
 import { 
   BarChart, 
   Bar, 
@@ -60,8 +59,6 @@ import {
   PieChart, 
   Pie, 
   Cell,
-  LineChart,
-  Line,
   Legend
 } from 'recharts';
 import { format, subDays, isSameDay, parseISO } from 'date-fns';
@@ -98,8 +95,8 @@ export default function AdminDashboard() {
 
   // AI Planner State
   const [aiInput, setAiInput] = useState<AdminGenerateShuttleRoutesInput>({
-    startPoint: "Central Hub",
-    endPoint: "Main Market",
+    startPoint: "Central Point",
+    endPoint: "Market Area",
     demandVolume: "High",
     trafficContext: "Busy"
   });
@@ -112,7 +109,7 @@ export default function AdminDashboard() {
 
   const { data: allUsers } = useCollection(useMemo(() => db ? query(collection(db, 'users')) : null, [db]));
   const { data: allRoutes } = useCollection(useMemo(() => db ? query(collection(db, 'routes'), orderBy('createdAt', 'desc')) : null, [db]));
-  const { data: trips } = useCollection(useMemo(() => db ? query(collection(db, 'trips'), where('status', 'in', ['active', 'scheduled', 'on-trip', 'completed'])) : null, [db]));
+  const { data: trips } = useCollection(useMemo(() => db ? query(collection(db, 'trips')) : null, [db]));
   const { data: coupons } = useCollection(useMemo(() => db ? query(collection(db, 'vouchers')) : null, [db]));
 
   const stats = useMemo(() => {
@@ -122,11 +119,11 @@ export default function AdminDashboard() {
     const onTrip = drivers.filter(d => d.status === 'on-trip').length;
     
     // Repeat Customer Logic
-    const completedTrips = trips?.filter(t => t.status === 'completed') || [];
+    const completedTrips = (trips || []).filter(t => t.status === 'completed');
     const riderVisits: Record<string, number> = {};
     completedTrips.forEach(t => {
       t.passengerManifest?.forEach((m: any) => {
-        riderVisits[m.uid] = (riderVisits[m.uid] || 0) + 1;
+        if (m.uid) riderVisits[m.uid] = (riderVisits[m.uid] || 0) + 1;
       });
     });
     const repeatCustomers = Object.values(riderVisits).filter(count => count > 1).length;
@@ -137,7 +134,7 @@ export default function AdminDashboard() {
       totalDrivers: drivers.length,
       activeDrivers: drivers.filter(d => d.status === 'available' || d.status === 'on-trip').length,
       utilization: drivers.length > 0 ? Math.round((onTrip / drivers.length) * 100) : 0,
-      avgNps: 8.4, // Placeholder for NPS
+      avgNps: 8.8,
       repeatRate
     };
   }, [allUsers, trips]);
@@ -155,13 +152,14 @@ export default function AdminDashboard() {
     // Repeat Data
     const repeatData = [
       { name: 'Repeat People', value: stats.repeatRate, fill: 'hsl(var(--primary))' },
-      { name: 'New People', value: 100 - stats.repeatRate, fill: 'rgba(255,255,255,0.1)' }
+      { name: 'New People', value: Math.max(0, 100 - stats.repeatRate), fill: 'rgba(255,255,255,0.1)' }
     ];
 
     // Route Revenue
     const revenueMap: Record<string, number> = {};
-    trips.filter(t => t.status === 'completed').forEach(t => {
-      revenueMap[t.routeName] = (revenueMap[t.routeName] || 0) + (t.farePerRider * (t.passengerManifest?.length || 0));
+    (trips || []).filter(t => t.status === 'completed').forEach(t => {
+      const routeName = t.routeName || 'Unknown';
+      revenueMap[routeName] = (revenueMap[routeName] || 0) + (t.farePerRider * (t.passengerManifest?.length || 0));
     });
     const routeRevenue = Object.entries(revenueMap).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value).slice(0, 5);
 
@@ -213,7 +211,7 @@ export default function AdminDashboard() {
     if (!db) return;
     const stops = Array.isArray(data.stops) 
       ? data.stops.map((s: any) => ({ name: typeof s === 'string' ? s : s.name }))
-      : data.stops.split(',').map((s: string) => ({ name: s.trim() }));
+      : (data.stops || "").split(',').map((s: string) => ({ name: s.trim() }));
     
     addDoc(collection(db, 'routes'), {
       routeName: data.routeName || data.name,
@@ -257,7 +255,7 @@ export default function AdminDashboard() {
             { id: 'customers', label: 'Customers', icon: Users },
             { id: 'routes', label: 'Routes', icon: RouteIcon },
             { id: 'ai-planner', label: 'Route Help', icon: Sparkles },
-            { id: 'discounts', label: 'Discounts', icon: Gift },
+            { id: 'discounts', label: 'Discount Codes', icon: Gift },
           ].map((item) => (
             <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`w-full flex items-center justify-start rounded-xl font-black uppercase italic h-14 px-5 transition-all ${activeTab === item.id ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'text-muted-foreground hover:bg-white/5'}`}>
               <item.icon className="mr-4 h-5 w-5" /> {item.label}
@@ -273,7 +271,9 @@ export default function AdminDashboard() {
 
       <main className="flex-1 flex flex-col overflow-hidden">
         <header className="h-28 border-b border-white/5 px-10 flex items-center justify-between">
-          <h2 className="text-3xl font-black text-foreground italic uppercase tracking-tighter">{activeTab}</h2>
+          <h2 className="text-3xl font-black text-foreground italic uppercase tracking-tighter">
+            {activeTab === 'dashboard' ? 'Overview' : activeTab === 'ai-planner' ? 'Route Help' : activeTab === 'discounts' ? 'Discount Codes' : activeTab}
+          </h2>
           <Button onClick={handleCleanData} disabled={isCleaning} variant="outline" className="border-destructive/20 text-destructive h-12 px-6 rounded-xl font-black uppercase italic">
             {isCleaning ? "Cleaning..." : "Clear Data"}
           </Button>
@@ -303,17 +303,17 @@ export default function AdminDashboard() {
                  <Card className="bg-white/5 border-white/10 rounded-[2.5rem] overflow-hidden">
                     <CardHeader className="p-8 border-b border-white/5 flex flex-row items-center justify-between">
                        <CardTitle className="text-xl font-black italic uppercase text-primary">Live Trips</CardTitle>
-                       <Badge className="bg-primary/20 text-primary border-none uppercase text-[8px] font-black">{trips?.filter(t => t.status !== 'completed').length} Active</Badge>
+                       <Badge className="bg-primary/20 text-primary border-none uppercase text-[8px] font-black">{(trips || []).filter(t => t.status !== 'completed').length} Active</Badge>
                     </CardHeader>
                     <CardContent className="p-0">
                        <div className="divide-y divide-white/5">
-                          {trips?.filter(t => t.status !== 'completed').slice(0, 5).map((trip: any) => (
+                          {(trips || []).filter(t => t.status !== 'completed').slice(0, 5).map((trip: any) => (
                             <div key={trip.id} className="p-6 flex items-center justify-between hover:bg-white/5 transition-all">
                                <div className="flex items-center gap-4">
                                   <div className="h-10 w-10 rounded-xl bg-white/10 text-white/40 flex items-center justify-center"><RouteIcon className="h-5 w-5" /></div>
                                   <div>
                                      <p className="font-black italic uppercase text-foreground leading-none">{trip.routeName}</p>
-                                     <p className="text-[9px] font-bold text-muted-foreground uppercase mt-1 italic">{trip.riderCount} Seats Taken</p>
+                                     <p className="text-[9px] font-bold text-muted-foreground uppercase mt-1 italic">{trip.riderCount} People Joined</p>
                                   </div>
                                </div>
                                <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-3 py-1 rounded-full">{trip.status}</Badge>
@@ -338,7 +338,6 @@ export default function AdminDashboard() {
           {activeTab === 'analytics' && (
             <div className="space-y-10 animate-in fade-in">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                {/* User Growth Chart */}
                 <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-8">
                   <CardHeader className="px-0 pt-0 pb-8">
                     <CardTitle className="text-xl font-black italic uppercase text-primary flex items-center gap-3">
@@ -359,11 +358,10 @@ export default function AdminDashboard() {
                   </div>
                 </Card>
 
-                {/* Repeat Customers Pie */}
                 <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-8">
                   <CardHeader className="px-0 pt-0 pb-8">
                     <CardTitle className="text-xl font-black italic uppercase text-primary flex items-center gap-3">
-                      <PieChartIcon className="h-5 w-5" /> Repeated Rides
+                      <PieChartIcon className="h-5 w-5" /> Repeated Trips
                     </CardTitle>
                     <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">Customer loyalty and repeat bookings</CardDescription>
                   </CardHeader>
@@ -392,7 +390,6 @@ export default function AdminDashboard() {
                   </div>
                 </Card>
 
-                {/* Route Revenue Pivot */}
                 <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-8 lg:col-span-2">
                   <CardHeader className="px-0 pt-0 pb-8">
                     <CardTitle className="text-xl font-black italic uppercase text-primary flex items-center gap-3">
@@ -414,11 +411,11 @@ export default function AdminDashboard() {
                     <div className="space-y-4">
                       <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">People Activity</Label>
                       <div className="space-y-2 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                        {allUsers?.slice(0, 10).sort((a,b) => (b.lastLogin || '').localeCompare(a.lastLogin || '')).map((u: any) => (
+                        {(allUsers || []).slice(0, 10).sort((a,b) => (b.lastLogin || '').localeCompare(a.lastLogin || '')).map((u: any) => (
                           <div key={u.uid} className="p-4 bg-white/5 rounded-xl border border-white/10 flex justify-between items-center">
                             <div>
                               <p className="font-black italic uppercase text-foreground text-xs">{u.fullName}</p>
-                              <p className="text-[8px] font-bold text-muted-foreground uppercase">{u.role}</p>
+                              <p className="text-[8px] font-bold text-muted-foreground uppercase">{u.role === 'rider' ? 'Customer' : u.role}</p>
                             </div>
                             <div className="text-right">
                               <p className="text-[9px] font-black text-primary uppercase italic">Last Seen</p>
@@ -453,7 +450,7 @@ export default function AdminDashboard() {
                         <tr className="bg-white/5 text-[9px] font-black uppercase text-muted-foreground tracking-widest border-b border-white/10">
                           <th className="py-6 px-10">Name</th>
                           <th className="py-6">Status</th>
-                          <th className="py-6">Verified</th>
+                          <th className="py-6">ID Check</th>
                           <th className="py-6 px-10 text-right">Actions</th>
                         </tr>
                       </thead>
@@ -477,7 +474,7 @@ export default function AdminDashboard() {
                                 </Badge>
                              </td>
                              <td className="py-6">
-                                {u.isVerified ? <Badge className="bg-primary/20 text-primary uppercase text-[8px] font-black">Yes</Badge> : <Badge className="bg-destructive/20 text-destructive uppercase text-[8px] font-black">Checking</Badge>}
+                                {u.isVerified ? <Badge className="bg-primary/20 text-primary uppercase text-[8px] font-black">Approved</Badge> : <Badge className="bg-destructive/20 text-destructive uppercase text-[8px] font-black">Pending</Badge>}
                              </td>
                              <td className="py-6 px-10 text-right">
                                 <div className="flex items-center justify-end gap-2">

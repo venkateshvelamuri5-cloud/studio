@@ -86,11 +86,11 @@ export default function CustomerDashboard() {
   const { data: profile, loading: profileLoading } = useDoc(userRef);
   
   const { data: activeRoutes } = useCollection(useMemo(() => (db) ? query(collection(db, 'routes'), where('status', '==', 'active')) : null, [db]));
-  const { data: allTrips } = useCollection(useMemo(() => (db) ? query(collection(db, 'trips'), where('status', 'in', ['active', 'scheduled', 'on-trip'])) : null, [db]));
+  const { data: allTrips } = useCollection(useMemo(() => (db) ? query(collection(db, 'trips')) : null, [db]));
   
   const currentRide = useMemo(() => {
     if (!allTrips || !user?.uid) return null;
-    return allTrips.find(t => t.passengerManifest?.some((m: any) => m.uid === user.uid));
+    return allTrips.find(t => (t.status === 'active' || t.status === 'on-trip') && t.passengerManifest?.some((m: any) => m.uid === user.uid));
   }, [allTrips, user?.uid]);
 
   useEffect(() => {
@@ -309,7 +309,7 @@ export default function CustomerDashboard() {
                     {currentRide.status === 'active' ? (
                       <div className="p-8 bg-black/40 border border-dashed border-white/10 rounded-[3rem] text-center">
                          <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest leading-relaxed">
-                           We are finding a driver for you.
+                           We are finding a driver for you. Ride details will show 3 hours before start.
                          </p>
                       </div>
                     ) : (
@@ -335,7 +335,7 @@ export default function CustomerDashboard() {
                 <DialogContent className="bg-background border-white/5 rounded-[3.5rem] p-10 h-[90vh] flex flex-col shadow-2xl">
                   <DialogHeader className="shrink-0 mb-6">
                     <DialogTitle className="text-4xl font-black italic uppercase text-primary leading-none tracking-tighter">
-                      {bookingStep === 1 ? "Pick a Route" : bookingStep === 2 ? "Pick a Time" : bookingStep === 3 ? "Payment" : "Done!"}
+                      {bookingStep === 1 ? "Pick a Route" : bookingStep === 2 ? "Pick a Time" : bookingStep === 3 ? "Review" : "Done!"}
                     </DialogTitle>
                   </DialogHeader>
 
@@ -423,10 +423,10 @@ export default function CustomerDashboard() {
                            <CheckCircle2 className="h-16 w-16" />
                          </div>
                          <div className="space-y-4">
-                           <h3 className="text-4xl font-black italic uppercase text-primary tracking-tighter leading-none">Booked!</h3>
-                           <p className="text-[10px] font-bold text-muted-foreground italic uppercase tracking-[0.2em]">We are finding a driver for you soon.</p>
+                           <h3 className="text-4xl font-black italic uppercase text-primary tracking-tighter leading-none">Done!</h3>
+                           <p className="text-[10px] font-bold text-muted-foreground italic uppercase tracking-[0.2em]">Your ride details and driver info will be shared 3 hours before the trip starts.</p>
                          </div>
-                         <Button onClick={() => setBookingStep(1)} className="w-full h-18 bg-white/5 rounded-2xl border border-white/10 font-black uppercase italic">Go Back</Button>
+                         <Button onClick={() => setBookingStep(1)} className="w-full h-18 bg-white/5 rounded-2xl border border-white/10 font-black uppercase italic">Close</Button>
                       </div>
                     )}
                   </div>
@@ -467,11 +467,11 @@ export default function CustomerDashboard() {
           <div className="space-y-8 pb-12 animate-in fade-in">
              <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">My History</h2>
              <div className="space-y-4">
-                {allTrips?.filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid))?.length === 0 ? (
+                {(allTrips || []).filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid))?.length === 0 ? (
                   <div className="p-24 text-center italic text-muted-foreground bg-white/5 rounded-[3.5rem] border-2 border-dashed border-white/5 opacity-40 uppercase tracking-[0.4em] font-black text-[11px]">
                     No rides yet
                   </div>
-                ) : allTrips?.filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid))?.map((t: any) => (
+                ) : (allTrips || []).filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid))?.map((t: any) => (
                   <Card key={t.id} className="bg-card/40 border border-white/5 rounded-[2.5rem] p-8 flex justify-between items-center">
                     <div className="space-y-2">
                       <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-3 py-1 rounded-full">{t.status.toUpperCase()}</Badge>

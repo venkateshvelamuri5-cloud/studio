@@ -156,7 +156,8 @@ export default function DriverApp() {
       const tripTime = parse(combined, 'yyyy-MM-dd hh:mm a', new Date());
       const now = new Date();
       const threeHoursFromNow = addHours(now, 3);
-      return isBefore(tripTime, threeHoursFromNow) && isBefore(now, addHours(tripTime, 2));
+      const twoHoursAfterStart = addHours(tripTime, 2);
+      return isBefore(now, threeHoursFromNow) && isBefore(now, twoHoursAfterStart);
     } catch (e) {
       return false;
     }
@@ -303,7 +304,7 @@ export default function DriverApp() {
                             ) : (
                               <div className="w-full h-16 bg-white/5 border border-dashed border-white/10 rounded-2xl flex items-center justify-center gap-3">
                                  <Clock className="h-5 w-5 text-muted-foreground" />
-                                 <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Starting soon</span>
+                                 <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Available 3 hours before start</span>
                               </div>
                             )}
                          </Card>
