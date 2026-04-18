@@ -10,11 +10,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Camera, RefreshCcw, CheckCircle2, ShieldCheck, FileText } from 'lucide-react';
+import { Loader2, Camera, RefreshCcw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -34,8 +35,7 @@ export default function DriverSignupPage() {
   const [aadhaarNumber, setAadhaarNumber] = useState('');
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [vehicleType, setVehicleType] = useState('7 Seater');
-  const [seatingCapacity, setSeatingCapacity] = useState('7');
-
+  
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [dlPhotoUrl, setDlPhotoUrl] = useState<string | null>(null);
   const [aadhaarPhotoUrl, setAadhaarPhotoUrl] = useState<string | null>(null);
@@ -43,6 +43,7 @@ export default function DriverSignupPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [captureType, setCaptureType] = useState<'profile' | 'dl' | 'aadhaar'>('profile');
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
@@ -85,27 +86,39 @@ export default function DriverSignupPage() {
   const getCameraPermission = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      setHasCameraPermission(true);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Camera Access Needed' });
+      console.error('Camera access error:', error);
+      setHasCameraPermission(false);
+      toast({ 
+        variant: 'destructive', 
+        title: 'Camera Blocked', 
+        description: 'Please allow camera access in your settings.' 
+      });
     }
   };
 
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
+      // Set canvas to a smaller size to prevent Firestore document size limits
+      const video = videoRef.current;
+      const ratio = video.videoWidth / video.videoHeight;
+      canvas.width = 640;
+      canvas.height = 640 / ratio;
+      
       const ctx = canvas.getContext('2d');
-      ctx?.drawImage(videoRef.current, 0, 0);
-      const dataUrl = canvas.toDataURL('image/jpeg');
+      ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
       
       if (captureType === 'profile') setPhotoUrl(dataUrl);
       if (captureType === 'dl') setDlPhotoUrl(dataUrl);
       if (captureType === 'aadhaar') setAadhaarPhotoUrl(dataUrl);
 
+      // Stop stream temporarily to save battery/privacy
       if (videoRef.current.srcObject) {
         (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
       }
@@ -123,7 +136,7 @@ export default function DriverSignupPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(3); 
-      toast({ title: "Code Sent" });
+      toast({ title: "OTP Dispatched", description: "Please check your messages." });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: "Failed to send code. Try again." });
     } finally {
@@ -143,8 +156,11 @@ export default function DriverSignupPage() {
       await setDoc(doc(db, 'users', result.user.uid), {
         uid: result.user.uid,
         phoneNumber: result.user.phoneNumber,
-        fullName, licenseNumber, vehicleNumber, vehicleType,
-        seatingCapacity: parseInt(seatingCapacity),
+        fullName, 
+        licenseNumber, 
+        vehicleNumber, 
+        vehicleType,
+        seatingCapacity: 7,
         aadhaarNumber,
         photoUrl,
         dlPhotoUrl,
@@ -158,7 +174,7 @@ export default function DriverSignupPage() {
       });
       router.push('/driver');
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Invalid Code" });
+      toast({ variant: "destructive", title: "Wrong OTP", description: "Check the code and try again." });
     } finally {
       setLoading(false);
     }
@@ -177,7 +193,7 @@ export default function DriverSignupPage() {
         <h1 className="text-xl font-black italic uppercase tracking-tighter text-foreground text-center">DRIVER HUB</h1>
       </div>
 
-      <Card className="w-full max-w-md glass-card border-none rounded-[2.5rem] overflow-hidden shadow-2xl">
+      <Card className="w-full max-w-md bg-white/5 border-none rounded-[2.5rem] overflow-hidden shadow-2xl">
         <CardHeader className="pt-8 pb-4 text-center bg-white/5 border-b border-white/5">
           <CardTitle className="text-lg font-black uppercase italic tracking-tighter">Registration</CardTitle>
           <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Driver Onboarding</CardDescription>
@@ -203,14 +219,11 @@ export default function DriverSignupPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Plate Number</Label>
-                  <Input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="Plate" className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" />
+                  <Input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="Plate No." className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Car Type</Label>
-                  <Select value={vehicleType} onValueChange={(val) => {
-                    setVehicleType(val);
-                    setSeatingCapacity(val === '5 Seater' ? '5' : '7');
-                  }}>
+                  <Select value={vehicleType} onValueChange={setVehicleType}>
                     <SelectTrigger className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl"><SelectValue /></SelectTrigger>
                     <SelectContent className="bg-background border-white/10">
                       <SelectItem value="5 Seater">5 Seater</SelectItem>
@@ -219,29 +232,46 @@ export default function DriverSignupPage() {
                   </Select>
                 </div>
               </div>
-              <Button onClick={() => { setStep(2); getCameraPermission(); }} disabled={!fullName || !vehicleNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4">Next: Docs Check</Button>
+              <Button onClick={() => { setStep(2); getCameraPermission(); }} disabled={!fullName || !vehicleNumber || !licenseNumber || !aadhaarNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4">Next: Photo ID</Button>
             </div>
           )}
 
           {step === 2 && (
             <div className="space-y-6 text-center">
               <div className="relative aspect-[4/3] w-full bg-black rounded-[2rem] overflow-hidden border border-white/10">
-                {((captureType === 'profile' && !photoUrl) || (captureType === 'dl' && !dlPhotoUrl) || (captureType === 'aadhaar' && !aadhaarPhotoUrl)) ? (
-                  <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
-                ) : (
-                  <img src={captureType === 'profile' ? photoUrl! : captureType === 'dl' ? dlPhotoUrl! : aadhaarPhotoUrl!} className="h-full w-full object-cover" alt="Capture" />
+                <video 
+                  ref={videoRef} 
+                  className={`h-full w-full object-cover ${((captureType === 'profile' && photoUrl) || (captureType === 'dl' && dlPhotoUrl) || (captureType === 'aadhaar' && aadhaarPhotoUrl)) ? 'hidden' : 'block'}`} 
+                  autoPlay 
+                  muted 
+                  playsInline 
+                />
+                
+                {((captureType === 'profile' && photoUrl) || (captureType === 'dl' && dlPhotoUrl) || (captureType === 'aadhaar' && aadhaarPhotoUrl)) && (
+                  <img src={captureType === 'profile' ? photoUrl! : captureType === 'dl' ? dlPhotoUrl! : aadhaarPhotoUrl!} className="h-full w-full object-cover" alt="Capture Preview" />
                 )}
+                
                 <canvas ref={canvasRef} className="hidden" />
               </div>
               
               <div className="flex justify-center gap-2">
-                 <Badge onClick={() => { setCaptureType('profile'); getCameraPermission(); }} className={`cursor-pointer ${captureType === 'profile' ? 'bg-primary text-black' : 'bg-white/5 text-muted-foreground'}`}>Photo</Badge>
-                 <Badge onClick={() => { setCaptureType('dl'); getCameraPermission(); }} className={`cursor-pointer ${captureType === 'dl' ? 'bg-primary text-black' : 'bg-white/5 text-muted-foreground'}`}>License</Badge>
-                 <Badge onClick={() => { setCaptureType('aadhaar'); getCameraPermission(); }} className={`cursor-pointer ${captureType === 'aadhaar' ? 'bg-primary text-black' : 'bg-white/5 text-muted-foreground'}`}>Aadhaar</Badge>
+                 <Badge onClick={() => { setCaptureType('profile'); getCameraPermission(); }} className={`cursor-pointer h-8 px-4 font-black italic uppercase transition-all ${captureType === 'profile' ? 'bg-primary text-black' : 'bg-white/5 text-muted-foreground'}`}>Your Photo</Badge>
+                 <Badge onClick={() => { setCaptureType('dl'); getCameraPermission(); }} className={`cursor-pointer h-8 px-4 font-black italic uppercase transition-all ${captureType === 'dl' ? 'bg-primary text-black' : 'bg-white/5 text-muted-foreground'}`}>License</Badge>
+                 <Badge onClick={() => { setCaptureType('aadhaar'); getCameraPermission(); }} className={`cursor-pointer h-8 px-4 font-black italic uppercase transition-all ${captureType === 'aadhaar' ? 'bg-primary text-black' : 'bg-white/5 text-muted-foreground'}`}>ID Photo</Badge>
               </div>
 
+              {hasCameraPermission === false && (
+                <Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-left">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle className="font-black italic uppercase text-[10px]">Camera Blocked</AlertTitle>
+                  <AlertDescription className="text-[10px] font-bold opacity-70">Please allow camera access in browser settings to finish signup.</AlertDescription>
+                </Alert>
+              )}
+
               {((captureType === 'profile' && !photoUrl) || (captureType === 'dl' && !dlPhotoUrl) || (captureType === 'aadhaar' && !aadhaarPhotoUrl)) ? (
-                <Button onClick={capturePhoto} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-lg"><Camera className="mr-2" /> Snap Capture</Button>
+                <Button onClick={capturePhoto} disabled={hasCameraPermission === false} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-lg active:scale-95 transition-all">
+                  <Camera className="mr-3 h-6 w-6" /> Take Photo
+                </Button>
               ) : (
                 <div className="flex gap-4">
                   <Button onClick={() => { 
@@ -249,11 +279,21 @@ export default function DriverSignupPage() {
                     if (captureType === 'dl') setDlPhotoUrl(null);
                     if (captureType === 'aadhaar') setAadhaarPhotoUrl(null);
                     getCameraPermission(); 
-                  }} variant="ghost" className="flex-1 text-primary font-black uppercase text-[10px] h-16 border border-primary/20 rounded-2xl"><RefreshCcw className="mr-2 h-4 w-4" /> Retake</Button>
+                  }} variant="ghost" className="flex-1 text-primary font-black uppercase italic text-[10px] h-16 border-2 border-primary/20 rounded-2xl">
+                    <RefreshCcw className="mr-2 h-4 w-4" /> Retake
+                  </Button>
                   <Button onClick={() => {
                     if (photoUrl && dlPhotoUrl && aadhaarPhotoUrl) setStep(3);
-                    else toast({ title: "Capture all docs" });
-                  }} className="flex-1 bg-primary text-black font-black uppercase italic h-16 rounded-2xl">Next Step</Button>
+                    else {
+                      // Logic to switch to next missing photo
+                      if (!photoUrl) setCaptureType('profile');
+                      else if (!dlPhotoUrl) setCaptureType('dl');
+                      else if (!aadhaarPhotoUrl) setCaptureType('aadhaar');
+                      getCameraPermission();
+                    }
+                  }} className="flex-1 bg-primary text-black font-black uppercase italic h-16 rounded-2xl shadow-xl">
+                    { (photoUrl && dlPhotoUrl && aadhaarPhotoUrl) ? "Next" : "Next Photo" }
+                  </Button>
                 </div>
               )}
             </div>
@@ -274,7 +314,7 @@ export default function DriverSignupPage() {
                 ) : (
                   <div className="space-y-6">
                      <Input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="Enter OTP" className="h-20 text-center text-4xl tracking-[0.4em] rounded-2xl bg-white/5 border-white/10 font-black text-primary" maxLength={6} required />
-                     <Button onClick={handleVerifyOtp} disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-18 rounded-2xl font-black uppercase italic shadow-xl">Complete Join</Button>
+                     <Button onClick={handleVerifyOtp} disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-18 rounded-2xl font-black uppercase italic shadow-xl">Finish Signup</Button>
                   </div>
                 )}
               </form>
@@ -283,7 +323,7 @@ export default function DriverSignupPage() {
         </CardContent>
 
         <CardFooter className="bg-white/5 p-8 border-t border-white/5">
-          <Link href="/driver/login" className="text-[10px] font-black uppercase italic text-primary hover:underline text-center w-full">Driver Login</Link>
+          <Link href="/driver/login" className="text-[10px] font-black uppercase italic text-primary hover:underline text-center w-full">Already registered? Login</Link>
         </CardFooter>
       </Card>
     </div>
