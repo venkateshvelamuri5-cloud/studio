@@ -35,11 +35,12 @@ import {
   Copy,
   ShieldCheck,
   ArrowRight,
-  ZapIcon
+  ZapIcon,
+  Info
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc, limit } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
+import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc, limit, orderBy } from 'firebase/firestore';
+import { signOut } from 'firebase/signOut';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
@@ -92,7 +93,7 @@ export default function RiderApp() {
   const { data: profile, loading: profileLoading } = useDoc(userRef);
   const { data: activeRoutes } = useCollection(useMemo(() => (db) ? query(collection(db, 'routes'), where('status', '==', 'active')) : null, [db]));
   
-  const { data: activeTrips } = useCollection(useMemo(() => (db) ? query(collection(db, 'trips'), where('status', '==', 'active')) : null, [db]));
+  const { data: activeTrips } = useCollection(useMemo(() => (db) ? query(collection(db, 'trips'), where('status', 'in', ['active', 'scheduled'])) : null, [db]));
   
   const currentBooking = useMemo(() => {
     if (!activeTrips || !user?.uid) return null;
@@ -106,13 +107,10 @@ export default function RiderApp() {
     return currentBooking?.verifiedPassengers?.includes(user?.uid);
   }, [currentBooking, user?.uid]);
 
-  const { data: allUserTrips } = useCollection(useMemo(() => {
-    if (!db || !user?.uid) return null;
-    return query(collection(db, 'trips'), where('passengerManifest', 'array-contains-any', [{uid: user.uid}]));
-  }, [db, user?.uid]));
-
-  const pastTrips = useMemo(() => allUserTrips?.filter(t => t.status === 'completed') || [], [allUserTrips]);
-  const upcomingTrips = useMemo(() => allUserTrips?.filter(t => (t.status === 'active' || t.status === 'scheduled') && t.id !== currentBooking?.id) || [], [allUserTrips, currentBooking]);
+  const pastTrips = useMemo(() => {
+    if (!activeTrips || !user?.uid) return [];
+    return activeTrips.filter(t => t.status === 'completed');
+  }, [activeTrips, user?.uid]);
 
   const calculatedFare = useMemo(() => {
     if (!selectedRoute || !pickupStop || !destinationStop) return 0;
@@ -156,8 +154,8 @@ export default function RiderApp() {
       setAppliedDiscount(0);
     } else {
       const vData = snap.docs[0].data();
-      setAppliedDiscount(vData.discountAmount);
-      toast({ title: "Discount Active", description: `₹${vData.discountAmount} saved.` });
+      setAppliedDiscount(vData.discountAmount || vData.amount);
+      toast({ title: "Discount Active" });
     }
   };
 
@@ -169,7 +167,7 @@ export default function RiderApp() {
       const finalFare = Math.max(0, calculatedFare - appliedDiscount);
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       
-      const bookingDetails = {
+      const riderEntry = {
         uid: user!.uid,
         name: profile.fullName,
         pickup: pickupStop,
@@ -177,63 +175,63 @@ export default function RiderApp() {
         bookingDate: bookingDate,
         farePaid: finalFare,
         paymentId: paymentId,
-        paymentStatus: 'successful',
         bookedAt: new Date().toISOString()
       };
 
-      const tripQuery = query(collection(db, 'trips'), 
+      // Fill first car logic: Find existing active trip for this route/date that is NOT full
+      const tripQuery = query(
+        collection(db, 'trips'), 
         where('routeName', '==', selectedRoute.routeName), 
         where('scheduledDate', '==', bookingDate), 
         where('status', '==', 'active')
       );
       const tripSnap = await getDocs(tripQuery);
       
-      const availableTrip = tripSnap.docs.find(d => {
-        const tripData = d.data();
-        const manifest = tripData.passengerManifest || [];
-        const capacity = tripData.maxCapacity || 7;
-        return manifest.length < capacity;
-      });
+      // Find the trip with the most passengers that still has room (Maximized Capacity)
+      const existingTrips = tripSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      const targetTrip = existingTrips
+        .filter((t: any) => (t.passengerManifest?.length || 0) < (t.maxCapacity || 7))
+        .sort((a: any, b: any) => (b.passengerManifest?.length || 0) - (a.passengerManifest?.length || 0))[0];
 
-      if (availableTrip) {
-        await updateDoc(doc(db, 'trips', availableTrip.id), {
-          passengerManifest: arrayUnion(bookingDetails)
+      if (targetTrip) {
+        await updateDoc(doc(db, 'trips', targetTrip.id), {
+          passengerManifest: arrayUnion(riderEntry),
+          riderCount: increment(1)
         });
       } else {
+        // Create new queued trip if none exist or all are full
         await addDoc(collection(db, 'trips'), {
           routeName: selectedRoute.routeName,
           scheduledDate: bookingDate,
-          farePerRider: selectedRoute.baseFare,
           status: 'active',
-          riderCount: 0,
-          passengerManifest: [bookingDetails],
-          verifiedPassengers: [],
+          riderCount: 1,
           maxCapacity: 7,
+          farePerRider: selectedRoute.baseFare,
+          passengerManifest: [riderEntry],
+          verifiedPassengers: [],
           createdAt: new Date().toISOString()
         });
       }
 
       await updateDoc(userRef, { 
         activeOtp: otp, 
-        destinationStopName: destinationStop, 
         loyaltyPoints: increment(Math.floor(finalFare / 10)) 
       });
       
       setIsPaying(false);
       setBookingStep(4);
-      toast({ title: "Booking Confirmed", description: "Seat secured in the grid." });
+      toast({ title: "Joined Demand Pool", description: "Successfully queued for the grid." });
     } catch (e) {
       setIsPaying(false);
-      toast({ variant: "destructive", title: "Sync Error", description: "Payment recorded. Contact Hub Support." });
+      toast({ variant: "destructive", title: "Booking Error" });
     }
   };
 
   const initiatePayment = async () => {
     if (typeof window === 'undefined' || !selectedRoute) return;
-
     const finalAmount = Math.max(0, calculatedFare - appliedDiscount);
     if (finalAmount === 0) {
-      await processPaymentSuccess('FREE_MEMBER_' + Date.now());
+      await processPaymentSuccess('FREE_GRID_PROMO_' + Date.now());
       return;
     }
 
@@ -242,30 +240,11 @@ export default function RiderApp() {
       amount: finalAmount * 100, 
       currency: "INR",
       name: "AAGO GRID",
-      description: `Trip: ${selectedRoute.routeName}`,
-      handler: function (response: any) {
-        processPaymentSuccess(response.razorpay_payment_id);
-      },
-      prefill: {
-        name: profile?.fullName || "",
-        contact: profile?.phoneNumber || "",
-        method: "upi"
-      },
-      config: {
-        display: {
-          blocks: {
-            upi: {
-              name: 'Pay using UPI',
-              instruments: [{ method: 'upi' }],
-            },
-          },
-          sequence: ['block.upi'],
-          preferences: { show_default_blocks: true },
-        },
-      },
-      theme: {
-        color: "#00FFFF",
-      },
+      description: `Ride: ${selectedRoute.routeName}`,
+      handler: (res: any) => processPaymentSuccess(res.razorpay_payment_id),
+      prefill: { name: profile?.fullName || "", contact: profile?.phoneNumber || "" },
+      theme: { color: "#00FFFF" },
+      modal: { ondismiss: () => setIsPaying(false) }
     };
 
     const rzp = new (window as any).Razorpay(options);
@@ -274,245 +253,192 @@ export default function RiderApp() {
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/auth/login'); };
 
-  const copyReferral = () => {
-    if (profile?.referralCode) {
-      navigator.clipboard.writeText(profile.referralCode);
-      toast({ title: "Copied", description: "Share with your network." });
-    }
-  };
-
   if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin text-primary h-12 w-12" /></div>;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-body pb-24 safe-area-inset overflow-x-hidden">
       <header className="px-6 py-6 flex items-center justify-between border-b border-white/5 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center text-black shadow-lg shadow-primary/30">
-            <ConnectingDotsLogo className="h-5 w-5 text-black" />
+          <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center text-black">
+            <ConnectingDotsLogo className="h-5 w-5" />
           </div>
-          <h1 className="text-lg font-black italic uppercase tracking-tighter text-primary">AAGO GRID</h1>
+          <h1 className="text-lg font-black italic uppercase text-primary">AAGO GRID</h1>
         </div>
         <div className="flex items-center gap-2">
-           <Button variant="ghost" size="icon" onClick={() => { addDoc(collection(db!, 'alerts'), { type: 'SOS', uid: user?.uid, name: profile?.fullName, timestamp: new Date().toISOString() }); toast({ variant: 'destructive', title: 'Alert Broadcasted' }); }} className="text-destructive bg-destructive/10 h-11 w-11 rounded-2xl border border-destructive/20"><ShieldAlert className="h-5 w-5" /></Button>
-           <Button variant="ghost" size="icon" onClick={() => { navigator.share({ title: 'AAGO - Smart Rides', url: window.location.origin }); }} className="text-primary bg-primary/10 h-11 w-11 rounded-2xl border border-primary/20"><Share2 className="h-5 w-5" /></Button>
+           <Button variant="ghost" size="icon" onClick={() => toast({ title: "SOS ALERT SENT" })} className="text-destructive bg-destructive/10 h-11 w-11 rounded-2xl border border-destructive/20"><ShieldAlert className="h-5 w-5" /></Button>
+           <Button variant="ghost" size="icon" className="text-primary bg-primary/10 h-11 w-11 rounded-2xl border border-primary/20"><Share2 className="h-5 w-5" /></Button>
         </div>
       </header>
 
       <main className="flex-1 p-5 space-y-6 max-w-lg mx-auto w-full">
         {activeTab === 'home' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-            <div className="flex justify-between items-start gap-4">
+            <div className="flex justify-between items-center px-2">
               <div className="space-y-1">
-                <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest italic">Welcome back,</p>
-                <h2 className="text-3xl font-black text-foreground italic uppercase tracking-tighter mt-1">{profile?.fullName?.split(' ')[0]}</h2>
+                <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest italic">Grid Member</p>
+                <h2 className="text-3xl font-black text-foreground italic uppercase tracking-tighter">{profile?.fullName?.split(' ')[0]}</h2>
               </div>
-              <div className="bg-white/5 p-4 rounded-2xl text-center border border-white/10 min-w-[100px]">
-                 <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest">Points</p>
-                 <div className="flex items-center justify-center gap-1 text-primary">
-                   <Star className="h-4 w-4 fill-primary" />
-                   <span className="text-2xl font-black text-foreground italic">{profile?.loyaltyPoints || 0}</span>
-                 </div>
+              <div className="bg-white/5 p-4 rounded-2xl border border-white/10 flex items-center gap-2">
+                 <Star className="h-4 w-4 text-primary fill-primary" />
+                 <span className="text-xl font-black">{profile?.loyaltyPoints || 0}</span>
               </div>
             </div>
 
             {currentBooking ? (
-              <div className="space-y-6 animate-in slide-in-from-bottom-8">
-                <Card className="glass-card rounded-[3rem] p-8 shadow-2xl border-primary/30 relative overflow-hidden">
-                   <div className="absolute top-0 right-0 p-8 opacity-5 -rotate-12"><Bus className="h-32 w-32 text-primary" /></div>
-                   
-                   {!isVerified && profile?.activeOtp ? (
-                     <div className="flex flex-col items-center gap-4 mb-8 relative z-10">
-                        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground italic">Boarding Pass</p>
-                        <h3 className="text-7xl font-black tracking-tighter italic text-primary text-glow leading-none">{profile.activeOtp}</h3>
-                     </div>
-                   ) : (
-                     <div className="flex flex-col items-center gap-4 mb-8 relative z-10">
-                        <div className="h-16 w-16 bg-primary/20 rounded-full flex items-center justify-center text-primary mb-2 shadow-xl shadow-primary/10">
-                          <ShieldCheck className="h-10 w-10" />
-                        </div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-primary italic">Journey Live</p>
-                        <h3 className="text-2xl font-black tracking-tighter italic text-foreground uppercase leading-none">In Transit</h3>
-                     </div>
-                   )}
-                   
-                   <div className="space-y-4 mb-8 relative z-10">
-                      <div className="bg-black/40 p-5 rounded-2xl flex items-center gap-4 border border-white/5">
-                         <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Bus className="h-5 w-5" /></div>
-                         <div>
-                            <p className="text-[9px] font-black uppercase text-muted-foreground">Grid Path</p>
-                            <p className="text-lg font-black italic uppercase text-foreground leading-none">{currentBooking.routeName}</p>
-                         </div>
-                      </div>
+              <Card className="glass-card rounded-[3rem] p-8 shadow-2xl border-primary/30 relative overflow-hidden">
+                 <div className="flex flex-col items-center gap-4 mb-8">
+                    <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground italic">
+                      {currentBooking.status === 'scheduled' ? 'Journey Status' : 'Queued for Grid'}
+                    </p>
+                    <h3 className="text-6xl font-black tracking-tighter italic text-primary text-glow leading-none">
+                      {isVerified ? 'LIVE' : profile?.activeOtp}
+                    </h3>
+                    <div className="flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-full border border-primary/20">
+                      <Clock className="h-3 w-3 text-primary" />
+                      <span className="text-[9px] font-black uppercase text-primary">Departure: {currentBooking.scheduledDate}</span>
+                    </div>
+                 </div>
+                 
+                 <div className="space-y-4">
+                    <div className="bg-black/40 p-5 rounded-3xl border border-white/5 flex items-center gap-4">
+                       <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Navigation className="h-5 w-5" /></div>
+                       <div>
+                          <p className="text-[9px] font-black uppercase text-muted-foreground">Active Corridor</p>
+                          <p className="text-lg font-black italic uppercase text-foreground leading-none">{currentBooking.routeName}</p>
+                       </div>
+                    </div>
 
-                      {currentBooking.driverId ? (
-                        <div className="bg-primary/5 p-6 rounded-[2.5rem] border border-primary/30">
-                          <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-4">
-                              <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-primary bg-primary/10">
-                                {currentBooking.driverPhoto ? <img src={currentBooking.driverPhoto} className="h-full w-full object-cover" /> : <UserCheck className="h-full w-full p-2 text-primary" />}
-                              </div>
-                              <div>
-                                 <p className="text-[10px] font-black uppercase text-primary tracking-widest">Operator</p>
-                                 <p className="text-xl font-black italic uppercase text-foreground leading-none">{currentBooking.driverName}</p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                               <p className="text-sm font-black text-foreground uppercase italic tracking-tighter">{currentBooking.vehicleNumber}</p>
-                            </div>
-                          </div>
-                          <Button onClick={() => setActiveTab('radar')} className="w-full h-14 bg-primary text-black rounded-2xl font-black uppercase italic shadow-xl shadow-primary/20 flex items-center justify-center gap-3 active:scale-95">
-                             <Navigation className="h-5 w-5" /> Track Radar
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="p-8 bg-black/40 border border-dashed border-white/10 rounded-[2.5rem] text-center flex flex-col items-center gap-4">
-                           <Loader2 className="animate-spin h-8 w-8 text-primary opacity-50" />
-                           <div className="space-y-1">
-                             <p className="text-[10px] font-black uppercase italic text-muted-foreground tracking-widest">Operator Matching</p>
-                             <p className="text-[9px] font-bold text-white/40 uppercase">Assigned before departure</p>
+                    {currentBooking.driverId ? (
+                      <div className="bg-primary/5 p-6 rounded-[2.5rem] border border-primary/30 space-y-4">
+                        <div className="flex items-center gap-4">
+                           <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center border-2 border-primary overflow-hidden">
+                              {currentBooking.driverPhoto ? <img src={currentBooking.driverPhoto} className="h-full w-full object-cover" /> : <UserIcon className="h-6 w-6 text-primary" />}
+                           </div>
+                           <div>
+                              <p className="text-[9px] font-black uppercase text-primary">Assigned Driver</p>
+                              <p className="text-lg font-black italic uppercase leading-none">{currentBooking.driverName}</p>
                            </div>
                         </div>
-                      )}
-                   </div>
-                </Card>
-              </div>
+                        <div className="p-4 bg-black/60 rounded-2xl flex items-center gap-3">
+                           <Info className="h-4 w-4 text-primary" />
+                           <p className="text-[9px] font-black text-muted-foreground uppercase leading-relaxed">
+                             Vehicle details will be shared 2 hours before the ride.
+                           </p>
+                        </div>
+                        <Button onClick={() => setActiveTab('radar')} className="w-full h-14 bg-primary text-black rounded-2xl font-black uppercase italic shadow-lg flex items-center justify-center gap-3">
+                           <Zap className="h-5 w-5" /> Live Radar
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="p-10 bg-black/40 border border-dashed border-white/10 rounded-[2.5rem] text-center space-y-4">
+                         <div className="flex justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary opacity-50" /></div>
+                         <div className="space-y-1">
+                           <p className="text-[10px] font-black uppercase italic text-primary tracking-widest">Maximizing Capacity</p>
+                           <p className="text-[9px] font-bold text-white/30 uppercase max-w-[200px] mx-auto">Details shared 2 hours before departure as grid stabilizes.</p>
+                         </div>
+                      </div>
+                    )}
+                 </div>
+              </Card>
             ) : (
-              <Dialog onOpenChange={(open) => { if (!open) { setBookingStep(1); setSelectedRoute(null); setPickupStop(""); setDestinationStop(""); setAppliedDiscount(0); setVoucherCode(""); } }}>
+              <Dialog onOpenChange={(open) => { if (!open) setBookingStep(1); }}>
                 <DialogTrigger asChild>
                   <div className="p-12 bg-primary text-black rounded-[3rem] shadow-2xl flex flex-col gap-2 cursor-pointer active:scale-95 transition-all group overflow-hidden relative">
-                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                     <h3 className="text-5xl font-black italic uppercase tracking-tighter relative z-10 leading-none">Find <br/> Ride</h3>
                     <div className="flex items-center justify-between mt-4 relative z-10">
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Scan Grid Network</p>
-                      <Navigation className="h-8 w-8 group-hover:translate-x-2 transition-transform" />
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Join Demand Pool</p>
+                      <ArrowRight className="h-8 w-8 group-hover:translate-x-2 transition-transform" />
                     </div>
                   </div>
                 </DialogTrigger>
-                <DialogContent className="bg-background border-white/5 rounded-[2.5rem] p-8 h-[92vh] flex flex-col shadow-2xl overflow-hidden">
-                  <DialogHeader className="shrink-0 mb-6">
-                    <DialogTitle className="text-3xl font-black italic uppercase text-primary tracking-tighter">
-                      {bookingStep === 1 ? "Network" : bookingStep === 2 ? "Plan" : bookingStep === 3 ? "Payment" : "Done"}
+                <DialogContent className="bg-background border-white/5 rounded-[2.5rem] p-8 h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+                  <DialogHeader className="shrink-0 mb-4">
+                    <DialogTitle className="text-3xl font-black italic uppercase text-primary">
+                      {bookingStep === 1 ? "Corridors" : bookingStep === 2 ? "Schedule" : bookingStep === 3 ? "Payment" : "Synced"}
                     </DialogTitle>
                   </DialogHeader>
 
-                  <div className="flex-1 overflow-y-auto space-y-6 pr-2 custom-scrollbar">
+                  <div className="flex-1 overflow-y-auto space-y-6 pr-1 custom-scrollbar">
                     {bookingStep === 1 && (
-                      <div className="space-y-4">
-                        {activeRoutes?.length === 0 ? (
-                          <div className="p-20 text-center italic text-muted-foreground flex flex-col items-center gap-4">
-                            <Loader2 className="animate-spin h-8 w-8 opacity-20" />
-                            <p className="text-[10px] uppercase font-black tracking-widest">Scanning Grid Corridors...</p>
-                          </div>
-                        ) : activeRoutes?.map((route: any) => (
-                          <div key={route.id} onClick={() => { setSelectedRoute(route); setBookingStep(2); }} className="p-8 bg-white/5 border border-white/10 rounded-3xl cursor-pointer hover:border-primary/50 hover:bg-white/10 transition-all flex justify-between items-center group">
-                             <div className="space-y-1">
-                                <h4 className="text-xl font-black italic uppercase text-foreground group-hover:text-primary transition-colors">{route.routeName}</h4>
-                                <p className="text-[10px] font-black text-primary/60 uppercase tracking-widest">₹{route.baseFare} Base</p>
+                      <div className="space-y-3">
+                        {activeRoutes?.map((route: any) => (
+                          <div key={route.id} onClick={() => { setSelectedRoute(route); setBookingStep(2); }} className="p-8 bg-white/5 border border-white/10 rounded-3xl cursor-pointer hover:border-primary/50 transition-all flex justify-between items-center group">
+                             <div>
+                                <h4 className="text-xl font-black italic uppercase group-hover:text-primary transition-colors">{route.routeName}</h4>
+                                <p className="text-[10px] font-black text-muted-foreground uppercase mt-1">₹{route.baseFare} Base Fare</p>
                              </div>
-                             <ChevronRight className="h-6 w-6 text-white/10 group-hover:text-primary transition-colors" />
+                             <ChevronRight className="h-6 w-6 text-white/10" />
                           </div>
                         ))}
                       </div>
                     )}
 
-                    {bookingStep === 2 && selectedRoute && (
+                    {bookingStep === 2 && (
                       <div className="space-y-8 animate-in slide-in-from-right-8">
                         <div className="space-y-4">
                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Travel Date</Label>
-                          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                             {[0, 1, 2, 3, 4].map((day) => {
-                               const date = addDays(new Date(), day);
-                               const dateStr = format(date, 'yyyy-MM-dd');
+                          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                             {[0, 1, 2, 3].map((day) => {
+                               const d = addDays(new Date(), day);
+                               const dStr = format(d, 'yyyy-MM-dd');
                                return (
-                                 <Button key={day} onClick={() => setBookingDate(dateStr)} variant={bookingDate === dateStr ? 'default' : 'outline'} className={`h-14 rounded-2xl shrink-0 font-black italic px-6 ${bookingDate === dateStr ? 'bg-primary text-black border-none shadow-lg' : 'text-muted-foreground border-white/10 bg-white/5'}`}>
-                                   {day === 0 ? 'Today' : format(date, 'EEE, dd')}
+                                 <Button key={day} onClick={() => setBookingDate(dStr)} variant={bookingDate === dStr ? 'default' : 'outline'} className={`h-14 rounded-2xl shrink-0 font-black italic px-6 ${bookingDate === dStr ? 'bg-primary text-black' : 'border-white/10 text-muted-foreground'}`}>
+                                   {day === 0 ? 'Today' : format(d, 'EEE, dd')}
                                  </Button>
                                );
                              })}
                           </div>
                         </div>
-
-                        <div className="space-y-6">
-                          <div className="space-y-4">
-                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2 flex items-center gap-2"><MapPin className="h-3 w-3" /> Pickup Stop</Label>
-                             <div className="grid grid-cols-1 gap-2">
-                               {selectedRoute.stops.map((stop: any, i: number) => (
-                                 <button key={i} disabled={i === selectedRoute.stops.length - 1} onClick={() => setPickupStop(stop.name)} className={`p-5 rounded-2xl border text-left font-black italic text-sm transition-all ${pickupStop === stop.name ? 'bg-primary/20 border-primary text-primary shadow-lg shadow-primary/10' : 'bg-white/5 border-white/5 text-muted-foreground hover:bg-white/10'}`}>
-                                   {stop.name}
-                                 </button>
-                               ))}
-                             </div>
-                          </div>
-
-                          <div className="space-y-4">
-                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2 flex items-center gap-2"><Target className="h-3 w-3" /> Drop Stop</Label>
-                             <div className="grid grid-cols-1 gap-2">
-                               {selectedRoute.stops.map((stop: any, i: number) => {
-                                 const pIdx = selectedRoute.stops.findIndex((s: any) => s.name === pickupStop);
-                                 const isDisabled = pIdx === -1 || i <= pIdx;
-                                 return (
-                                   <button key={i} disabled={isDisabled} onClick={() => setDestinationStop(stop.name)} className={`p-5 rounded-2xl border text-left font-black italic text-sm transition-all ${isDisabled ? 'opacity-10 cursor-not-allowed' : destinationStop === stop.name ? 'bg-accent/20 border-accent text-accent shadow-lg shadow-accent/10' : 'bg-white/5 border-white/5 text-muted-foreground hover:bg-white/10'}`}>
-                                     {stop.name}
-                                   </button>
-                                 );
-                               })}
-                             </div>
+                        <div className="space-y-4">
+                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Stops</Label>
+                          <div className="grid gap-2">
+                             {selectedRoute?.stops.map((s: any, i: number) => (
+                               <button key={i} onClick={() => !pickupStop ? setPickupStop(s.name) : setDestinationStop(s.name)} className={`p-5 rounded-2xl border text-left font-black italic text-sm transition-all ${pickupStop === s.name ? 'bg-primary/20 border-primary text-primary' : destinationStop === s.name ? 'bg-accent/20 border-accent text-accent' : 'bg-white/5 border-white/5 text-muted-foreground'}`}>
+                                 {s.name} {pickupStop === s.name && "(Pickup)"} {destinationStop === s.name && "(Drop)"}
+                               </button>
+                             ))}
                           </div>
                         </div>
                       </div>
                     )}
 
                     {bookingStep === 3 && (
-                      <div className="space-y-8 py-4 animate-in zoom-in-95">
-                         <div className="p-8 bg-black/40 rounded-[2.5rem] text-center space-y-3 border border-white/5">
-                            <Badge className="bg-primary/20 text-primary border-none uppercase text-[8px] font-black tracking-widest mb-2 px-4 py-1.5 rounded-full flex items-center gap-2 w-fit mx-auto">
-                               <ZapIcon className="h-3 w-3" /> Fast UPI Payment
-                            </Badge>
-                            <h4 className="text-xl font-black italic text-foreground uppercase tracking-widest">Safe Checkout</h4>
-                            <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest mt-2 italic flex items-center justify-center gap-2">
-                               <ShieldCheck className="h-3 w-3 text-primary" /> India Secure Sync
-                            </p>
+                      <div className="space-y-8 py-4 text-center">
+                         <div className="p-12 bg-primary/5 rounded-[3.5rem] border-2 border-primary/20 shadow-2xl">
+                            <p className="text-[10px] font-black uppercase text-primary mb-3 tracking-[0.4em]">Fixed Fare</p>
+                            <h3 className="text-7xl font-black italic tracking-tighter leading-none">₹{Math.max(0, calculatedFare - appliedDiscount)}</h3>
                          </div>
                          <div className="space-y-3">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-3">Voucher Code</Label>
-                           <div className="flex gap-3">
-                              <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="CODE" className="h-16 w-full bg-white/5 border border-white/10 rounded-2xl font-black italic px-6 uppercase tracking-widest outline-none focus:border-primary transition-colors" />
-                              <Button onClick={handleApplyVoucher} variant="outline" className="h-16 px-8 rounded-2xl font-black italic text-primary border-primary/30 hover:bg-primary/10">Apply</Button>
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground">Redeem Points</Label>
+                           <div className="flex gap-2">
+                              <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="CODE" className="h-16 w-full bg-white/5 border border-white/10 rounded-2xl font-black italic px-6 uppercase tracking-widest outline-none focus:border-primary" />
+                              <Button onClick={handleApplyVoucher} variant="outline" className="h-16 px-8 rounded-2xl font-black italic text-primary border-primary/30">Apply</Button>
                            </div>
                          </div>
-                         <div className="p-12 bg-primary/5 rounded-[3.5rem] text-center border-2 border-primary/20 shadow-2xl">
-                            <p className="text-[10px] font-black uppercase text-primary mb-3 tracking-[0.4em]">Fare Due</p>
-                            <h3 className="text-7xl font-black italic text-foreground tracking-tighter leading-none">₹{Math.max(0, calculatedFare - appliedDiscount)}</h3>
+                         <div className="p-6 bg-black/60 rounded-[2rem] border border-white/5 text-left space-y-2">
+                            <p className="text-[9px] font-black uppercase text-primary flex items-center gap-2"><Info className="h-3 w-3" /> Demand Pool Logic</p>
+                            <p className="text-[8px] font-bold text-muted-foreground uppercase italic leading-relaxed">
+                              You are joining a queue to maximize vehicle capacity. Confirmation and driver details will be shared 2 hours before the trip.
+                            </p>
                          </div>
-                         {isPaying && (
-                           <div className="fixed inset-0 bg-background/90 z-[100] flex flex-col items-center justify-center p-10 text-center animate-in fade-in">
-                              <div className="bg-primary/10 p-10 rounded-[3rem] border border-primary/20 space-y-6">
-                                <Loader2 className="animate-spin h-16 w-16 text-primary mx-auto" />
-                                <h3 className="text-2xl font-black italic uppercase text-primary">Confirming Hub Sync</h3>
-                              </div>
-                           </div>
-                         )}
                       </div>
                     )}
 
                     {bookingStep === 4 && (
-                      <div className="flex flex-col items-center justify-center text-center space-y-8 py-20 animate-in zoom-in-95">
+                      <div className="flex flex-col items-center justify-center text-center space-y-8 py-20">
                          <div className="h-32 w-32 bg-primary text-black rounded-full flex items-center justify-center shadow-2xl animate-bounce"><CheckCircle2 className="h-16 w-16" /></div>
-                         <div className="space-y-3">
-                            <h3 className="text-5xl font-black italic uppercase text-primary tracking-tighter leading-none">Trip <br/> Secured</h3>
-                            <p className="text-sm font-bold text-muted-foreground italic uppercase tracking-widest px-6 mt-4">Telemetry synced. Check Home for boarding pass.</p>
-                         </div>
+                         <h3 className="text-5xl font-black italic uppercase text-primary tracking-tighter leading-none">Queued <br/> Successfully</h3>
+                         <p className="text-xs font-bold text-muted-foreground italic uppercase tracking-widest px-6">Grid is being synchronized. Details shared 2h before departure.</p>
                       </div>
                     )}
                   </div>
 
                   <div className="pt-8 shrink-0 border-t border-white/5">
-                    {bookingStep === 1 && <Button variant="ghost" onClick={() => setBookingStep(1)} className="w-full text-muted-foreground font-black uppercase italic tracking-widest h-14">Close Portal</Button>}
                     {bookingStep === 2 && <Button onClick={() => setBookingStep(3)} disabled={!pickupStop || !destinationStop} className="w-full h-18 bg-primary text-black rounded-[2rem] font-black uppercase italic text-xl shadow-2xl active:scale-95">Continue</Button>}
-                    {bookingStep === 3 && <Button onClick={initiatePayment} disabled={isPaying} className="w-full h-20 bg-primary text-black rounded-[2rem] font-black uppercase italic text-2xl shadow-2xl active:scale-95 flex items-center justify-center gap-3">
+                    {bookingStep === 3 && <Button onClick={initiatePayment} disabled={isPaying} className="w-full h-20 bg-primary text-black rounded-[2rem] font-black uppercase italic text-2xl shadow-2xl flex items-center justify-center gap-3">
                       {isPaying ? <Loader2 className="animate-spin h-8 w-8" /> : <><ZapIcon className="h-6 w-6" /> Pay with UPI ₹{Math.max(0, calculatedFare - appliedDiscount)}</>}
                     </Button>}
-                    {bookingStep === 4 && <DialogTrigger asChild><Button className="w-full h-18 bg-white/5 rounded-[2rem] font-black uppercase italic text-lg">Return to Grid</Button></DialogTrigger>}
+                    {bookingStep === 4 && <DialogTrigger asChild><Button className="w-full h-18 bg-white/5 rounded-[2rem] font-black uppercase italic">Back to Home</Button></DialogTrigger>}
                   </div>
                 </DialogContent>
               </Dialog>
@@ -521,12 +447,12 @@ export default function RiderApp() {
             <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-8 space-y-4">
               <div className="flex items-center gap-4">
                  <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Gift className="h-6 w-6" /></div>
-                 <h4 className="text-xl font-black italic uppercase tracking-tighter">Referral Hub</h4>
+                 <h4 className="text-xl font-black italic uppercase">Grid Referrals</h4>
               </div>
-              <p className="text-xs font-bold text-muted-foreground italic px-2 leading-relaxed">Earn points for every new member you bring to the grid. Instant credit on their first journey.</p>
-              <div className="flex gap-3 bg-black/40 p-4 rounded-2xl border border-white/5">
-                 <p className="flex-1 font-black italic text-foreground uppercase tracking-widest pt-2.5 px-2">{profile?.referralCode || 'SYNCING...'}</p>
-                 <Button onClick={copyReferral} variant="ghost" className="h-10 w-10 p-0 text-primary hover:bg-primary/10"><Copy className="h-5 w-5" /></Button>
+              <p className="text-xs font-bold text-muted-foreground italic leading-relaxed">Refer a community member and get 50 loyalty points instantly. More friends, cheaper rides.</p>
+              <div className="flex gap-2 bg-black/40 p-4 rounded-2xl border border-white/5">
+                 <p className="flex-1 font-black italic text-foreground uppercase tracking-widest pt-2.5 px-2">{profile?.referralCode || '...'}</p>
+                 <Button variant="ghost" className="text-primary"><Copy className="h-5 w-5" /></Button>
               </div>
             </Card>
           </div>
@@ -534,95 +460,37 @@ export default function RiderApp() {
 
         {activeTab === 'radar' && (
           <div className="flex-1 flex flex-col space-y-6 h-[calc(100vh-220px)] animate-in fade-in">
-            <div className="flex items-center justify-between px-2">
-               <h2 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Live Radar</h2>
-               <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-4 py-1.5 rounded-full flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 bg-primary rounded-full animate-pulse" /> Grid Active
-               </Badge>
-            </div>
-            
-            <div className="bg-white/5 border border-white/10 rounded-3xl p-4 flex items-center gap-4">
-               {isVerified ? <ShieldCheck className="h-5 w-5 text-primary" /> : <ShieldAlert className="h-5 w-5 text-accent animate-pulse" />}
-               <div>
-                  <p className={`text-[10px] font-black uppercase tracking-widest leading-none ${isVerified ? 'text-primary' : 'text-accent'}`}>{isVerified ? 'Synchronized In Transit' : 'Safety Sync Active'}</p>
-                  <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1 italic leading-tight">Emergency contacts and hub telemetry are live.</p>
-               </div>
-            </div>
-
+            <h2 className="text-3xl font-black italic uppercase text-foreground tracking-tighter pl-2">Live Radar</h2>
             <div className="flex-1 rounded-[3.5rem] overflow-hidden border border-white/10 shadow-2xl bg-black relative">
                {isLoaded ? (
                  <GoogleMap mapContainerStyle={mapContainerStyle} center={mapCenter} zoom={15} options={mapOptions}>
                    {currentPosition && <Marker position={currentPosition} icon={{ path: google.maps.SymbolPath.CIRCLE, fillColor: '#00FFFF', fillOpacity: 1, scale: 8, strokeColor: '#FFFFFF', strokeWeight: 2 }} />}
-                   {activeTrips?.map((trip: any) => trip.currentLat && (
-                     <Marker 
-                        key={trip.id} 
-                        position={{ lat: trip.currentLat, lng: trip.currentLng }} 
-                        title={trip.routeName}
-                        icon={trip.driverId === currentBooking?.driverId ? { 
-                          path: 'M12,2L4.5,20.29L5.21,21L12,18L18.79,21L19.5,20.29L12,2Z',
-                          fillColor: '#00FFFF', 
-                          fillOpacity: 1, 
-                          scale: 1.5, 
-                          strokeColor: '#FFFFFF', 
-                          strokeWeight: 1,
-                        } : { 
-                          path: google.maps.SymbolPath.CIRCLE,
-                          fillColor: '#00FFFF', 
-                          fillOpacity: 0.3, 
-                          scale: 6,
-                          strokeColor: '#00FFFF',
-                          strokeWeight: 1
-                        }}
-                     />
-                   ))}
+                   {currentBooking?.currentLat && (
+                     <Marker position={{ lat: currentBooking.currentLat, lng: currentBooking.currentLng }} icon={{ path: 'M12,2L4.5,20.29L5.21,21L12,18L18.79,21L19.5,20.29L12,2Z', fillColor: '#00FFFF', fillOpacity: 1, scale: 1.5, strokeColor: '#FFFFFF', strokeWeight: 1 }} />
+                   )}
                  </GoogleMap>
-               ) : <div className="h-full w-full flex items-center justify-center bg-black/50"><Loader2 className="animate-spin text-primary h-12 w-12" /></div>}
+               ) : <div className="h-full w-full flex items-center justify-center"><Loader2 className="animate-spin text-primary h-8 w-8" /></div>}
             </div>
           </div>
         )}
 
         {activeTab === 'history' && (
-          <div className="space-y-8 animate-in slide-in-from-bottom-4 pb-12">
-             <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">Mission Log</h2>
-             
-             <div className="space-y-6">
-               {upcomingTrips.length > 0 && (
-                 <div className="space-y-4">
-                   <p className="text-[10px] font-black uppercase tracking-widest text-primary ml-4">Scheduled Trips</p>
-                   {upcomingTrips.map((trip: any) => (
-                      <Card key={trip.id} className="bg-primary/5 border border-primary/20 rounded-[2.5rem] p-8 flex justify-between items-center group">
-                         <div className="space-y-2">
-                            <h4 className="font-black text-foreground uppercase italic text-xl leading-none">{trip.routeName}</h4>
-                            <div className="flex items-center gap-3">
-                               <Badge className="bg-primary text-black text-[8px] font-black uppercase px-3 py-0.5 rounded-full">Booked</Badge>
-                               <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-2"><Clock className="h-3 w-3" /> {trip.scheduledDate}</p>
-                            </div>
-                         </div>
-                         <ArrowRight className="h-6 w-6 text-primary/40" />
-                      </Card>
-                   ))}
-                 </div>
-               )}
-
-               <div className="space-y-4">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-4">Journey History</p>
-                  {pastTrips?.length === 0 ? (
-                    <div className="p-24 text-center italic text-muted-foreground bg-white/5 rounded-[3rem] border border-dashed border-white/10 flex flex-col items-center gap-4">
-                       <History className="h-12 w-12 opacity-10" />
-                       <p className="text-[10px] font-black uppercase tracking-widest italic opacity-40">No records found.</p>
+          <div className="space-y-6 animate-in slide-in-from-bottom-4 pb-12">
+             <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">Journey Log</h2>
+             <div className="space-y-4">
+                {pastTrips.length === 0 ? (
+                  <div className="p-20 text-center italic text-muted-foreground bg-white/5 rounded-[3rem] border border-dashed border-white/10 opacity-30">No recorded missions</div>
+                ) : pastTrips.map((t: any) => (
+                  <Card key={t.id} className="bg-white/5 border border-white/5 rounded-[2.5rem] p-8 flex justify-between items-center shadow-xl">
+                    <div className="space-y-1">
+                      <h4 className="font-black text-foreground uppercase italic text-xl leading-none">{t.routeName}</h4>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">{t.scheduledDate}</p>
                     </div>
-                  ) : [...pastTrips].sort((a,b) => b.endTime.localeCompare(a.endTime)).map((trip: any) => (
-                    <Card key={trip.id} className="bg-white/5 border border-white/5 rounded-[2.5rem] p-8 flex justify-between items-center shadow-xl group hover:border-primary/30 transition-all">
-                      <div className="space-y-1">
-                        <h4 className="font-black text-foreground uppercase italic text-xl leading-none group-hover:text-primary transition-colors">{trip.routeName}</h4>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 flex items-center gap-2"><Clock className="h-3 w-3" /> {new Date(trip.endTime).toLocaleDateString()}</p>
-                      </div>
-                      <div className="text-right">
-                         <span className="text-2xl font-black italic text-primary">₹{trip.passengerManifest?.find((m:any) => m.uid === user?.uid)?.farePaid || trip.farePerRider}</span>
-                      </div>
-                    </Card>
-                  ))}
-               </div>
+                    <div className="text-right">
+                       <span className="text-2xl font-black italic text-primary">₹{t.farePerRider}</span>
+                    </div>
+                  </Card>
+                ))}
              </div>
           </div>
         )}
@@ -630,48 +498,32 @@ export default function RiderApp() {
         {activeTab === 'me' && (
           <div className="space-y-12 text-center pb-24 pt-10 animate-in fade-in">
              <div className="flex flex-col items-center gap-6">
-                <div className="h-44 w-44 rounded-full border-[10px] border-white/5 bg-primary/5 flex items-center justify-center overflow-hidden shadow-2xl relative group">
-                  <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="h-40 w-40 rounded-full border-[8px] border-white/5 bg-primary/5 flex items-center justify-center overflow-hidden shadow-2xl relative">
                   {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : <UserIcon className="h-16 w-16 text-primary/20" />}
                 </div>
                 <div className="space-y-2">
                    <h2 className="text-5xl font-black italic uppercase text-foreground leading-none tracking-tighter">{profile?.fullName}</h2>
-                   <div className="flex flex-col items-center gap-2">
-                      <Badge className="bg-primary/20 text-primary border-none uppercase text-[9px] font-black tracking-widest px-6 py-1.5 rounded-full">GRID MEMBER</Badge>
-                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest opacity-60">ID: {profile?.identityNumber || 'N/A'}</p>
-                   </div>
+                   <Badge className="bg-primary/20 text-primary border-none uppercase text-[9px] font-black tracking-widest px-6 py-1.5 rounded-full">GRID MEMBER</Badge>
                 </div>
              </div>
-
-             <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto">
-                <div className="p-8 bg-white/5 rounded-3xl border border-white/5 text-center">
-                   <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-1">Rank</p>
-                   <p className="text-2xl font-black italic text-foreground uppercase">Elite</p>
-                </div>
-                <div className="p-8 bg-white/5 rounded-3xl border border-white/5 text-center">
-                   <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest mb-1">Trust Score</p>
-                   <p className="text-2xl font-black italic text-primary uppercase">5.0</p>
-                </div>
-             </div>
-
-             <Button variant="ghost" onClick={handleSignOut} className="w-full max-w-sm mx-auto h-20 bg-destructive/10 text-destructive rounded-[2.5rem] font-black uppercase italic border border-destructive/20 text-xl shadow-xl hover:bg-destructive hover:text-white transition-all group">
-                <LogOut className="mr-3 h-6 w-6 group-hover:scale-110 transition-transform" /> Logout
+             <Button variant="ghost" onClick={handleSignOut} className="w-full max-w-sm mx-auto h-20 bg-destructive/10 text-destructive rounded-[2.5rem] font-black uppercase italic border border-destructive/20 text-xl shadow-xl hover:bg-destructive hover:text-white transition-all">
+                <LogOut className="mr-3 h-6 w-6" /> Logout
              </Button>
           </div>
         )}
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 p-5 bg-background/95 backdrop-blur-3xl border-t border-white/5 z-50 flex justify-around items-center safe-area-inset-bottom">
-        <Button variant="ghost" onClick={() => setActiveTab('home')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl transition-all ${activeTab === 'home' ? 'text-primary bg-primary/5' : 'text-muted-foreground hover:bg-white/5'}`}>
+        <Button variant="ghost" onClick={() => setActiveTab('home')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl transition-all ${activeTab === 'home' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
           <LayoutGrid className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Grid</span>
         </Button>
-        <Button variant="ghost" onClick={() => setActiveTab('radar')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl transition-all ${activeTab === 'radar' ? 'text-primary bg-primary/5' : 'text-muted-foreground hover:bg-white/5'}`}>
+        <Button variant="ghost" onClick={() => setActiveTab('radar')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl transition-all ${activeTab === 'radar' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
           <Zap className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Radar</span>
         </Button>
-        <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl transition-all ${activeTab === 'history' ? 'text-primary bg-primary/5' : 'text-muted-foreground hover:bg-white/5'}`}>
+        <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl transition-all ${activeTab === 'history' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
           <History className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">History</span>
         </Button>
-        <Button variant="ghost" onClick={() => setActiveTab('me')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl transition-all ${activeTab === 'me' ? 'text-primary bg-primary/5' : 'text-muted-foreground hover:bg-white/5'}`}>
+        <Button variant="ghost" onClick={() => setActiveTab('me')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl transition-all ${activeTab === 'me' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
           <UserIcon className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Me</span>
         </Button>
       </nav>
