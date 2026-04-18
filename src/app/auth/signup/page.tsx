@@ -87,9 +87,9 @@ export default function SignupPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaRef.current);
       setConfirmationResult(result);
       setStep(2);
-      toast({ title: "Code Sent" });
+      toast({ title: "Verification Code Sent" });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: "Could not send code. Try again later." });
+      toast({ variant: "destructive", title: "Error", description: "Could not send verification code. Try again later." });
     } finally {
       setLoading(false);
     }
@@ -141,16 +141,16 @@ export default function SignupPage() {
 
       <Card className="w-full max-w-md bg-white/5 border-none rounded-[2.5rem] shadow-2xl overflow-hidden">
         <CardHeader className="pt-8 pb-4 text-center">
-          <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-foreground">Sign Up</CardTitle>
-          <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Create your Hub Profile</CardDescription>
+          <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-foreground">Join Hub</CardTitle>
+          <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Create your Hub profile</CardDescription>
         </CardHeader>
         
         <CardContent className="px-6 py-8 sm:px-10">
           {step === 1 ? (
             <form onSubmit={handleSendOtp} className="space-y-5">
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Your Name</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Full Name" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic" required />
+                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Full Name</Label>
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Enter your name" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic" required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -170,10 +170,6 @@ export default function SignupPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Safe Contact Phone</Label>
-                <Input value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)} placeholder="Emergency Phone" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic" required />
-              </div>
-              <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Phone Number</Label>
                 <div className="relative">
                   <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary text-lg z-20">+91</span>
@@ -181,7 +177,7 @@ export default function SignupPage() {
                 </div>
               </div>
               <Button type="submit" disabled={loading || !fullName || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all">
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Send Code"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Phone"}
               </Button>
             </form>
           ) : (

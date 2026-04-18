@@ -1,21 +1,22 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 222 47% 8%;
+    --background: 222 47% 11%;
     --foreground: 210 40% 98%;
-    --card: 222 47% 12%;
+    --card: 222 47% 14%;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 10%;
+    --popover: 222 47% 12%;
     --popover-foreground: 210 40% 98%;
     --primary: 48 96% 53%;
     --primary-foreground: 222 47% 11%;
     --secondary: 222 47% 20%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 222 47% 15%;
-    --muted-foreground: 215.4 16.3% 56.9%;
+    --muted: 222 47% 18%;
+    --muted-foreground: 215.4 16.3% 65%;
     --accent: 48 96% 53%;
     --accent-foreground: 222 47% 11%;
     --destructive: 0 84.2% 60.2%;
@@ -49,7 +50,7 @@
     padding-bottom: calc(1rem + env(safe-area-inset-bottom));
   }
   .glass-card {
-    @apply bg-card/80 backdrop-blur-md border border-white/10 shadow-xl;
+    @apply bg-card/90 backdrop-blur-md border border-white/10 shadow-xl;
   }
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
