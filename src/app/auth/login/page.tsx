@@ -74,10 +74,10 @@ export default function LoginPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(2);
-      toast({ title: "Code Sent" });
+      toast({ title: "Verification code sent." });
     } catch (error: any) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Auth Error", description: "Failed to send code. Please try again." });
+      console.error("Auth Error:", error);
+      toast({ variant: "destructive", title: "Error", description: "Could not send code. Please try again." });
     } finally {
       setLoading(false);
     }
@@ -100,13 +100,13 @@ export default function LoginPage() {
       const profile = userSnap.data();
       if (profile.role === 'driver') {
         await signOut(auth!);
-        toast({ variant: "destructive", title: "Portal Mismatch", description: "Use Driver Login." });
+        toast({ variant: "destructive", title: "Access Error", description: "Please use Driver Login." });
         router.push('/driver/login');
       } else {
         router.push('/student');
       }
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Invalid Code" });
+      toast({ variant: "destructive", title: "Invalid Code", description: "Please check and try again." });
     } finally {
       setLoading(false);
     }
@@ -131,7 +131,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-md glass-card border-none rounded-[3rem] overflow-hidden shadow-2xl">
         <CardHeader className="pt-12 pb-8 text-center bg-white/5 border-b border-white/5">
           <CardTitle className="text-2xl font-black uppercase italic tracking-tighter">Login</CardTitle>
-          <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic mt-2">Secure Member Access</CardDescription>
+          <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic mt-2">Secure Hub Access</CardDescription>
         </CardHeader>
         <CardContent className="px-10 py-10">
           {step === 1 ? (
@@ -151,13 +151,13 @@ export default function LoginPage() {
                 </div>
               </div>
               <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Request Code"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Get OTP"}
               </Button>
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-8">
               <div className="space-y-3">
-                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Verification Code</Label>
+                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Enter OTP</Label>
                 <input 
                   type="text" 
                   value={otp} 
@@ -169,14 +169,14 @@ export default function LoginPage() {
                 />
               </div>
               <Button type="submit" disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Me"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify OTP"}
               </Button>
             </form>
           )}
         </CardContent>
         <CardFooter className="bg-white/5 p-10 border-t border-white/5">
           <p className="text-[10px] text-center font-bold text-muted-foreground uppercase tracking-widest w-full">
-            New to the Hub? <Link href="/auth/signup" className="text-primary font-black hover:underline italic">Sign Up</Link>
+            New here? <Link href="/auth/signup" className="text-primary font-black hover:underline italic">Join Hub</Link>
           </p>
         </CardFooter>
       </Card>

@@ -15,9 +15,9 @@ import { useToast } from '@/hooks/use-toast';
 
 const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-    <circle cx="10" cy="10" r="3" fill="currentColor" className="animate-pulse" />
-    <circle cx="30" cy="10" r="3" fill="currentColor" />
-    <circle cx="20" cy="30" r="3" fill="currentColor" className="animate-pulse" style={{ animationDelay: '1s' }} />
+    <circle cx="10" r="3" cy="10" fill="currentColor" className="animate-pulse" />
+    <circle cx="30" r="3" cy="10" fill="currentColor" />
+    <circle cx="20" r="3" cy="30" fill="currentColor" className="animate-pulse" style={{ animationDelay: '1s' }} />
     <path d="M10 10L30 10M30 10L20 30M20 30L10 10" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" />
   </svg>
 );
@@ -74,10 +74,10 @@ export default function DriverLoginPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(2);
-      toast({ title: "Code Sent" });
+      toast({ title: "OTP sent to your number." });
     } catch (error: any) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Auth Error", description: "Failed to send code." });
+      console.error("Auth Error:", error);
+      toast({ variant: "destructive", title: "Error", description: "Failed to send OTP. Please try again." });
     } finally {
       setLoading(false);
     }
@@ -100,13 +100,13 @@ export default function DriverLoginPage() {
       const profile = userSnap.data();
       if (profile.role !== 'driver') {
         await signOut(auth!);
-        toast({ variant: "destructive", title: "Portal Mismatch", description: "Use the Member Login." });
+        toast({ variant: "destructive", title: "Access Error", description: "Use Member Login Hub." });
         router.push('/auth/login');
       } else {
         router.push('/driver');
       }
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Invalid Code" });
+      toast({ variant: "destructive", title: "Invalid OTP", description: "Please check and try again." });
     } finally {
       setLoading(false);
     }
@@ -124,14 +124,14 @@ export default function DriverLoginPage() {
         </div>
         <div className="text-center">
           <h1 className="text-4xl font-black italic uppercase tracking-tighter text-foreground leading-none">DRIVER</h1>
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mt-2">Operator Hub</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mt-2">Operator Terminal</p>
         </div>
       </div>
 
       <Card className="w-full max-w-md glass-card border-none rounded-[3.5rem] overflow-hidden shadow-2xl">
         <CardHeader className="pt-14 pb-8 text-center bg-white/5 border-b border-white/5">
           <CardTitle className="text-2xl font-black uppercase italic tracking-tighter">Login</CardTitle>
-          <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic mt-2">Operator Verification</CardDescription>
+          <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic mt-2">Identity Verification</CardDescription>
         </CardHeader>
         <CardContent className="px-12 py-10">
           {step === 1 ? (
@@ -151,13 +151,13 @@ export default function DriverLoginPage() {
                 </div>
               </div>
               <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Request Code"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Get OTP"}
               </Button>
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-8">
               <div className="space-y-3">
-                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Verification Code</Label>
+                <Label className="font-black text-[10px] uppercase tracking-[0.3em] text-muted-foreground ml-2">Enter OTP</Label>
                 <input 
                   type="text" 
                   value={otp} 
@@ -169,13 +169,13 @@ export default function DriverLoginPage() {
                 />
               </div>
               <Button type="submit" disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-20 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Me"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify & Login"}
               </Button>
             </form>
           )}
         </CardContent>
         <CardFooter className="bg-white/5 p-10 flex flex-col gap-6 border-t border-white/5">
-          <Link href="/driver/signup" className="text-xs font-black uppercase italic text-primary hover:underline">Join the Fleet</Link>
+          <Link href="/driver/signup" className="text-xs font-black uppercase italic text-primary hover:underline">Apply to Fleet</Link>
         </CardFooter>
       </Card>
     </div>

@@ -80,9 +80,10 @@ export default function SignupPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(2);
-      toast({ title: "Code Sent" });
+      toast({ title: "OTP sent successfully." });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to send code. Try again." });
+      console.error("Auth Error:", error);
+      toast({ variant: "destructive", title: "Error", description: "Failed to send OTP. Try again." });
     } finally {
       setLoading(false);
     }
@@ -112,7 +113,7 @@ export default function SignupPage() {
 
       router.push('/student');
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Invalid Code" });
+      toast({ variant: "destructive", title: "Invalid OTP", description: "Please check and try again." });
     } finally {
       setLoading(false);
     }
@@ -134,7 +135,7 @@ export default function SignupPage() {
       <Card className="w-full max-w-md bg-white/5 border-none rounded-[2.5rem] shadow-2xl overflow-hidden">
         <CardHeader className="pt-8 pb-4 text-center">
           <CardTitle className="text-lg font-black uppercase italic tracking-tighter">Join Hub</CardTitle>
-          <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Create your Hub profile</CardDescription>
+          <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Create Hub Profile</CardDescription>
         </CardHeader>
         
         <CardContent className="px-6 py-8">
@@ -169,17 +170,17 @@ export default function SignupPage() {
                 </div>
               </div>
               <Button type="submit" disabled={loading || !fullName || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Phone"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify via OTP"}
               </Button>
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-6">
               <div className="space-y-3">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1 text-center block">Verification Code</Label>
+                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1 text-center block">Enter Code</Label>
                 <Input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" className="h-20 text-center text-4xl tracking-[0.4em] rounded-2xl bg-white/5 border-white/10 font-black text-primary" maxLength={6} required />
               </div>
               <Button type="submit" disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify & Join"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify & Join Hub"}
               </Button>
             </form>
           )}
@@ -187,7 +188,7 @@ export default function SignupPage() {
 
         <CardFooter className="bg-white/5 p-8 border-t border-white/5">
           <p className="text-[10px] text-center font-bold text-muted-foreground uppercase tracking-widest w-full">
-            Member already? <Link href="/auth/login" className="text-primary font-black hover:underline italic">Login</Link>
+            Already a member? <Link href="/auth/login" className="text-primary font-black hover:underline italic">Login Hub</Link>
           </p>
         </CardFooter>
       </Card>

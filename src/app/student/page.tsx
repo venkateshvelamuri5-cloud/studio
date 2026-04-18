@@ -145,7 +145,7 @@ export default function RiderApp() {
     if (!snap.empty) {
       const v = snap.docs[0].data();
       setAppliedDiscount(v.discount || 0);
-      toast({ title: `₹${v.discount} Off Applied` });
+      toast({ title: `₹${v.discount} Hub Credit Applied` });
     } else {
       toast({ variant: "destructive", title: "Invalid Voucher" });
     }
@@ -210,7 +210,7 @@ export default function RiderApp() {
 
         await updateDoc(userRef, { activeOtp: otp, loyaltyPoints: increment(10) });
         setBookingStep(4);
-        toast({ title: "Ride Confirmed" });
+        toast({ title: "Hub Seat Reserved!" });
       } else {
         throw new Error(verifyData.error || 'Payment failed');
       }
@@ -224,7 +224,7 @@ export default function RiderApp() {
   const initiatePayment = async () => {
     if (typeof window === 'undefined' || !selectedRoute) return;
     if (!(window as any).Razorpay) {
-      toast({ variant: 'destructive', title: 'Payment Error', description: 'Payment gateway is loading. Please wait.' });
+      toast({ variant: 'destructive', title: 'Payment Error', description: 'Payment gateway loading...' });
       return;
     }
     setIsPaying(true);
@@ -234,18 +234,18 @@ export default function RiderApp() {
       const res = await fetch('/api/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: finalAmount * 100, receipt: `order_${Date.now()}` }),
+        body: JSON.stringify({ amount: finalAmount * 100, receipt: `hub_order_${Date.now()}` }),
       });
       
-      if (!res.ok) throw new Error('Payment creation failed');
+      if (!res.ok) throw new Error('Order creation failed');
       const orderData = await res.json();
 
       const options = {
         key: 'rzp_live_SeqhV0hEn1PXnz',
         amount: orderData.amount,
         currency: orderData.currency,
-        name: "AAGO Hub",
-        description: `Ride on ${selectedRoute.routeName}`,
+        name: "AAGO HUB",
+        description: `Hub Ride: ${selectedRoute.routeName}`,
         order_id: orderData.id,
         handler: (res: any) => processPaymentSuccess(res),
         prefill: { name: profile?.fullName || "", contact: profile?.phoneNumber || "" },
@@ -298,18 +298,18 @@ export default function RiderApp() {
             {currentBooking ? (
               <Card className="glass-card rounded-[3.5rem] p-10 shadow-2xl border-primary/30 relative overflow-hidden">
                  <div className="flex flex-col items-center gap-4 mb-10 text-center">
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground italic">Setting up your ride</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground italic">Ride Confirmed</p>
                     <h3 className="text-7xl font-black tracking-tighter italic text-primary text-glow leading-none">
-                      {currentBooking.status === 'active' ? profile?.activeOtp : 'SYNCED'}
+                      {currentBooking.status === 'active' ? profile?.activeOtp : 'READY'}
                     </h3>
-                    <p className="text-[9px] font-black uppercase text-primary mt-4">{currentBooking.scheduledDate} @ {currentBooking.scheduledTime}</p>
+                    <p className="text-[9px] font-black uppercase text-primary mt-4">{currentBooking.scheduledDate} • {currentBooking.scheduledTime}</p>
                  </div>
                  
                  <div className="space-y-4">
                     <div className="bg-black/60 p-6 rounded-[2.5rem] border border-white/5 flex items-center gap-5">
                        <div className="h-12 w-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary"><Navigation className="h-6 w-6" /></div>
                        <div className="flex-1">
-                          <p className="text-[9px] font-black uppercase text-muted-foreground">Route</p>
+                          <p className="text-[9px] font-black uppercase text-muted-foreground">Hub Route</p>
                           <p className="text-xl font-black italic uppercase leading-none mt-1">{currentBooking.routeName}</p>
                        </div>
                     </div>
@@ -318,12 +318,12 @@ export default function RiderApp() {
                       <div className="p-8 bg-black/40 border border-dashed border-white/10 rounded-[3rem] text-center space-y-3">
                          <Loader2 className="animate-spin h-8 w-8 text-primary mx-auto opacity-50" />
                          <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest leading-relaxed">
-                           Hub is optimizing the ride. Details shared 3 hours before start.
+                           Hub details shared 3 hours before start. Safe travel!
                          </p>
                       </div>
                     ) : (
                       <Button onClick={() => setActiveTab('radar')} className="w-full h-18 bg-primary text-black rounded-3xl font-black uppercase italic shadow-2xl flex items-center justify-center gap-3">
-                         <Zap className="h-6 w-6" /> Track Live Location
+                         <Zap className="h-6 w-6" /> Track Live Hub
                       </Button>
                     )}
                  </div>
@@ -332,7 +332,7 @@ export default function RiderApp() {
               <Dialog onOpenChange={(open) => { if (!open) setBookingStep(1); }}>
                 <DialogTrigger asChild>
                   <div className="p-14 bg-primary text-black rounded-[3.5rem] shadow-2xl flex flex-col gap-3 cursor-pointer group relative overflow-hidden border-4 border-black/5">
-                    <h3 className="text-6xl font-black italic uppercase tracking-tighter relative z-10 leading-none">Book <br/> Now</h3>
+                    <h3 className="text-6xl font-black italic uppercase tracking-tighter relative z-10 leading-none">Pick <br/> Ride</h3>
                     <div className="flex items-center justify-between mt-6 relative z-10">
                       <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Fixed Price Hub</p>
                       <div className="h-12 w-12 bg-black rounded-full flex items-center justify-center text-primary group-hover:translate-x-3 transition-transform">
@@ -344,7 +344,7 @@ export default function RiderApp() {
                 <DialogContent className="bg-background border-white/5 rounded-[3.5rem] p-10 h-[90vh] flex flex-col shadow-2xl border-2">
                   <DialogHeader className="shrink-0 mb-6">
                     <DialogTitle className="text-4xl font-black italic uppercase text-primary leading-none tracking-tighter">
-                      {bookingStep === 1 ? "Pick Route" : bookingStep === 2 ? "Pick Hub Stops" : bookingStep === 3 ? "Payment" : "Confirmed"}
+                      {bookingStep === 1 ? "Hub Route" : bookingStep === 2 ? "Hub Stops" : bookingStep === 3 ? "Payment" : "Done"}
                     </DialogTitle>
                   </DialogHeader>
 
@@ -366,7 +366,7 @@ export default function RiderApp() {
                     {bookingStep === 2 && (
                       <div className="space-y-8 animate-in slide-in-from-right-8">
                         <div className="space-y-4">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Boarding Stop</Label>
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Pickup Landmark</Label>
                            <div className="grid grid-cols-1 gap-2">
                               {selectedRoute?.stops?.map((stop: any, idx: number) => (
                                 <Button key={idx} onClick={() => setPickupStop(stop.name)} variant={pickupStop === stop.name ? 'default' : 'outline'} className={`h-14 rounded-xl font-black italic justify-start px-6 ${pickupStop === stop.name ? 'bg-primary text-black' : 'border-white/10 text-muted-foreground'}`}>
@@ -376,7 +376,7 @@ export default function RiderApp() {
                            </div>
                         </div>
                         <div className="space-y-4">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Drop-off Stop</Label>
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Drop Landmark</Label>
                            <div className="grid grid-cols-1 gap-2">
                               {selectedRoute?.stops?.map((stop: any, idx: number) => (
                                 <Button key={idx} onClick={() => setDropStop(stop.name)} variant={dropStop === stop.name ? 'default' : 'outline'} className={`h-14 rounded-xl font-black italic justify-start px-6 ${dropStop === stop.name ? 'bg-primary text-black' : 'border-white/10 text-muted-foreground'}`}>
@@ -387,7 +387,7 @@ export default function RiderApp() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                            <div className="space-y-4">
-                              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Date</Label>
+                              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Hub Date</Label>
                               <select value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 font-black italic text-foreground outline-none focus:border-primary">
                                  {[0, 1, 2, 3].map(d => {
                                    const date = addDays(new Date(), d);
@@ -396,27 +396,27 @@ export default function RiderApp() {
                               </select>
                            </div>
                            <div className="space-y-4">
-                              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Time Slot</Label>
+                              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Hub Time</Label>
                               <select value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 font-black italic text-foreground outline-none focus:border-primary">
                                  <option value="">Select Time</option>
                                  {availableTimeSlots.map(t => <option key={t} value={t}>{t}</option>)}
                               </select>
                            </div>
                         </div>
-                        <Button onClick={() => setBookingStep(3)} disabled={!bookingTime || !pickupStop || !dropStop} className="w-full h-18 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-xl shadow-2xl">Confirm Hub Seats</Button>
+                        <Button onClick={() => setBookingStep(3)} disabled={!bookingTime || !pickupStop || !dropStop} className="w-full h-18 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-xl shadow-2xl">Pay via UPI</Button>
                       </div>
                     )}
 
                     {bookingStep === 3 && (
                       <div className="space-y-10 py-6 text-center animate-in slide-in-from-right-8">
                          <div className="p-10 bg-primary/5 rounded-[4rem] border-4 border-primary/20 shadow-2xl relative">
-                            <p className="text-[11px] font-black uppercase text-primary mb-5 tracking-[0.5em] italic">Fare</p>
+                            <p className="text-[11px] font-black uppercase text-primary mb-5 tracking-[0.5em] italic">Seat Fare</p>
                             <h3 className="text-8xl font-black italic tracking-tighter leading-none text-white">₹{Math.max(0, calculatedFare - appliedDiscount)}</h3>
                          </div>
                          <div className="space-y-4 text-left">
                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-3 tracking-widest">Apply Voucher</Label>
                            <div className="flex gap-3">
-                              <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="Voucher Code" className="h-16 w-full bg-white/5 border-2 border-white/10 rounded-2xl font-black italic px-8 uppercase outline-none focus:border-primary" />
+                              <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="AAGO10" className="h-16 w-full bg-white/5 border-2 border-white/10 rounded-2xl font-black italic px-8 uppercase outline-none focus:border-primary" />
                               <Button onClick={handleApplyVoucher} className="h-16 px-8 rounded-2xl font-black italic bg-primary/10 text-primary border-2 border-primary/20">Apply</Button>
                            </div>
                          </div>
@@ -432,10 +432,10 @@ export default function RiderApp() {
                            <CheckCircle2 className="h-16 w-16" />
                          </div>
                          <div className="space-y-4">
-                           <h3 className="text-4xl font-black italic uppercase text-primary tracking-tighter leading-none">Hub Confirmed!</h3>
-                           <p className="text-[10px] font-bold text-muted-foreground italic uppercase tracking-[0.2em]">Details shared 3 hours before start.</p>
+                           <h3 className="text-4xl font-black italic uppercase text-primary tracking-tighter leading-none">Seat Reserved!</h3>
+                           <p className="text-[10px] font-bold text-muted-foreground italic uppercase tracking-[0.2em]">Hub details released 3 hours before start.</p>
                          </div>
-                         <Button onClick={() => setBookingStep(1)} className="w-full h-18 bg-white/5 rounded-2xl border border-white/10 font-black uppercase italic">Close</Button>
+                         <Button onClick={() => setBookingStep(1)} className="w-full h-18 bg-white/5 rounded-2xl border border-white/10 font-black uppercase italic">Exit</Button>
                       </div>
                     )}
                   </div>
@@ -446,12 +446,12 @@ export default function RiderApp() {
             <Card className="bg-white/5 border-white/10 rounded-[3rem] p-10 space-y-5 shadow-lg">
               <div className="flex items-center gap-5">
                  <div className="p-4 bg-primary/10 rounded-2xl text-primary"><Gift className="h-7 w-7" /></div>
-                 <h4 className="text-2xl font-black italic uppercase tracking-tighter">Refer Hub</h4>
+                 <h4 className="text-2xl font-black italic uppercase tracking-tighter">Hub Referral</h4>
               </div>
-              <p className="text-sm font-bold text-muted-foreground italic leading-relaxed">Earn ₹50 when they finish their first Hub ride.</p>
+              <p className="text-sm font-bold text-muted-foreground italic leading-relaxed">Refer a friend and get ₹50 Hub credit instantly.</p>
               <div className="flex gap-3 bg-black/60 p-5 rounded-3xl border border-white/5 items-center">
                  <p className="flex-1 font-black italic text-primary uppercase tracking-[0.3em] text-lg px-4">{profile?.referralCode || '...'}</p>
-                 <Button onClick={() => { navigator.clipboard.writeText(profile?.referralCode || ''); toast({ title: "Copied" }); }} variant="ghost" className="text-primary h-12 w-12 bg-primary/5 rounded-2xl">
+                 <Button onClick={() => { navigator.clipboard.writeText(profile?.referralCode || ''); toast({ title: "Referral Copied" }); }} variant="ghost" className="text-primary h-12 w-12 bg-primary/5 rounded-2xl">
                    <Copy className="h-6 w-6" />
                  </Button>
               </div>
@@ -461,7 +461,7 @@ export default function RiderApp() {
 
         {activeTab === 'radar' && (
           <div className="flex-1 flex flex-col space-y-6 h-[calc(100vh-240px)] animate-in fade-in">
-            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">Live Location</h2>
+            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">Live Hub Tracking</h2>
             <div className="flex-1 rounded-[4rem] overflow-hidden border-4 border-white/5 shadow-3xl bg-black relative">
                {isLoaded ? (
                  <GoogleMap mapContainerStyle={mapContainerStyle} center={driverLocation || DEFAULT_CENTER} zoom={15} options={mapOptions}>
@@ -474,11 +474,11 @@ export default function RiderApp() {
 
         {activeTab === 'history' && (
           <div className="space-y-8 pb-12 animate-in fade-in">
-             <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">Ride Log</h2>
+             <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">Hub History</h2>
              <div className="space-y-4">
                 {allTrips?.filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid))?.length === 0 ? (
                   <div className="p-24 text-center italic text-muted-foreground bg-white/5 rounded-[3.5rem] border-2 border-dashed border-white/5 opacity-40 uppercase tracking-[0.4em] font-black text-[11px]">
-                    No rides yet
+                    No hub rides yet
                   </div>
                 ) : allTrips?.filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid))?.map((t: any) => (
                   <Card key={t.id} className="bg-card/40 border border-white/5 rounded-[2.5rem] p-8 flex justify-between items-center shadow-xl">
@@ -506,7 +506,7 @@ export default function RiderApp() {
                 </div>
              </div>
              <Button onClick={handleSignOut} className="w-full max-w-sm mx-auto h-18 bg-destructive/10 text-destructive rounded-3xl font-black uppercase italic border-2 border-destructive/20 text-lg hover:bg-destructive hover:text-white transition-all">
-                <LogOut className="mr-4 h-6 w-6" /> Logout
+                <LogOut className="mr-4 h-6 w-6" /> Logout Hub
              </Button>
           </div>
         )}
@@ -520,7 +520,7 @@ export default function RiderApp() {
           <MapPin className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Radar</span>
         </Button>
         <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl ${activeTab === 'history' ? 'text-primary bg-primary/10 shadow-lg shadow-primary/10' : 'text-muted-foreground opacity-50'}`}>
-          <History className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Log</span>
+          <History className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">History</span>
         </Button>
         <Button variant="ghost" onClick={() => setActiveTab('me')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl ${activeTab === 'me' ? 'text-primary bg-primary/10 shadow-lg shadow-primary/10' : 'text-muted-foreground opacity-50'}`}>
           <UserIcon className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Me</span>
