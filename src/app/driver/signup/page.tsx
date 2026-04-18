@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Camera, RefreshCcw } from 'lucide-react';
+import { Loader2, Camera, RefreshCcw, CheckCircle2, ShieldCheck, FileText } from 'lucide-react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
@@ -25,7 +25,7 @@ const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) =
 );
 
 export default function DriverSignupPage() {
-  const [step, setStep] = useState(1); // 1: Profile, 2: Vehicle, 3: Photo, 4: Phone, 5: Code
+  const [step, setStep] = useState(1); // 1: Profile, 2: Vehicle, 3: Profile Photo, 4: DL, 5: Aadhaar, 6: Phone, 7: Code
   const [loading, setLoading] = useState(false);
   
   // Profile
@@ -38,8 +38,11 @@ export default function DriverSignupPage() {
   const [vehicleType, setVehicleType] = useState('7 Seater');
   const [seatingCapacity, setSeatingCapacity] = useState('7');
 
-  // Photo
+  // Photos & Docs
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [dlPhotoUrl, setDlPhotoUrl] = useState<string | null>(null);
+  const [aadhaarPhotoUrl, setAadhaarPhotoUrl] = useState<string | null>(null);
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -55,7 +58,6 @@ export default function DriverSignupPage() {
   const { toast } = useToast();
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
-  // Persistence Check
   useEffect(() => {
     if (!authLoading && user && db) {
       getDoc(doc(db, 'users', user.uid)).then((snap) => {
@@ -95,23 +97,28 @@ export default function DriverSignupPage() {
 
   const getCameraPermission = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Camera Required', description: 'Enable camera to take profile photo.' });
+      toast({ variant: 'destructive', title: 'Camera Required', description: 'Enable camera for document verification.' });
     }
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = (type: 'profile' | 'dl' | 'aadhaar') => {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
       const ctx = canvas.getContext('2d');
       ctx?.drawImage(videoRef.current, 0, 0);
-      setPhotoUrl(canvas.toDataURL('image/jpeg'));
+      const dataUrl = canvas.toDataURL('image/jpeg');
+      
+      if (type === 'profile') setPhotoUrl(dataUrl);
+      if (type === 'dl') setDlPhotoUrl(dataUrl);
+      if (type === 'aadhaar') setAadhaarPhotoUrl(dataUrl);
+
       if (videoRef.current.srcObject) {
         (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
       }
@@ -127,21 +134,10 @@ export default function DriverSignupPage() {
       const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaRef.current);
       setConfirmationResult(result);
-      setStep(5);
+      setStep(7);
       toast({ title: "Code Sent" });
     } catch (error: any) {
-      console.error(error);
-      let title = "Error";
-      let message = "Try again later.";
-      if (error.code === 'auth/billing-not-enabled') {
-        title = "Restricted Service";
-        message = "SMS services are blocked. Contact hub support.";
-      }
-      toast({ variant: "destructive", title, description: message });
-      if (recaptchaRef.current) {
-        recaptchaRef.current.clear();
-        recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup-driver', { size: 'invisible' });
-      }
+      toast({ variant: "destructive", title: "Error", description: "Try again later." });
     } finally {
       setLoading(false);
     }
@@ -163,9 +159,11 @@ export default function DriverSignupPage() {
         seatingCapacity: parseInt(seatingCapacity),
         aadhaarNumber,
         photoUrl: photoUrl,
+        dlPhotoUrl: dlPhotoUrl,
+        aadhaarPhotoUrl: aadhaarPhotoUrl,
         referralCode,
         role: 'driver', 
-        isVerified: false, // DRIVER REQUIRES ADMIN VERIFICATION
+        isVerified: false,
         status: 'offline', 
         totalEarnings: 0, 
         createdAt: new Date().toISOString(),
@@ -194,7 +192,7 @@ export default function DriverSignupPage() {
       <Card className="w-full max-w-md glass-card border-none rounded-[2.5rem] overflow-hidden shadow-2xl">
         <CardHeader className="pt-8 pb-4 text-center border-b border-white/5 bg-white/5">
           <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-foreground leading-none">Operator Signup</CardTitle>
-          <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Step {step} of 5</CardDescription>
+          <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Step {step} of 7</CardDescription>
         </CardHeader>
         
         <CardContent className="px-6 py-8 sm:px-10">
@@ -209,10 +207,10 @@ export default function DriverSignupPage() {
                 <Input value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} placeholder="License No." className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Identity (Aadhaar/Govt)</Label>
-                <Input value={aadhaarNumber} onChange={(e) => setAadhaarNumber(e.target.value)} placeholder="ID Number" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Aadhaar Number</Label>
+                <Input value={aadhaarNumber} onChange={(e) => setAadhaarNumber(e.target.value)} placeholder="12-digit number" className="h-12 bg-white/5 border-white/10 font-black italic text-base rounded-xl" />
               </div>
-              <Button onClick={() => setStep(2)} disabled={!fullName || !licenseNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4 active:scale-95 transition-all">Next: Vehicle</Button>
+              <Button onClick={() => setStep(2)} disabled={!fullName || !licenseNumber || !aadhaarNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4 active:scale-95 transition-all">Next: Vehicle</Button>
             </div>
           )}
 
@@ -226,8 +224,7 @@ export default function DriverSignupPage() {
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Category</Label>
                 <Select value={vehicleType} onValueChange={(val) => {
                   setVehicleType(val);
-                  if (val === '5 Seater') setSeatingCapacity('5');
-                  else if (val === '7 Seater') setSeatingCapacity('7');
+                  setSeatingCapacity(val === '5 Seater' ? '5' : '7');
                 }}>
                   <SelectTrigger className="h-12 bg-white/5 border-white/10 text-foreground font-black italic rounded-xl"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-background border-white/10">
@@ -237,55 +234,60 @@ export default function DriverSignupPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Max Seats</Label>
-                <Input type="number" value={seatingCapacity} onChange={(e) => setSeatingCapacity(e.target.value)} className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" />
-              </div>
-              <Button onClick={() => { setStep(3); getCameraPermission(); }} disabled={!vehicleNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4 active:scale-95 transition-all">Next: Photo</Button>
+              <Button onClick={() => { setStep(3); getCameraPermission(); }} disabled={!vehicleNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4 active:scale-95 transition-all">Next: Profile Photo</Button>
             </div>
           )}
 
-          {step === 3 && (
+          {[3, 4, 5].includes(step) && (
             <div className="space-y-6 text-center animate-in slide-in-from-right-8">
-              <div className="relative aspect-square max-w-[200px] mx-auto bg-black rounded-[2rem] overflow-hidden border border-white/10">
-                {!photoUrl ? (
+              <div className="relative aspect-[4/3] w-full bg-black rounded-[2rem] overflow-hidden border border-white/10">
+                {((step === 3 && !photoUrl) || (step === 4 && !dlPhotoUrl) || (step === 5 && !aadhaarPhotoUrl)) ? (
                   <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
                 ) : (
-                  <img src={photoUrl} className="h-full w-full object-cover" />
+                  <img src={step === 3 ? photoUrl! : step === 4 ? dlPhotoUrl! : aadhaarPhotoUrl!} className="h-full w-full object-cover" />
                 )}
                 <canvas ref={canvasRef} className="hidden" />
               </div>
-              {!photoUrl ? (
-                <Button onClick={capturePhoto} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-lg active:scale-95 transition-all"><Camera className="mr-2" /> Snap Profile</Button>
+              <p className="text-[10px] font-black uppercase text-primary tracking-widest italic">
+                {step === 3 ? "Profile Face Photo" : step === 4 ? "Driving License Scan" : "Aadhaar Card Scan"}
+              </p>
+              {((step === 3 && !photoUrl) || (step === 4 && !dlPhotoUrl) || (step === 5 && !aadhaarPhotoUrl)) ? (
+                <Button onClick={() => capturePhoto(step === 3 ? 'profile' : step === 4 ? 'dl' : 'aadhaar')} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-lg active:scale-95 transition-all"><Camera className="mr-2" /> Snap Capture</Button>
               ) : (
-                <Button onClick={() => { setPhotoUrl(null); getCameraPermission(); }} variant="ghost" className="text-primary font-black uppercase text-[10px] tracking-widest"><RefreshCcw className="mr-2 h-4 w-4" /> Retake</Button>
+                <div className="flex gap-4">
+                  <Button onClick={() => { 
+                    if (step === 3) setPhotoUrl(null);
+                    if (step === 4) setDlPhotoUrl(null);
+                    if (step === 5) setAadhaarPhotoUrl(null);
+                    getCameraPermission(); 
+                  }} variant="ghost" className="flex-1 text-primary font-black uppercase text-[10px] tracking-widest h-16 border border-primary/20 rounded-2xl"><RefreshCcw className="mr-2 h-4 w-4" /> Retake</Button>
+                  <Button onClick={() => {
+                    if (step === 5) setStep(6);
+                    else {
+                      setStep(step + 1);
+                      getCameraPermission();
+                    }
+                  }} className="flex-1 bg-primary text-black font-black uppercase italic h-16 rounded-2xl">Confirm</Button>
+                </div>
               )}
-              <Button onClick={() => setStep(4)} disabled={!photoUrl} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4 active:scale-95 transition-all">Next: Phone</Button>
             </div>
           )}
 
-          {step === 4 && (
-            <form onSubmit={handleSendOtp} className="space-y-6">
+          {step === 6 && (
+            <form onSubmit={handleSendOtp} className="space-y-6 animate-in slide-in-from-right-8">
               <div className="space-y-3">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number</Label>
                 <div className="relative">
                   <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary text-lg z-20">+91</span>
-                  <Input 
-                    type="tel" 
-                    value={phoneNumber} 
-                    onChange={(e) => setPhoneNumber(e.target.value)} 
-                    placeholder="0000000000" 
-                    className="h-16 pl-20 rounded-xl bg-white/5 border-white/10 font-black italic text-xl relative z-10" 
-                    required 
-                  />
+                  <Input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="0000000000" className="h-16 pl-20 rounded-xl bg-white/5 border-white/10 font-black italic text-xl relative z-10" required />
                 </div>
               </div>
               <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl active:scale-95 transition-all">Request Code</Button>
             </form>
           )}
 
-          {step === 5 && (
-            <form onSubmit={handleVerifyOtp} className="space-y-6">
+          {step === 7 && (
+            <form onSubmit={handleVerifyOtp} className="space-y-6 animate-in slide-in-from-right-8">
               <div className="space-y-3">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Verification Code</Label>
                 <Input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" className="h-20 text-center text-4xl tracking-[0.4em] rounded-2xl bg-white/5 border-white/10 font-black text-primary" maxLength={6} required />
