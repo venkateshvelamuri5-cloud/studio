@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -27,10 +26,12 @@ import {
   Map as MapIcon,
   Clock,
   Bus,
-  Plus
+  Plus,
+  Trash2,
+  RefreshCw
 } from 'lucide-react';
-import { useFirestore, useCollection, useUser, useDoc, useAuth } from '@/firebase';
-import { collection, query, doc, updateDoc, orderBy, addDoc, where } from 'firebase/firestore';
+import { useFirestore, useCollection, useUser, useAuth } from '@/firebase';
+import { collection, query, doc, updateDoc, orderBy, addDoc, where, deleteDoc, getDocs } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { generateShuttleRoutes, AdminGenerateShuttleRoutesInput } from '@/ai/flows/admin-generate-shuttle-routes';
@@ -54,6 +55,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'routes' | 'fleet' | 'ai-architect'>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [isProcessingQueue, setIsProcessingQueue] = useState(false);
+  const [isPurging, setIsPurging] = useState(false);
 
   // Corridor Deployment State
   const [newRoute, setNewRoute] = useState({ name: '', fare: '', stops: '' });
@@ -94,6 +96,34 @@ export default function AdminDashboard() {
       .then(() => toast({ title: "Operator Authorized" }));
   };
 
+  const handleDeleteUser = async (uid: string) => {
+    if (!db) return;
+    if (!confirm("Are you sure you want to remove this user from the grid?")) return;
+    try {
+      await deleteDoc(doc(db, 'users', uid));
+      toast({ title: "User Removed", description: "Identity purged from the grid." });
+    } catch (e) {
+      toast({ variant: 'destructive', title: "Delete Failed" });
+    }
+  };
+
+  const handlePurgeTestData = async () => {
+    if (!db || !confirm("CRITICAL: This will delete all test trips and non-admin users. Continue?")) return;
+    setIsPurging(true);
+    try {
+      const tripsSnap = await getDocs(collection(db, 'trips'));
+      const usersSnap = await getDocs(query(collection(db, 'users'), where('role', '!=', 'admin')));
+      
+      const tripsDeletes = tripsSnap.docs.map(d => deleteDoc(d.ref));
+      const usersDeletes = usersSnap.docs.map(d => deleteDoc(d.ref));
+      
+      await Promise.all([...tripsDeletes, ...usersDeletes]);
+      toast({ title: "Grid Reset", description: "All test data has been purged." });
+    } finally {
+      setIsPurging(false);
+    }
+  };
+
   const deployRoute = (routeData: any) => {
     if (!db) return;
     const stopsArray = Array.isArray(routeData.stops) 
@@ -116,10 +146,8 @@ export default function AdminDashboard() {
     if (!db || !activeTrips) return;
     setIsProcessingQueue(true);
     try {
-      // 3-Hour Segregation Window Simulation
       const queuedTrips = activeTrips.filter(t => t.status === 'active');
       for (const trip of queuedTrips) {
-        // Move to 'scheduled' to release driver details to riders 3h ahead
         await updateDoc(doc(db, 'trips', trip.id), { status: 'scheduled' });
       }
       toast({ title: "Grid Sync Complete", description: "3-Hour window processed. Operator details released." });
@@ -142,7 +170,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="flex h-screen bg-background text-foreground font-body overflow-hidden">
-      <aside className="w-72 bg-black/20 flex flex-col shrink-0 border-r border-white/5 shadow-sm z-20 backdrop-blur-3xl">
+      <aside className="w-72 bg-black/40 flex flex-col shrink-0 border-r border-white/5 shadow-sm z-20 backdrop-blur-3xl">
         <div className="p-8 h-28 flex items-center border-b border-white/5">
           <div className="flex items-center gap-4">
             <div className="p-2.5 bg-primary rounded-xl text-black shadow-lg shadow-primary/20"><ConnectingDotsLogo className="h-5 w-5" /></div>
@@ -159,7 +187,7 @@ export default function AdminDashboard() {
             <button 
               key={item.id} 
               onClick={() => setActiveTab(item.id as any)} 
-              className={`w-full flex items-center justify-start rounded-xl font-black uppercase italic h-14 px-5 transition-all ${activeTab === item.id ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'text-muted-foreground hover:text-primary hover:bg-primary/5'}`}
+              className={`w-full flex items-center justify-start rounded-xl font-black uppercase italic h-14 px-5 transition-all ${activeTab === item.id ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'text-muted-foreground hover:text-primary hover:bg-white/5'}`}
             >
               <item.icon className="mr-4 h-5 w-5" /> {item.label}
             </button>
@@ -173,18 +201,20 @@ export default function AdminDashboard() {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-28 bg-background border-b border-white/5 px-10 flex items-center justify-between backdrop-blur-3xl">
+        <header className="h-28 bg-background/50 border-b border-white/5 px-10 flex items-center justify-between backdrop-blur-3xl">
           <div>
             <h2 className="text-3xl font-black text-foreground italic uppercase tracking-tighter leading-none">{activeTab.replace('-', ' ')}</h2>
             <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-2 flex items-center gap-2">
-               <Activity className="h-3 w-3 text-primary animate-pulse" /> Live Mobility Terminal
+               <Activity className="h-3 w-3 text-primary animate-pulse" /> Live Operational Terminal
             </p>
           </div>
           <div className="flex items-center gap-4">
-             <Button onClick={handleProcessGridQueue} disabled={isProcessingQueue} className="bg-white/5 border border-white/10 text-foreground font-black uppercase italic h-12 px-6 rounded-xl hover:bg-primary hover:text-black transition-all">
-                {isProcessingQueue ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Clock className="h-4 w-4 mr-2" />} Process Grid Queue (3H)
+             <Button onClick={handlePurgeTestData} disabled={isPurging} variant="outline" className="border-destructive/20 text-destructive hover:bg-destructive hover:text-white h-12 px-6 rounded-xl font-black uppercase italic">
+                {isPurging ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />} Reset Grid
              </Button>
-            {stats.pendingDrivers > 0 && <Badge className="bg-destructive text-destructive-foreground animate-pulse border-none font-black uppercase text-[9px] px-4 py-2 rounded-full">{stats.pendingDrivers} Reviews Pending</Badge>}
+             <Button onClick={handleProcessGridQueue} disabled={isProcessingQueue} className="bg-white/5 border border-white/10 text-foreground font-black uppercase italic h-12 px-6 rounded-xl hover:bg-primary hover:text-black transition-all">
+                {isProcessingQueue ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <Clock className="h-4 w-4 mr-2" />} Process Grid (3H)
+             </Button>
           </div>
         </header>
 
@@ -211,7 +241,7 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                  <Card className="bg-white/5 border-white/10 rounded-[2.5rem] overflow-hidden">
                     <CardHeader className="p-8 border-b border-white/5">
-                       <CardTitle className="text-xl font-black italic uppercase text-primary">Mission Status Hub</CardTitle>
+                       <CardTitle className="text-xl font-black italic uppercase text-primary">Live Mission Hub</CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
                        <div className="divide-y divide-white/5">
@@ -234,7 +264,7 @@ export default function AdminDashboard() {
                  <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 flex flex-col justify-center items-center text-center space-y-6">
                     <div className="h-20 w-20 bg-primary/10 rounded-full flex items-center justify-center text-primary shadow-2xl animate-pulse"><TrendingUp className="h-10 w-10" /></div>
                     <div className="space-y-2">
-                       <h3 className="text-4xl font-black italic uppercase tracking-tighter">Yield Engine</h3>
+                       <h3 className="text-4xl font-black italic uppercase tracking-tighter">Yield Optimization</h3>
                        <p className="text-sm font-bold text-muted-foreground italic uppercase tracking-widest max-w-xs">Maximizing vehicle capacity by filling first cars before deploying fleet units.</p>
                     </div>
                     <Button onClick={() => setActiveTab('ai-architect')} className="bg-primary text-black font-black uppercase italic px-10 h-14 rounded-2xl shadow-xl shadow-primary/20">Architect Growth</Button>
@@ -245,10 +275,7 @@ export default function AdminDashboard() {
 
           {activeTab === 'routes' && (
             <div className="space-y-10 animate-in fade-in duration-700">
-               <div className="flex justify-between items-center">
-                  <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Corridor Deployer</h3>
-               </div>
-               
+               <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Corridor Deployer</h3>
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                   <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-6">
                      <div className="space-y-2">
@@ -313,7 +340,7 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {allUsers?.filter(u => u.role === 'driver').map((u: any) => (
+                        {allUsers?.filter(u => (u.role === 'driver' || u.role === 'rider') && (searchQuery === '' || u.phoneNumber?.includes(searchQuery) || u.fullName?.toLowerCase().includes(searchQuery.toLowerCase()))).map((u: any) => (
                           <tr key={u.uid} className="hover:bg-white/5 transition-all">
                              <td className="py-6 px-10">
                                 <div className="flex items-center gap-5">
@@ -323,12 +350,13 @@ export default function AdminDashboard() {
                                    <div>
                                       <p className="font-black text-foreground uppercase italic text-sm leading-none">{u.fullName}</p>
                                       <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mt-1">{u.phoneNumber}</p>
+                                      <Badge variant="outline" className="text-[7px] border-white/5 mt-1">{u.role?.toUpperCase()}</Badge>
                                    </div>
                                 </div>
                              </td>
                              <td className="py-6">
-                                <Badge className={`${u.status === 'on-trip' ? 'bg-primary text-black' : u.status === 'available' ? 'bg-accent/20 text-accent' : 'bg-white/5 text-muted-foreground'} border-none text-[8px] font-black uppercase px-4 py-1.5 rounded-full`}>
-                                   {u.status === 'on-trip' ? `On Corridor` : u.status}
+                                <Badge className={`${u.status === 'on-trip' ? 'bg-primary text-black' : u.status === 'available' ? 'bg-green-500/20 text-green-500' : 'bg-white/5 text-muted-foreground'} border-none text-[8px] font-black uppercase px-4 py-1.5 rounded-full`}>
+                                   {u.status === 'on-trip' ? `On Corridor` : u.status || 'Offline'}
                                 </Badge>
                              </td>
                              <td className="py-6">
@@ -340,9 +368,12 @@ export default function AdminDashboard() {
                                 </div>
                              </td>
                              <td className="py-6 px-10 text-right">
-                                {!u.isVerified && (
-                                   <Button onClick={() => handleVerifyUser(u.uid)} className="bg-primary text-black font-black uppercase italic text-[9px] h-10 px-6 rounded-xl">Authorize Operator</Button>
-                                )}
+                                <div className="flex items-center justify-end gap-2">
+                                   {!u.isVerified && u.role === 'driver' && (
+                                      <Button onClick={() => handleVerifyUser(u.uid)} className="bg-primary text-black font-black uppercase italic text-[9px] h-10 px-6 rounded-xl">Authorize</Button>
+                                   )}
+                                   <Button onClick={() => handleDeleteUser(u.uid)} variant="ghost" className="h-10 w-10 p-0 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
+                                </div>
                              </td>
                           </tr>
                         ))}
@@ -359,7 +390,6 @@ export default function AdminDashboard() {
                    <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Sparkles className="h-6 w-6" /></div>
                    <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">Grid Architect AI</h3>
                 </div>
-                
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                    <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-8 h-fit">
                       <div className="grid grid-cols-2 gap-6">
@@ -373,7 +403,7 @@ export default function AdminDashboard() {
                          </div>
                       </div>
                       <div className="space-y-4">
-                         <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Demand Context (e.g. 500+ Daily Students)</Label>
+                         <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Demand Context (e.g. 500+ Daily Residents)</Label>
                          <textarea value={aiInput.demandVolume} onChange={e => setAiInput({...aiInput, demandVolume: e.target.value})} className="w-full h-32 bg-white/5 border border-white/10 rounded-2xl p-6 font-black italic text-sm text-foreground focus:border-primary outline-none" />
                       </div>
                       <Button onClick={handleRunAiArchitect} disabled={isAiLoading} className="w-full h-18 bg-primary text-black rounded-2xl font-black uppercase italic text-lg shadow-xl transition-all active:scale-95">
@@ -418,7 +448,7 @@ export default function AdminDashboard() {
                                       </div>
                                    </div>
                                    <Button onClick={() => deployRoute(r)} className="w-full h-16 bg-primary text-black font-black uppercase italic rounded-2xl shadow-xl transition-all">
-                                      Deploy to Grid
+                                      Deploy Corridor
                                    </Button>
                                 </Card>
                               ))}

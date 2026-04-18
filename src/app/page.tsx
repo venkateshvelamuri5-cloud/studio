@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -42,7 +41,7 @@ const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) =
 const GridConnectivityAnimation = () => (
   <div className="relative w-full h-full bg-slate-950 flex items-center justify-center overflow-hidden rounded-3xl">
     <div className="absolute inset-0 opacity-20">
-      <div className="absolute top-0 left-0 w-full h-full" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #00FFFF 1px, transparent 0)', backgroundSize: '40px 40px' }}></div>
+      <div className="absolute top-0 left-0 w-full h-full" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #EAB308 1px, transparent 0)', backgroundSize: '40px 40px' }}></div>
     </div>
     <svg viewBox="0 0 400 400" className="w-4/5 h-4/5 relative z-10 text-primary">
       <circle cx="200" cy="200" r="150" stroke="currentColor" strokeWidth="1" fill="none" className="opacity-10" />
@@ -68,19 +67,19 @@ const GridConnectivityAnimation = () => (
 );
 
 const TransitFlowAnimation = () => (
-  <div className="relative w-full h-full bg-slate-50 flex items-center justify-center overflow-hidden rounded-3xl border border-black/5">
+  <div className="relative w-full h-full bg-black/20 flex items-center justify-center overflow-hidden rounded-3xl border border-white/10">
     <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent"></div>
     <div className="relative z-10 space-y-8 w-full max-w-md p-10">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="flex items-center gap-6 p-4 bg-white rounded-2xl shadow-sm border border-black/5 animate-in slide-in-from-left duration-700" style={{ animationDelay: `${i * 200}ms` }}>
+        <div key={i} className="flex items-center gap-6 p-4 bg-card rounded-2xl shadow-sm border border-white/5 animate-in slide-in-from-left duration-700" style={{ animationDelay: `${i * 200}ms` }}>
           <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
             <Navigation className="h-6 w-6" />
           </div>
           <div className="flex-1 space-y-1">
-            <div className="h-2 w-24 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-2 w-24 bg-white/5 rounded-full overflow-hidden">
                <div className="h-full bg-primary animate-[loading_2s_ease-in-out_infinite]" style={{ animationDelay: `${i * 300}ms` }}></div>
             </div>
-            <div className="h-2 w-16 bg-slate-50 rounded-full"></div>
+            <div className="h-2 w-16 bg-white/5 rounded-full"></div>
           </div>
         </div>
       ))}
@@ -119,9 +118,9 @@ export default function GlobalLandingPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground font-body overflow-x-hidden">
-      <header className={`fixed top-0 left-0 right-0 h-20 z-50 px-6 lg:px-20 flex items-center justify-between transition-all duration-300 ${scrolled ? 'bg-white/90 border-b border-black/5 backdrop-blur-md' : 'bg-transparent'}`}>
+      <header className={`fixed top-0 left-0 right-0 h-20 z-50 px-6 lg:px-20 flex items-center justify-between transition-all duration-300 ${scrolled ? 'bg-background/90 border-b border-white/5 backdrop-blur-md' : 'bg-transparent'}`}>
         <Link href="/" className="flex items-center gap-3">
-          <div className="bg-primary p-2 rounded-lg text-white shadow-lg shadow-primary/20">
+          <div className="bg-primary p-2 rounded-lg text-black shadow-lg shadow-primary/20">
             <ConnectingDotsLogo className="h-6 w-6" />
           </div>
           <span className="text-xl font-black italic tracking-tighter text-foreground uppercase">AAGO</span>
@@ -131,13 +130,13 @@ export default function GlobalLandingPage() {
             <Loader2 className="animate-spin h-5 w-5 text-primary" />
           ) : user ? (
             <Link href={profile?.role === 'driver' ? '/driver' : '/student'}>
-              <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl font-black uppercase italic px-8 h-12 shadow-xl shadow-primary/10">Return to Grid</Button>
+              <Button className="bg-primary hover:bg-primary/90 text-black rounded-xl font-black uppercase italic px-8 h-12 shadow-xl shadow-primary/10">Return to Grid</Button>
             </Link>
           ) : (
             <>
               <Link href="/auth/login" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Login</Link>
               <Link href="/auth/signup">
-                <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl font-black uppercase italic px-8 h-12 shadow-xl shadow-primary/10">Start Traveling</Button>
+                <Button className="bg-primary hover:bg-primary/90 text-black rounded-xl font-black uppercase italic px-8 h-12 shadow-xl shadow-primary/10">Start Traveling</Button>
               </Link>
             </>
           )}
@@ -148,7 +147,7 @@ export default function GlobalLandingPage() {
       </header>
 
       {isMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-white pt-32 px-10 flex flex-col gap-8 animate-in fade-in slide-in-from-top-4">
+        <div className="fixed inset-0 z-40 bg-background pt-32 px-10 flex flex-col gap-8 animate-in fade-in slide-in-from-top-4">
           {user ? (
              <Link href={profile?.role === 'driver' ? '/driver' : '/student'} onClick={() => setIsMenuOpen(false)} className="text-3xl font-black italic uppercase text-primary">Return to Grid</Link>
           ) : (
@@ -162,7 +161,7 @@ export default function GlobalLandingPage() {
       )}
 
       <main>
-        <section className="relative pt-40 pb-20 lg:pt-56 lg:pb-40 bg-white">
+        <section className="relative pt-40 pb-20 lg:pt-56 lg:pb-40 bg-background">
           <div className="container mx-auto px-6 lg:px-20">
             <div className="grid lg:grid-cols-2 gap-24 items-center">
               <div className="space-y-10">
@@ -176,12 +175,12 @@ export default function GlobalLandingPage() {
                 <div className="flex flex-col sm:flex-row gap-5 pt-4">
                   {user ? (
                     <Link href={profile?.role === 'driver' ? '/driver' : '/student'}>
-                      <Button size="lg" className="w-full sm:w-auto h-16 px-12 bg-primary hover:bg-primary/90 text-white rounded-2xl font-black uppercase italic text-lg shadow-2xl shadow-primary/20 transition-all active:scale-95">Go to Dashboard</Button>
+                      <Button size="lg" className="w-full sm:w-auto h-16 px-12 bg-primary hover:bg-primary/90 text-black rounded-2xl font-black uppercase italic text-lg shadow-2xl shadow-primary/20 transition-all active:scale-95">Dashboard</Button>
                     </Link>
                   ) : (
                     <>
                       <Link href="/auth/signup">
-                        <Button size="lg" className="w-full sm:w-auto h-16 px-12 bg-primary hover:bg-primary/90 text-white rounded-2xl font-black uppercase italic text-lg shadow-2xl shadow-primary/20 transition-all active:scale-95">Start Riding</Button>
+                        <Button size="lg" className="w-full sm:w-auto h-16 px-12 bg-primary hover:bg-primary/90 text-black rounded-2xl font-black uppercase italic text-lg shadow-2xl shadow-primary/20 transition-all active:scale-95">Start Riding</Button>
                       </Link>
                       <Link href="/driver/signup">
                         <Button variant="outline" size="lg" className="w-full sm:w-auto h-16 px-12 rounded-2xl font-black uppercase italic text-lg border-primary text-primary hover:bg-primary/5 transition-all">Join Fleet</Button>
@@ -198,7 +197,7 @@ export default function GlobalLandingPage() {
           </div>
         </section>
 
-        <section className="py-32 bg-slate-50">
+        <section className="py-32 bg-black/20">
           <div className="container mx-auto px-6 lg:px-20">
             <div className="text-center mb-24 space-y-6">
               <h2 className="text-4xl lg:text-6xl font-black italic uppercase text-foreground tracking-tighter">The Smart Grid.</h2>
@@ -213,7 +212,7 @@ export default function GlobalLandingPage() {
                 { title: "Live Tracking", desc: "Track your ride live on the map. Board easily with a simple code.", icon: Radar },
                 { title: "High Safety", desc: "Verified drivers and live journey tracking for complete peace of mind.", icon: ShieldCheck }
               ].map((item, i) => (
-                <Card key={i} className="p-10 border-none shadow-sm hover:shadow-xl hover:translate-y-[-8px] transition-all duration-500 rounded-[2.5rem] bg-white">
+                <Card key={i} className="p-10 border-none shadow-sm hover:shadow-xl hover:translate-y-[-8px] transition-all duration-500 rounded-[2.5rem] bg-card">
                   <div className="h-16 w-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-8">
                     <item.icon className="h-8 w-8" />
                   </div>
@@ -225,10 +224,10 @@ export default function GlobalLandingPage() {
           </div>
         </section>
 
-        <section className="py-32 bg-white">
+        <section className="py-32 bg-background">
           <div className="container mx-auto px-6 lg:px-20">
             <div className="grid lg:grid-cols-2 gap-24 items-center">
-              <div className="relative rounded-[3rem] overflow-hidden shadow-2xl aspect-square bg-slate-50">
+              <div className="relative rounded-[3rem] overflow-hidden shadow-2xl aspect-square">
                 <TransitFlowAnimation />
               </div>
               <div className="space-y-10">
@@ -238,14 +237,14 @@ export default function GlobalLandingPage() {
                 </p>
                 <div className="space-y-8">
                   <div className="flex gap-6">
-                    <div className="shrink-0 h-14 w-14 bg-slate-100 rounded-2xl flex items-center justify-center text-primary"><Briefcase className="h-7 w-7" /></div>
+                    <div className="shrink-0 h-14 w-14 bg-white/5 rounded-2xl flex items-center justify-center text-primary"><Briefcase className="h-7 w-7" /></div>
                     <div>
                       <h4 className="font-black italic uppercase text-xl">For Professionals</h4>
                       <p className="text-muted-foreground text-sm italic font-medium">Reach office fresh without parking or traffic stress.</p>
                     </div>
                   </div>
                   <div className="flex gap-6">
-                    <div className="shrink-0 h-14 w-14 bg-slate-100 rounded-2xl flex items-center justify-center text-primary"><GraduationCap className="h-7 w-7" /></div>
+                    <div className="shrink-0 h-14 w-14 bg-white/5 rounded-2xl flex items-center justify-center text-primary"><GraduationCap className="h-7 w-7" /></div>
                     <div>
                       <h4 className="font-black italic uppercase text-xl">For Scholars</h4>
                       <p className="text-muted-foreground text-sm italic font-medium">Safe and low-cost travel designed for students.</p>
@@ -257,17 +256,17 @@ export default function GlobalLandingPage() {
           </div>
         </section>
 
-        <section className="py-32 bg-primary text-white">
+        <section className="py-32 bg-primary text-black">
           <div className="container mx-auto px-6 lg:px-20 text-center space-y-10">
             <h2 className="text-5xl lg:text-7xl font-black italic uppercase tracking-tighter">Join The Grid.</h2>
-            <p className="text-xl opacity-90 max-w-xl mx-auto italic font-medium uppercase tracking-widest">Smart mobility for everyone in India.</p>
+            <p className="text-xl opacity-80 max-w-xl mx-auto italic font-medium uppercase tracking-widest">Smart mobility for everyone in India.</p>
             <div className="flex flex-col sm:flex-row justify-center gap-6 pt-6">
               <Link href="/auth/signup">
-                <Button size="lg" className="w-full sm:w-auto h-20 px-16 bg-white text-primary hover:bg-slate-50 rounded-[2rem] font-black uppercase italic text-2xl shadow-2xl active:scale-95 transition-all">Join Grid</Button>
+                <Button size="lg" className="w-full sm:w-auto h-20 px-16 bg-background text-primary hover:bg-background/90 rounded-[2rem] font-black uppercase italic text-2xl shadow-2xl active:scale-95 transition-all">Join Grid</Button>
               </Link>
               <Link href="/driver/signup">
-                <Button size="lg" className="w-full sm:w-auto h-20 px-16 bg-white text-primary hover:bg-slate-50 rounded-[2rem] font-black uppercase italic text-2xl shadow-2xl active:scale-95 transition-all">
-                  <span className="text-primary">Join Fleet</span>
+                <Button size="lg" className="w-full sm:w-auto h-20 px-16 bg-background text-primary hover:bg-background/90 rounded-[2rem] font-black uppercase italic text-2xl shadow-2xl active:scale-95 transition-all">
+                  Join Fleet
                 </Button>
               </Link>
             </div>
@@ -275,7 +274,7 @@ export default function GlobalLandingPage() {
         </section>
       </main>
 
-      <footer className="bg-white border-t border-black/5 py-16">
+      <footer className="bg-background border-t border-white/5 py-16">
         <div className="container mx-auto px-6 lg:px-20">
           <div className="flex flex-col md:flex-row justify-between items-center gap-10">
             <div className="flex items-center gap-3">
