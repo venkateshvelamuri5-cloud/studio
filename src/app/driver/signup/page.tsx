@@ -96,15 +96,26 @@ export default function DriverSignupPage() {
       toast({ 
         variant: 'destructive', 
         title: 'Camera Blocked', 
-        description: 'Please allow camera access in your settings.' 
+        description: 'Please allow camera access in your browser settings to finish signup.' 
       });
     }
   };
 
+  useEffect(() => {
+    if (step === 2) {
+      getCameraPermission();
+    }
+    // Cleanup stream on step change or unmount
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [step]);
+
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
-      // Set canvas to a smaller size to prevent Firestore document size limits
       const video = videoRef.current;
       const ratio = video.videoWidth / video.videoHeight;
       canvas.width = 640;
@@ -118,7 +129,6 @@ export default function DriverSignupPage() {
       if (captureType === 'dl') setDlPhotoUrl(dataUrl);
       if (captureType === 'aadhaar') setAadhaarPhotoUrl(dataUrl);
 
-      // Stop stream temporarily to save battery/privacy
       if (videoRef.current.srcObject) {
         (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
       }
@@ -136,7 +146,7 @@ export default function DriverSignupPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(3); 
-      toast({ title: "OTP Dispatched", description: "Please check your messages." });
+      toast({ title: "OTP Sent", description: "Please check your messages." });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error", description: "Failed to send code. Try again." });
     } finally {
@@ -195,7 +205,7 @@ export default function DriverSignupPage() {
 
       <Card className="w-full max-w-md bg-white/5 border-none rounded-[2.5rem] overflow-hidden shadow-2xl">
         <CardHeader className="pt-8 pb-4 text-center bg-white/5 border-b border-white/5">
-          <CardTitle className="text-lg font-black uppercase italic tracking-tighter">Registration</CardTitle>
+          <CardTitle className="text-lg font-black uppercase italic tracking-tighter">Join Driver Fleet</CardTitle>
           <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Driver Onboarding</CardDescription>
         </CardHeader>
         
@@ -232,7 +242,7 @@ export default function DriverSignupPage() {
                   </Select>
                 </div>
               </div>
-              <Button onClick={() => { setStep(2); getCameraPermission(); }} disabled={!fullName || !vehicleNumber || !licenseNumber || !aadhaarNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4">Next: Photo ID</Button>
+              <Button onClick={() => setStep(2)} disabled={!fullName || !vehicleNumber || !licenseNumber || !aadhaarNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl mt-4">Next: Photo ID</Button>
             </div>
           )}
 
@@ -257,13 +267,13 @@ export default function DriverSignupPage() {
               <div className="flex justify-center gap-2">
                  <Badge onClick={() => { setCaptureType('profile'); getCameraPermission(); }} className={`cursor-pointer h-8 px-4 font-black italic uppercase transition-all ${captureType === 'profile' ? 'bg-primary text-black' : 'bg-white/5 text-muted-foreground'}`}>Your Photo</Badge>
                  <Badge onClick={() => { setCaptureType('dl'); getCameraPermission(); }} className={`cursor-pointer h-8 px-4 font-black italic uppercase transition-all ${captureType === 'dl' ? 'bg-primary text-black' : 'bg-white/5 text-muted-foreground'}`}>License</Badge>
-                 <Badge onClick={() => { setCaptureType('aadhaar'); getCameraPermission(); }} className={`cursor-pointer h-8 px-4 font-black italic uppercase transition-all ${captureType === 'aadhaar' ? 'bg-primary text-black' : 'bg-white/5 text-muted-foreground'}`}>ID Photo</Badge>
+                 <Badge onClick={() => { setCaptureType('aadhaar'); getCameraPermission(); }} className={`cursor-pointer h-8 px-4 font-black italic uppercase transition-all ${captureType === 'aadhaar' ? 'bg-primary text-black' : 'bg-white/5 text-muted-foreground'}`}>ID Card</Badge>
               </div>
 
               {hasCameraPermission === false && (
                 <Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-left">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertTitle className="font-black italic uppercase text-[10px]">Camera Blocked</AlertTitle>
+                  <AlertTitle className="font-black italic uppercase text-[10px]">Camera Access Required</AlertTitle>
                   <AlertDescription className="text-[10px] font-bold opacity-70">Please allow camera access in browser settings to finish signup.</AlertDescription>
                 </Alert>
               )}
@@ -285,14 +295,13 @@ export default function DriverSignupPage() {
                   <Button onClick={() => {
                     if (photoUrl && dlPhotoUrl && aadhaarPhotoUrl) setStep(3);
                     else {
-                      // Logic to switch to next missing photo
                       if (!photoUrl) setCaptureType('profile');
                       else if (!dlPhotoUrl) setCaptureType('dl');
                       else if (!aadhaarPhotoUrl) setCaptureType('aadhaar');
                       getCameraPermission();
                     }
                   }} className="flex-1 bg-primary text-black font-black uppercase italic h-16 rounded-2xl shadow-xl">
-                    { (photoUrl && dlPhotoUrl && aadhaarPhotoUrl) ? "Next" : "Next Photo" }
+                    { (photoUrl && dlPhotoUrl && aadhaarPhotoUrl) ? "Finish Photos" : "Next Photo" }
                   </Button>
                 </div>
               )}

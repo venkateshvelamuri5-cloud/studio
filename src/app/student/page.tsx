@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -317,7 +318,7 @@ export default function RiderApp() {
                       <div className="p-8 bg-black/40 border border-dashed border-white/10 rounded-[3rem] text-center space-y-3">
                          <Loader2 className="animate-spin h-8 w-8 text-primary mx-auto opacity-50" />
                          <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest leading-relaxed">
-                           Driver details will be shared 3 hours before start.
+                           Hub is optimizing the route for the best possible experience.
                          </p>
                       </div>
                     ) : (
@@ -346,7 +347,7 @@ export default function RiderApp() {
                 <DialogContent className="bg-background border-white/5 rounded-[3.5rem] p-10 h-[90vh] flex flex-col shadow-2xl border-2">
                   <DialogHeader className="shrink-0 mb-6">
                     <DialogTitle className="text-4xl font-black italic uppercase text-primary leading-none tracking-tighter">
-                      {bookingStep === 1 ? "Choose Route" : bookingStep === 2 ? "Pick Stops" : bookingStep === 3 ? "Hub Payment" : "All Set"}
+                      {bookingStep === 1 ? "Choose Route" : bookingStep === 2 ? "Pick Hub Stops" : bookingStep === 3 ? "Hub Payment" : "All Set"}
                     </DialogTitle>
                   </DialogHeader>
 
@@ -368,7 +369,7 @@ export default function RiderApp() {
                     {bookingStep === 2 && (
                       <div className="space-y-8 animate-in slide-in-from-right-8">
                         <div className="space-y-4">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Pickup Landmark</Label>
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Pickup Hub Landmark</Label>
                            <div className="grid grid-cols-1 gap-2">
                               {selectedRoute?.stops?.map((stop: any, idx: number) => (
                                 <Button key={idx} onClick={() => setPickupStop(stop.name)} variant={pickupStop === stop.name ? 'default' : 'outline'} className={`h-14 rounded-xl font-black italic justify-start px-6 ${pickupStop === stop.name ? 'bg-primary text-black' : 'border-white/10 text-muted-foreground'}`}>
@@ -378,7 +379,7 @@ export default function RiderApp() {
                            </div>
                         </div>
                         <div className="space-y-4">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Drop Landmark</Label>
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Drop Hub Landmark</Label>
                            <div className="grid grid-cols-1 gap-2">
                               {selectedRoute?.stops?.map((stop: any, idx: number) => (
                                 <Button key={idx} onClick={() => setDropStop(stop.name)} variant={dropStop === stop.name ? 'default' : 'outline'} className={`h-14 rounded-xl font-black italic justify-start px-6 ${dropStop === stop.name ? 'bg-primary text-black' : 'border-white/10 text-muted-foreground'}`}>
@@ -398,25 +399,25 @@ export default function RiderApp() {
                               </select>
                            </div>
                            <div className="space-y-4">
-                              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Hub Time</Label>
+                              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Hub Time Slot</Label>
                               <select value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 font-black italic text-foreground outline-none focus:border-primary">
                                  <option value="">Select Time</option>
                                  {availableTimeSlots.map(t => <option key={t} value={t}>{t}</option>)}
                               </select>
                            </div>
                         </div>
-                        <Button onClick={() => setBookingStep(3)} disabled={!bookingTime || !pickupStop || !dropStop} className="w-full h-18 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-xl shadow-2xl">Confirm Hub</Button>
+                        <Button onClick={() => setBookingStep(3)} disabled={!bookingTime || !pickupStop || !dropStop} className="w-full h-18 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-xl shadow-2xl">Confirm Hub Ride</Button>
                       </div>
                     )}
 
                     {bookingStep === 3 && (
                       <div className="space-y-10 py-6 text-center animate-in slide-in-from-right-8">
                          <div className="p-10 bg-primary/5 rounded-[4rem] border-4 border-primary/20 shadow-2xl relative">
-                            <p className="text-[11px] font-black uppercase text-primary mb-5 tracking-[0.5em] italic">Seat Fare</p>
+                            <p className="text-[11px] font-black uppercase text-primary mb-5 tracking-[0.5em] italic">Ride Fare</p>
                             <h3 className="text-8xl font-black italic tracking-tighter leading-none text-white">₹{Math.max(0, calculatedFare - appliedDiscount)}</h3>
                          </div>
                          <div className="space-y-4 text-left">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-3 tracking-widest">Apply Voucher</Label>
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-3 tracking-widest">Apply Hub Voucher</Label>
                            <div className="flex gap-3">
                               <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="AAGO10" className="h-16 w-full bg-white/5 border-2 border-white/10 rounded-2xl font-black italic px-8 uppercase outline-none focus:border-primary" />
                               <Button onClick={handleApplyVoucher} className="h-16 px-8 rounded-2xl font-black italic bg-primary/10 text-primary border-2 border-primary/20">Apply</Button>
@@ -435,9 +436,9 @@ export default function RiderApp() {
                          </div>
                          <div className="space-y-4">
                            <h3 className="text-4xl font-black italic uppercase text-primary tracking-tighter leading-none">Seat Reserved!</h3>
-                           <p className="text-[10px] font-bold text-muted-foreground italic uppercase tracking-[0.2em]">Hub details will be shared 3 hours before start.</p>
+                           <p className="text-[10px] font-bold text-muted-foreground italic uppercase tracking-[0.2em]">Hub details will be shared 3 hours before ride starts.</p>
                          </div>
-                         <Button onClick={() => setBookingStep(1)} className="w-full h-18 bg-white/5 rounded-2xl border border-white/10 font-black uppercase italic">Exit</Button>
+                         <Button onClick={() => setBookingStep(1)} className="w-full h-18 bg-white/5 rounded-2xl border border-white/10 font-black uppercase italic">Back to Hub</Button>
                       </div>
                     )}
                   </div>
@@ -448,9 +449,9 @@ export default function RiderApp() {
             <Card className="bg-white/5 border-white/10 rounded-[3rem] p-10 space-y-5 shadow-lg">
               <div className="flex items-center gap-5">
                  <div className="p-4 bg-primary/10 rounded-2xl text-primary"><Gift className="h-7 w-7" /></div>
-                 <h4 className="text-2xl font-black italic uppercase tracking-tighter">Refer Hub</h4>
+                 <h4 className="text-2xl font-black italic uppercase tracking-tighter">Refer a Friend</h4>
               </div>
-              <p className="text-sm font-bold text-muted-foreground italic leading-relaxed">Refer a friend and get ₹50 Hub credit instantly.</p>
+              <p className="text-sm font-bold text-muted-foreground italic leading-relaxed">Refer someone to the Hub and get ₹50 credit instantly.</p>
               <div className="flex gap-3 bg-black/60 p-5 rounded-3xl border border-white/5 items-center">
                  <p className="flex-1 font-black italic text-primary uppercase tracking-[0.3em] text-lg px-4">{profile?.referralCode || '...'}</p>
                  <Button onClick={() => { navigator.clipboard.writeText(profile?.referralCode || ''); toast({ title: "Referral Copied" }); }} variant="ghost" className="text-primary h-12 w-12 bg-primary/5 rounded-2xl">
@@ -463,7 +464,7 @@ export default function RiderApp() {
 
         {activeTab === 'radar' && (
           <div className="flex-1 flex flex-col space-y-6 h-[calc(100vh-240px)] animate-in fade-in">
-            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">Live Radar</h2>
+            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">Hub Radar</h2>
             <div className="flex-1 rounded-[4rem] overflow-hidden border-4 border-white/5 shadow-3xl bg-black relative">
                {isLoaded ? (
                  <GoogleMap mapContainerStyle={mapContainerStyle} center={driverLocation || DEFAULT_CENTER} zoom={15} options={mapOptions}>
