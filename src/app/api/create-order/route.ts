@@ -12,6 +12,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Razorpay keys not configured' }, { status: 500 });
     }
 
+    // Initialize inside the request to avoid build-time errors with missing env vars
     const razorpay = new Razorpay({
       key_id,
       key_secret,

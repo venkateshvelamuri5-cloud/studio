@@ -37,7 +37,7 @@ import {
   Gift
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc } from 'firebase/firestore';
+import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc, onSnapshot } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -79,7 +79,7 @@ export default function RiderApp() {
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [bookingDate, setBookingDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [bookingTime, setBookingTime] = useState<string>("");
-  const [currentPosition, setCurrentPosition] = useState<{lat: number, lng: number} | null>(null);
+  const [driverLocation, setDriverLocation] = useState<{lat: number, lng: number} | null>(null);
   const [voucherCode, setVoucherCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [isPaying, setIsPaying] = useState(false);
@@ -96,6 +96,18 @@ export default function RiderApp() {
     if (!allTrips || !user?.uid) return null;
     return allTrips.find(t => t.passengerManifest?.some((m: any) => m.uid === user.uid));
   }, [allTrips, user?.uid]);
+
+  // Track Driver Location for Radar
+  useEffect(() => {
+    if (!db || !currentBooking?.driverId || activeTab !== 'radar') return;
+    const unsub = onSnapshot(doc(db, 'users', currentBooking.driverId), (doc) => {
+      const data = doc.data();
+      if (data?.currentLat && data?.currentLng) {
+        setDriverLocation({ lat: data.currentLat, lng: data.currentLng });
+      }
+    });
+    return () => unsub();
+  }, [db, currentBooking?.driverId, activeTab]);
 
   const calculatedFare = useMemo(() => {
     if (!selectedRoute) return 0;
@@ -115,13 +127,16 @@ export default function RiderApp() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'AAGO - Live Tracking',
-          text: `Track my ride on the Hub. Boarding Code: ${profile?.activeOtp}`,
+          title: 'AAGO Hub - Track My Ride',
+          text: `Track my Hub ride. Safe Boarding Code: ${profile?.activeOtp}`,
           url: window.location.href,
         });
       } catch (error) {
         toast({ title: "Link Copied" });
       }
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      toast({ title: "Link Copied to Clipboard" });
     }
   };
 
@@ -146,6 +161,7 @@ export default function RiderApp() {
     try {
       const verifyRes = await fetch('/api/verify-payment', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(paymentResponse),
       });
       const verifyData = await verifyRes.json();
@@ -198,9 +214,11 @@ export default function RiderApp() {
         await updateDoc(userRef, { activeOtp: otp, loyaltyPoints: increment(10) });
         setBookingStep(4);
         toast({ title: "Ride Confirmed" });
+      } else {
+        throw new Error(verifyData.error || 'Payment verification failed');
       }
-    } catch (e) {
-      toast({ variant: "destructive", title: "Payment Verification Failed" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Payment Error", description: e.message });
     } finally {
       setIsPaying(false);
     }
@@ -214,27 +232,32 @@ export default function RiderApp() {
       const finalAmount = Math.max(1, calculatedFare - appliedDiscount);
       const res = await fetch('/api/create-order', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: finalAmount * 100, receipt: `order_${Date.now()}` }),
       });
+      
+      if (!res.ok) throw new Error('Could not create Hub order');
       const orderData = await res.json();
 
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: orderData.amount,
         currency: orderData.currency,
-        name: "AAGO HUB",
+        name: "AAGO Hub",
         description: `Ride on ${selectedRoute.routeName}`,
         order_id: orderData.id,
         handler: (res: any) => processPaymentSuccess(res),
         prefill: { name: profile?.fullName || "", contact: profile?.phoneNumber || "" },
         theme: { color: "#EAB308" },
+        modal: {
+          ondismiss: () => setIsPaying(false)
+        }
       };
 
       const rzp = new (window as any).Razorpay(options);
       rzp.open();
-    } catch (e) {
-      toast({ variant: "destructive", title: "Could not start payment" });
-    } finally {
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Payment Start Failed", description: e.message });
       setIsPaying(false);
     }
   };
@@ -259,7 +282,7 @@ export default function RiderApp() {
 
       <main className="flex-1 p-5 space-y-6 max-w-lg mx-auto w-full">
         {activeTab === 'home' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-in fade-in">
             <div className="flex justify-between items-center px-2">
               <div className="space-y-1">
                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic opacity-50">Hello</p>
@@ -294,7 +317,7 @@ export default function RiderApp() {
                       <div className="p-8 bg-black/40 border border-dashed border-white/10 rounded-[3rem] text-center space-y-3">
                          <Loader2 className="animate-spin h-8 w-8 text-primary mx-auto opacity-50" />
                          <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest leading-relaxed">
-                           Hub is optimizing the route for the best possible experience. Details shared 3 hours before start.
+                           Hub is optimizing the route for you. Cab details shared 3 hours before start.
                          </p>
                       </div>
                     ) : (
@@ -426,8 +449,8 @@ export default function RiderApp() {
             <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">Radar</h2>
             <div className="flex-1 rounded-[4rem] overflow-hidden border-4 border-white/5 shadow-3xl bg-black relative">
                {isLoaded ? (
-                 <GoogleMap mapContainerStyle={mapContainerStyle} center={DEFAULT_CENTER} zoom={15} options={mapOptions}>
-                   {currentPosition && <Marker position={currentPosition} icon={{ path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: '#EAB308', fillOpacity: 1 }} />}
+                 <GoogleMap mapContainerStyle={mapContainerStyle} center={driverLocation || DEFAULT_CENTER} zoom={15} options={mapOptions}>
+                   {driverLocation && <Marker position={driverLocation} icon={{ path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: '#EAB308', fillOpacity: 1 }} />}
                  </GoogleMap>
                ) : <Loader2 className="animate-spin text-primary h-10 w-10 absolute inset-0 m-auto" />}
             </div>
@@ -438,15 +461,16 @@ export default function RiderApp() {
           <div className="space-y-8 pb-12 animate-in fade-in">
              <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">Ride Log</h2>
              <div className="space-y-4">
-                {allTrips?.length === 0 ? (
+                {allTrips?.filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid))?.length === 0 ? (
                   <div className="p-24 text-center italic text-muted-foreground bg-white/5 rounded-[3.5rem] border-2 border-dashed border-white/5 opacity-40 uppercase tracking-[0.4em] font-black text-[11px]">
                     No rides yet
                   </div>
-                ) : allTrips?.map((t: any) => (
+                ) : allTrips?.filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid))?.map((t: any) => (
                   <Card key={t.id} className="bg-card/40 border border-white/5 rounded-[2.5rem] p-8 flex justify-between items-center shadow-xl">
                     <div className="space-y-2">
                       <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-3 py-1 rounded-full">{t.status.toUpperCase()}</Badge>
                       <h4 className="font-black text-foreground uppercase italic text-2xl leading-none">{t.routeName}</h4>
+                      <p className="text-[9px] font-bold text-muted-foreground uppercase">{t.scheduledDate}</p>
                     </div>
                     <span className="text-2xl font-black italic text-primary">₹{t.farePerRider}</span>
                   </Card>

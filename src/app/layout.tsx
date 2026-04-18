@@ -7,11 +7,11 @@ import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import Script from 'next/script';
 
 export const metadata: Metadata = {
-  title: 'AAGO - Smart Mobility Grid',
+  title: 'AAGO Hub - Smart Mobility',
   description: 'The easiest way to get around. Real-time tracking and secure booking for modern commuters.',
   manifest: '/manifest.json',
   icons: {
-    icon: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2230%22 cy=%2230%22 r=%2210%22 fill=%22%2300FFFF%22/><circle cx=%2270%22 cy=%2230%22 r=%2210%22 fill=%22%2300FFFF%22/><circle cx=%2250%22 cy=%2270%22 r=%2210%22 fill=%22%2300FFFF%22/><path d=%22M30 30L70 30L50 70Z%22 stroke=%22%2300FFFF%22 stroke-width=%224%22 fill=%22none%22 stroke-dasharray=%225 5%22/></svg>',
+    icon: 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2230%22 cy=%2230%22 r=%2210%22 fill=%22%23EAB308%22/><circle cx=%2270%22 cy=%2230%22 r=%2210%22 fill=%22%23EAB308%22/><circle cx=%2250%22 cy=%2270%22 r=%2210%22 fill=%22%23EAB308%22/><path d=%22M30 30L70 30L50 70Z%22 stroke=%22%23EAB308%22 stroke-width=%224%22 fill=%22none%22 stroke-dasharray=%225 5%22/></svg>',
   },
   appleWebApp: {
     capable: true,
@@ -52,7 +52,11 @@ export default function RootLayout({
           {children}
           <Toaster />
         </FirebaseClientProvider>
-        <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
+        <Script 
+          id="razorpay-checkout-js"
+          src="https://checkout.razorpay.com/v1/checkout.js" 
+          strategy="afterInteractive" 
+        />
       </body>
     </html>
   );
