@@ -79,8 +79,6 @@ export default function RiderApp() {
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [bookingDate, setBookingDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [bookingTime, setBookingTime] = useState<string>("");
-  const [pickupStop, setPickupStop] = useState("");
-  const [destinationStop, setDestinationStop] = useState("");
   const [currentPosition, setCurrentPosition] = useState<{lat: number, lng: number} | null>(null);
   const [voucherCode, setVoucherCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState(0);
@@ -99,15 +97,10 @@ export default function RiderApp() {
     return allTrips.find(t => t.passengerManifest?.some((m: any) => m.uid === user.uid));
   }, [allTrips, user?.uid]);
 
-  const bookingManifestEntry = useMemo(() => {
-    if (!currentBooking || !user?.uid) return null;
-    return currentBooking.passengerManifest?.find((m: any) => m.uid === user.uid);
-  }, [currentBooking, user?.uid]);
-
   const calculatedFare = useMemo(() => {
-    if (!selectedRoute || !pickupStop || !destinationStop) return 0;
+    if (!selectedRoute) return 0;
     return selectedRoute.baseFare || 150;
-  }, [selectedRoute, pickupStop, destinationStop]);
+  }, [selectedRoute]);
 
   const availableTimeSlots = useMemo(() => {
     if (!selectedRoute?.schedule) return [];
@@ -122,8 +115,8 @@ export default function RiderApp() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'AAGO - Live Tracking',
-          text: `Track my AAGO ride. Safe Code: ${profile?.activeOtp}`,
+          title: 'AAGO - Tracking',
+          text: `Track my ride. Safe Code: ${profile?.activeOtp}`,
           url: window.location.href,
         });
       } catch (error) {
@@ -135,9 +128,9 @@ export default function RiderApp() {
   const handleApplyVoucher = () => {
     if (voucherCode.toUpperCase() === 'AAGO10') {
       setAppliedDiscount(20);
-      toast({ title: "₹20 Discount Applied!" });
+      toast({ title: "₹20 OFF Applied!" });
     } else {
-      toast({ variant: "destructive", title: "Invalid Code" });
+      toast({ variant: "destructive", title: "Invalid Voucher" });
     }
   };
 
@@ -159,8 +152,8 @@ export default function RiderApp() {
         const riderEntry = {
           uid: user!.uid,
           name: profile.fullName,
-          pickup: pickupStop,
-          destination: destinationStop,
+          pickup: "Default Landmark",
+          destination: "Target Landmark",
           bookingDate: bookingDate,
           bookingTime: bookingTime,
           farePaid: finalFare,
@@ -199,10 +192,10 @@ export default function RiderApp() {
 
         await updateDoc(userRef, { activeOtp: otp, loyaltyPoints: increment(10) });
         setBookingStep(4);
-        toast({ title: "Seat Confirmed!", description: "Payed via UPI successfully." });
+        toast({ title: "Ride Confirmed!", description: "Paid via UPI successfully." });
       }
     } catch (e) {
-      toast({ variant: "destructive", title: "Payment Verify Failed" });
+      toast({ variant: "destructive", title: "Payment Failed" });
     } finally {
       setIsPaying(false);
     }
@@ -224,8 +217,8 @@ export default function RiderApp() {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: orderData.amount,
         currency: orderData.currency,
-        name: "AAGO GRID",
-        description: `Ride to ${destinationStop}`,
+        name: "AAGO HUB",
+        description: `Ride: ${selectedRoute.routeName}`,
         order_id: orderData.id,
         handler: (res: any) => processPaymentSuccess(res),
         prefill: { name: profile?.fullName || "", contact: profile?.phoneNumber || "" },
@@ -235,7 +228,7 @@ export default function RiderApp() {
       const rzp = new (window as any).Razorpay(options);
       rzp.open();
     } catch (e) {
-      toast({ variant: "destructive", title: "Failed to start payment" });
+      toast({ variant: "destructive", title: "Could not start payment" });
     } finally {
       setIsPaying(false);
     }
@@ -247,12 +240,12 @@ export default function RiderApp() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-body pb-24 safe-area-inset">
-      <header className="px-6 py-6 flex items-center justify-between border-b border-white/5 bg-background/80 backdrop-blur-xl sticky top-0 z-50 shadow-sm">
+      <header className="px-6 py-6 flex items-center justify-between border-b border-white/5 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center text-black">
             <ConnectingDotsLogo className="h-5 w-5" />
           </div>
-          <h1 className="text-xl font-black italic uppercase text-primary tracking-tighter">AAGO</h1>
+          <h1 className="text-xl font-black italic uppercase text-primary tracking-tighter">AAGO Hub</h1>
         </div>
         <div className="flex items-center gap-2">
            <Button variant="ghost" size="icon" onClick={handleShareTracking} className="text-primary bg-primary/10 h-11 w-11 rounded-2xl border border-primary/20"><Share2 className="h-5 w-5" /></Button>
@@ -280,14 +273,14 @@ export default function RiderApp() {
                     <h3 className="text-7xl font-black tracking-tighter italic text-primary text-glow leading-none">
                       {currentBooking.status === 'active' ? profile?.activeOtp : 'SYNCED'}
                     </h3>
-                    <p className="text-[9px] font-black uppercase text-primary mt-4">Mission: {currentBooking.scheduledDate} @ {currentBooking.scheduledTime}</p>
+                    <p className="text-[9px] font-black uppercase text-primary mt-4">Ride: {currentBooking.scheduledDate} @ {currentBooking.scheduledTime}</p>
                  </div>
                  
                  <div className="space-y-4">
                     <div className="bg-black/60 p-6 rounded-[2.5rem] border border-white/5 flex items-center gap-5">
                        <div className="h-12 w-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary"><Navigation className="h-6 w-6" /></div>
                        <div className="flex-1">
-                          <p className="text-[9px] font-black uppercase text-muted-foreground">Corridor</p>
+                          <p className="text-[9px] font-black uppercase text-muted-foreground">Route</p>
                           <p className="text-xl font-black italic uppercase leading-none mt-1">{currentBooking.routeName}</p>
                        </div>
                     </div>
@@ -295,13 +288,13 @@ export default function RiderApp() {
                     {currentBooking.status === 'active' ? (
                       <div className="p-8 bg-black/40 border border-dashed border-white/10 rounded-[3rem] text-center space-y-3">
                          <Loader2 className="animate-spin h-8 w-8 text-primary mx-auto opacity-50" />
-                         <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest leading-relaxed">
-                           Grid is finding the best route for you. Details shared 3 hours before start.
+                         <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest leading-relaxed">
+                           Hub is optimizing the route. Cab details will be shared 3 hours before start.
                          </p>
                       </div>
                     ) : (
                       <Button onClick={() => setActiveTab('radar')} className="w-full h-18 bg-primary text-black rounded-3xl font-black uppercase italic shadow-2xl flex items-center justify-center gap-3">
-                         <Zap className="h-6 w-6" /> Track Live Radar
+                         <Zap className="h-6 w-6" /> Track Live Location
                       </Button>
                     )}
                  </div>
@@ -312,7 +305,7 @@ export default function RiderApp() {
                   <div className="p-14 bg-primary text-black rounded-[3.5rem] shadow-2xl flex flex-col gap-3 cursor-pointer group relative overflow-hidden border-4 border-black/5">
                     <h3 className="text-6xl font-black italic uppercase tracking-tighter relative z-10 leading-none">Book <br/> Now</h3>
                     <div className="flex items-center justify-between mt-6 relative z-10">
-                      <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Professional Transit</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Fixed-Price Ride</p>
                       <div className="h-12 w-12 bg-black rounded-full flex items-center justify-center text-primary group-hover:translate-x-3 transition-transform">
                         <ChevronRight className="h-6 w-6" />
                       </div>
@@ -322,7 +315,7 @@ export default function RiderApp() {
                 <DialogContent className="bg-background border-white/5 rounded-[3.5rem] p-10 h-[90vh] flex flex-col shadow-2xl border-2">
                   <DialogHeader className="shrink-0 mb-6">
                     <DialogTitle className="text-4xl font-black italic uppercase text-primary leading-none tracking-tighter">
-                      {bookingStep === 1 ? "Select Corridor" : bookingStep === 2 ? "Pick a Time" : bookingStep === 3 ? "Payment" : "Done!"}
+                      {bookingStep === 1 ? "Pick Route" : bookingStep === 2 ? "Pick Time" : bookingStep === 3 ? "Payment" : "Done!"}
                     </DialogTitle>
                   </DialogHeader>
 
@@ -344,7 +337,7 @@ export default function RiderApp() {
                     {bookingStep === 2 && (
                       <div className="space-y-8">
                         <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Select Date</Label>
+                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Date</Label>
                           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                              {[0, 1, 2, 3].map((day) => {
                                const d = addDays(new Date(), day);
@@ -378,9 +371,9 @@ export default function RiderApp() {
                             <h3 className="text-8xl font-black italic tracking-tighter leading-none text-white">₹{Math.max(0, calculatedFare - appliedDiscount)}</h3>
                          </div>
                          <div className="space-y-4">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-3 tracking-widest">Coupons</Label>
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-3 tracking-widest">Enter Code</Label>
                            <div className="flex gap-3">
-                              <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="AAGO10" className="h-16 w-full bg-white/5 border-2 border-white/10 rounded-2xl font-black italic px-8 uppercase outline-none focus:border-primary" />
+                              <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="e.g. AAGO10" className="h-16 w-full bg-white/5 border-2 border-white/10 rounded-2xl font-black italic px-8 uppercase outline-none focus:border-primary" />
                               <Button onClick={handleApplyVoucher} className="h-16 px-8 rounded-2xl font-black italic bg-primary/10 text-primary border-2 border-primary/20">Apply</Button>
                            </div>
                          </div>
@@ -397,7 +390,7 @@ export default function RiderApp() {
                          </div>
                          <div className="space-y-4">
                            <h3 className="text-4xl font-black italic uppercase text-primary tracking-tighter leading-none">Booked!</h3>
-                           <p className="text-[10px] font-bold text-muted-foreground italic uppercase tracking-[0.2em]">Safe travel code added to your hub.</p>
+                           <p className="text-[10px] font-bold text-muted-foreground italic uppercase tracking-[0.2em]">Safe Code added to your Hub Profile.</p>
                          </div>
                          <Button onClick={() => setBookingStep(1)} className="w-full h-18 bg-white/5 rounded-2xl border border-white/10 font-black uppercase italic">Close</Button>
                       </div>
@@ -412,7 +405,7 @@ export default function RiderApp() {
                  <div className="p-4 bg-primary/10 rounded-2xl text-primary"><Gift className="h-7 w-7" /></div>
                  <h4 className="text-2xl font-black italic uppercase tracking-tighter">Refer & Earn</h4>
               </div>
-              <p className="text-sm font-bold text-muted-foreground italic leading-relaxed">Share your code and get ₹50 off when a friend joins the grid.</p>
+              <p className="text-sm font-bold text-muted-foreground italic leading-relaxed">Share your code and get ₹50 off when a friend joins the Hub.</p>
               <div className="flex gap-3 bg-black/60 p-5 rounded-3xl border border-white/5 items-center">
                  <p className="flex-1 font-black italic text-primary uppercase tracking-[0.3em] text-lg px-4">{profile?.referralCode || '...'}</p>
                  <Button onClick={() => { navigator.clipboard.writeText(profile?.referralCode || ''); toast({ title: "Copied!" }); }} variant="ghost" className="text-primary h-12 w-12 bg-primary/5 rounded-2xl">
@@ -425,7 +418,7 @@ export default function RiderApp() {
 
         {activeTab === 'radar' && (
           <div className="flex-1 flex flex-col space-y-6 h-[calc(100vh-240px)] animate-in fade-in">
-            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">Live Radar</h2>
+            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">Live Location</h2>
             <div className="flex-1 rounded-[4rem] overflow-hidden border-4 border-white/5 shadow-3xl bg-black relative">
                {isLoaded ? (
                  <GoogleMap mapContainerStyle={mapContainerStyle} center={DEFAULT_CENTER} zoom={15} options={mapOptions}>
@@ -438,7 +431,7 @@ export default function RiderApp() {
 
         {activeTab === 'history' && (
           <div className="space-y-8 pb-12 animate-in fade-in">
-             <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">Mission Log</h2>
+             <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">Ride Log</h2>
              <div className="space-y-4">
                 {allTrips?.length === 0 ? (
                   <div className="p-24 text-center italic text-muted-foreground bg-white/5 rounded-[3.5rem] border-2 border-dashed border-white/5 opacity-40 uppercase tracking-[0.4em] font-black text-[11px]">
@@ -465,7 +458,7 @@ export default function RiderApp() {
                 </div>
                 <div className="space-y-2">
                    <h2 className="text-5xl font-black italic uppercase text-foreground tracking-tighter">{profile?.fullName}</h2>
-                   <Badge className="bg-primary/20 text-primary border-none uppercase text-[10px] font-black tracking-widest px-8 py-2 rounded-full">GRID MEMBER</Badge>
+                   <Badge className="bg-primary/20 text-primary border-none uppercase text-[10px] font-black tracking-widest px-8 py-2 rounded-full">HUB MEMBER</Badge>
                 </div>
              </div>
              <Button onClick={handleSignOut} className="w-full max-w-sm mx-auto h-18 bg-destructive/10 text-destructive rounded-3xl font-black uppercase italic border-2 border-destructive/20 text-lg hover:bg-destructive hover:text-white transition-all">

@@ -25,7 +25,7 @@ const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) =
 );
 
 export default function SignupPage() {
-  const [step, setStep] = useState(1); // 1: Info & Safety, 2: Phone, 3: Code
+  const [step, setStep] = useState(1); // 1: Info & Phone, 2: OTP
   const [loading, setLoading] = useState(false);
   
   // Profile Details
@@ -33,10 +33,9 @@ export default function SignupPage() {
   const [identityNumber, setIdentityNumber] = useState('');
   const [gender, setGender] = useState('Male');
   const [emergencyPhone, setEmergencyPhone] = useState('');
-  const [referredByCode, setReferredByCode] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   
   // Auth
-  const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
@@ -87,10 +86,10 @@ export default function SignupPage() {
       const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaRef.current);
       setConfirmationResult(result);
-      setStep(3);
+      setStep(2);
       toast({ title: "Code Sent" });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: "Try again later." });
+      toast({ variant: "destructive", title: "Error", description: "Could not send code. Try again later." });
     } finally {
       setLoading(false);
     }
@@ -104,14 +103,6 @@ export default function SignupPage() {
     try {
       const result = await confirmationResult.confirm(otp);
       const referralCode = `AAGO-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-
-      if (referredByCode.trim()) {
-        const q = query(collection(db, 'users'), where('referralCode', '==', referredByCode.trim().toUpperCase()));
-        const referrerSnap = await getDocs(q);
-        if (!referrerSnap.empty) {
-          await updateDoc(doc(db, 'users', referrerSnap.docs[0].id), { loyaltyPoints: increment(50) });
-        }
-      }
 
       await setDoc(doc(db, 'users', result.user.uid), {
         uid: result.user.uid,
@@ -151,15 +142,15 @@ export default function SignupPage() {
       <Card className="w-full max-w-md bg-white/5 border-none rounded-[2.5rem] shadow-2xl overflow-hidden">
         <CardHeader className="pt-8 pb-4 text-center">
           <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-foreground">Sign Up</CardTitle>
-          <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Step {step} of 3</CardDescription>
+          <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Create your Hub Profile</CardDescription>
         </CardHeader>
         
         <CardContent className="px-6 py-8 sm:px-10">
-          {step === 1 && (
-            <div className="space-y-5">
+          {step === 1 ? (
+            <form onSubmit={handleSendOtp} className="space-y-5">
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Your Name</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Full Name" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic" />
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Full Name" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic" required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -175,33 +166,25 @@ export default function SignupPage() {
                 </div>
                 <div className="space-y-2">
                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">ID Number</Label>
-                   <Input value={identityNumber} onChange={(e) => setIdentityNumber(e.target.value)} placeholder="Govt/ID" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic" />
+                   <Input value={identityNumber} onChange={(e) => setIdentityNumber(e.target.value)} placeholder="Govt ID" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic" required />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Safe Contact Phone</Label>
-                <Input value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)} placeholder="0000000000" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic" />
+                <Input value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)} placeholder="Emergency Phone" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic" required />
               </div>
-              <Button onClick={() => setStep(2)} disabled={!fullName || !identityNumber || !emergencyPhone} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all">Continue</Button>
-            </div>
-          )}
-
-          {step === 2 && (
-            <form onSubmit={handleSendOtp} className="space-y-6">
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Phone Number</Label>
                 <div className="relative">
                   <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary text-lg z-20">+91</span>
                   <Input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="0000000000" className="h-16 pl-20 rounded-xl bg-white/5 border-white/10 font-black italic text-xl" required />
                 </div>
               </div>
-              <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all">
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Get Code"}
+              <Button type="submit" disabled={loading || !fullName || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all">
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Send Code"}
               </Button>
             </form>
-          )}
-
-          {step === 3 && (
+          ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-6">
               <div className="space-y-3">
                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1 text-center block">Verification Code</Label>

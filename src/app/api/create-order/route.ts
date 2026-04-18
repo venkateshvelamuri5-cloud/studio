@@ -13,7 +13,7 @@ export async function POST(req: Request) {
 
     if (!amount || amount < 100) {
       return NextResponse.json(
-        { error: 'Amount must be at least 100 paise (₹1)' },
+        { error: 'Amount must be at least ₹1 (100 paise)' },
         { status: 400 }
       );
     }

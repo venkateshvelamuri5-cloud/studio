@@ -8,7 +8,7 @@ export async function POST(req: Request) {
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json(
-        { error: 'Missing payment verification details' },
+        { error: 'Missing payment details' },
         { status: 400 }
       );
     }
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: 'success' });
     } else {
       return NextResponse.json(
-        { error: 'Signature mismatch' },
+        { error: 'Payment signature mismatch' },
         { status: 400 }
       );
     }
