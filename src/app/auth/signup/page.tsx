@@ -5,14 +5,14 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
-import { doc, setDoc, getDocs, collection, query, where, updateDoc, increment, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) => (
@@ -25,17 +25,13 @@ const ConnectingDotsLogo = ({ className = "h-8 w-8" }: { className?: string }) =
 );
 
 export default function SignupPage() {
-  const [step, setStep] = useState(1); // 1: Info & Phone, 2: OTP
+  const [step, setStep] = useState(1); 
   const [loading, setLoading] = useState(false);
   
-  // Profile Details
   const [fullName, setFullName] = useState('');
   const [identityNumber, setIdentityNumber] = useState('');
   const [gender, setGender] = useState('Male');
-  const [emergencyPhone, setEmergencyPhone] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  
-  // Auth
   const [otp, setOtp] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
@@ -44,7 +40,7 @@ export default function SignupPage() {
   const db = useFirestore();
   const { user, loading: authLoading } = useUser();
   const { toast } = useToast();
-  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
+  const recaptchaVerifier = useRef<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
     if (!authLoading && user && db) {
@@ -58,38 +54,35 @@ export default function SignupPage() {
     }
   }, [user, authLoading, router, db]);
 
-  useEffect(() => {
-    const initRecaptcha = () => {
-      if (auth && !recaptchaRef.current) {
-        const container = document.getElementById('recaptcha-container-signup');
-        if (container) {
-          try {
-            recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup', {
-              size: 'invisible',
-            });
-          } catch (error) {
-            console.error("reCAPTCHA failed", error);
-          }
-        }
+  const setupRecaptcha = () => {
+    if (!auth) return;
+    try {
+      if (recaptchaVerifier.current) {
+        recaptchaVerifier.current.clear();
       }
-    };
-    const timeout = setTimeout(initRecaptcha, 500);
-    return () => clearTimeout(timeout);
-  }, [auth]);
+      recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup', {
+        size: 'invisible',
+        callback: () => {}
+      });
+    } catch (error) {
+      console.error("Recaptcha error:", error);
+    }
+  };
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth || !recaptchaRef.current) return;
+    if (!auth) return;
     setLoading(true);
 
     try {
+      setupRecaptcha();
       const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
-      const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaRef.current);
+      const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(2);
-      toast({ title: "Verification Code Sent" });
+      toast({ title: "Code Sent" });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: "Could not send verification code. Try again later." });
+      toast({ variant: "destructive", title: "Error", description: "Failed to send code. Try again." });
     } finally {
       setLoading(false);
     }
@@ -110,7 +103,6 @@ export default function SignupPage() {
         fullName,
         identityNumber,
         gender,
-        emergencyContactPhone: emergencyPhone,
         referralCode,
         role: 'rider',
         isVerified: true,
@@ -129,7 +121,7 @@ export default function SignupPage() {
   if (authLoading) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin h-12 w-12 text-primary" /></div>;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 sm:p-6 font-body safe-area-inset">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 font-body safe-area-inset">
       <div id="recaptcha-container-signup"></div>
       
       <div className="mb-6 flex flex-col items-center gap-3">
@@ -141,16 +133,16 @@ export default function SignupPage() {
 
       <Card className="w-full max-w-md bg-white/5 border-none rounded-[2.5rem] shadow-2xl overflow-hidden">
         <CardHeader className="pt-8 pb-4 text-center">
-          <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-foreground">Join Hub</CardTitle>
+          <CardTitle className="text-lg font-black uppercase italic tracking-tighter">Join Hub</CardTitle>
           <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">Create your Hub profile</CardDescription>
         </CardHeader>
         
-        <CardContent className="px-6 py-8 sm:px-10">
+        <CardContent className="px-6 py-8">
           {step === 1 ? (
             <form onSubmit={handleSendOtp} className="space-y-5">
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Full Name</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Enter your name" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic" required />
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Full Name" className="h-14 rounded-xl bg-white/5 border-white/10 font-black italic" required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -176,7 +168,7 @@ export default function SignupPage() {
                   <Input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="0000000000" className="h-16 pl-20 rounded-xl bg-white/5 border-white/10 font-black italic text-xl" required />
                 </div>
               </div>
-              <Button type="submit" disabled={loading || !fullName || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all">
+              <Button type="submit" disabled={loading || !fullName || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
                 {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Phone"}
               </Button>
             </form>
@@ -186,7 +178,7 @@ export default function SignupPage() {
                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1 text-center block">Verification Code</Label>
                 <Input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" className="h-20 text-center text-4xl tracking-[0.4em] rounded-2xl bg-white/5 border-white/10 font-black text-primary" maxLength={6} required />
               </div>
-              <Button type="submit" disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all">
+              <Button type="submit" disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
                 {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify & Join"}
               </Button>
             </form>

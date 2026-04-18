@@ -223,6 +223,10 @@ export default function RiderApp() {
 
   const initiatePayment = async () => {
     if (typeof window === 'undefined' || !selectedRoute) return;
+    if (!(window as any).Razorpay) {
+      toast({ variant: 'destructive', title: 'Payment Error', description: 'Payment gateway is loading. Please wait.' });
+      return;
+    }
     setIsPaying(true);
 
     try {
@@ -237,7 +241,7 @@ export default function RiderApp() {
       const orderData = await res.json();
 
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SeqhV0hEn1PXnz',
+        key: 'rzp_live_SeqhV0hEn1PXnz',
         amount: orderData.amount,
         currency: orderData.currency,
         name: "AAGO Hub",
@@ -525,4 +529,3 @@ export default function RiderApp() {
     </div>
   );
 }
-

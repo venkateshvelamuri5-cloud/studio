@@ -5,9 +5,8 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult, signOut } from 'firebase/auth';
@@ -35,7 +34,7 @@ export default function DriverLoginPage() {
   const db = useFirestore();
   const { user, loading: authLoading } = useUser();
   const { toast } = useToast();
-  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
+  const recaptchaVerifier = useRef<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
     if (!authLoading && user && db) {
@@ -49,59 +48,36 @@ export default function DriverLoginPage() {
     }
   }, [user, authLoading, db, router]);
 
-  useEffect(() => {
-    const initRecaptcha = () => {
-      if (auth && !recaptchaRef.current) {
-        const container = document.getElementById('recaptcha-container-driver');
-        if (container) {
-          try {
-            recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-driver', {
-              size: 'invisible',
-            });
-          } catch (error) {
-            console.error("reCAPTCHA initialization failed", error);
-          }
-        }
+  const setupRecaptcha = () => {
+    if (!auth) return;
+    try {
+      if (recaptchaVerifier.current) {
+        recaptchaVerifier.current.clear();
       }
-    };
-
-    const timeout = setTimeout(initRecaptcha, 500);
-    return () => {
-      clearTimeout(timeout);
-      if (recaptchaRef.current) {
-        recaptchaRef.current.clear();
-        recaptchaRef.current = null;
-      }
-    };
-  }, [auth]);
+      recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container-driver', {
+        size: 'invisible',
+        callback: () => {}
+      });
+    } catch (error) {
+      console.error("Recaptcha error:", error);
+    }
+  };
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth || !recaptchaRef.current) return;
+    if (!auth) return;
     setLoading(true);
 
     try {
+      setupRecaptcha();
       const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
-      const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaRef.current);
+      const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(2);
       toast({ title: "Code Sent" });
     } catch (error: any) {
       console.error(error);
-      let title = "Error";
-      let message = "Try again later.";
-      
-      if (error.code === 'auth/billing-not-enabled') {
-        title = "Restricted Access";
-        message = "SMS service is blocked. Contact Grid Support.";
-      }
-      
-      toast({ variant: "destructive", title, description: message });
-      
-      if (recaptchaRef.current) {
-        recaptchaRef.current.clear();
-        recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container-driver', { size: 'invisible' });
-      }
+      toast({ variant: "destructive", title: "Auth Error", description: "Failed to send code." });
     } finally {
       setLoading(false);
     }
@@ -114,8 +90,7 @@ export default function DriverLoginPage() {
 
     try {
       const result = await confirmationResult.confirm(otp);
-      const loggedUser = result.user;
-      const userSnap = await getDoc(doc(db, 'users', loggedUser.uid));
+      const userSnap = await getDoc(doc(db, 'users', result.user.uid));
 
       if (!userSnap.exists()) {
         router.push('/driver/signup');
@@ -143,24 +118,22 @@ export default function DriverLoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 font-body safe-area-inset">
       <div id="recaptcha-container-driver"></div>
       
-      <div className="mb-12 flex flex-col items-center gap-6 animate-in fade-in duration-1000">
+      <div className="mb-12 flex flex-col items-center gap-6">
         <div className="bg-primary p-5 rounded-3xl shadow-2xl shadow-primary/30">
           <ConnectingDotsLogo className="h-14 w-14 text-black" />
         </div>
         <div className="text-center">
-          <h1 className="text-4xl font-black font-headline italic uppercase tracking-tighter text-foreground leading-none">DRIVER</h1>
+          <h1 className="text-4xl font-black italic uppercase tracking-tighter text-foreground leading-none">DRIVER</h1>
           <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mt-2">Operator Hub</p>
         </div>
       </div>
 
       <Card className="w-full max-w-md glass-card border-none rounded-[3.5rem] overflow-hidden shadow-2xl">
-        <CardHeader className="pt-14 pb-8 text-center border-b border-white/5 bg-white/5">
-          <CardTitle className="text-2xl font-black uppercase italic tracking-tighter text-foreground leading-none">Login</CardTitle>
-          <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic mt-2">
-            Operator Verification
-          </CardDescription>
+        <CardHeader className="pt-14 pb-8 text-center bg-white/5 border-b border-white/5">
+          <CardTitle className="text-2xl font-black uppercase italic tracking-tighter">Login</CardTitle>
+          <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic mt-2">Operator Verification</CardDescription>
         </CardHeader>
-        <CardContent className="px-12 py-10 pb-10">
+        <CardContent className="px-12 py-10">
           {step === 1 ? (
             <form onSubmit={handleSendOtp} className="space-y-8">
               <div className="space-y-3">
@@ -172,16 +145,12 @@ export default function DriverLoginPage() {
                     value={phoneNumber} 
                     onChange={(e) => setPhoneNumber(e.target.value)} 
                     placeholder="0000000000" 
-                    className="h-16 w-full pl-20 rounded-2xl bg-white/5 border border-white/10 font-black text-foreground text-xl italic outline-none relative z-10 transition-colors focus:border-primary" 
+                    className="h-16 w-full pl-20 rounded-2xl bg-white/5 border border-white/10 font-black text-foreground text-xl italic outline-none" 
                     required
                   />
                 </div>
               </div>
-              <Button 
-                type="submit" 
-                disabled={loading || phoneNumber.length < 10}
-                className="w-full bg-primary hover:bg-primary/90 text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all active:scale-95"
-              >
+              <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
                 {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Request Code"}
               </Button>
             </form>
@@ -194,16 +163,12 @@ export default function DriverLoginPage() {
                   value={otp} 
                   onChange={(e) => setOtp(e.target.value)} 
                   placeholder="000000" 
-                  className="h-24 w-full text-center text-4xl tracking-[0.6em] rounded-2xl bg-white/5 border border-white/10 font-black text-primary outline-none focus:border-primary transition-colors" 
+                  className="h-24 w-full text-center text-4xl tracking-[0.6em] rounded-2xl bg-white/5 border border-white/10 font-black text-primary outline-none focus:border-primary" 
                   maxLength={6}
                   required
                 />
               </div>
-              <Button 
-                type="submit" 
-                disabled={loading || otp.length < 6}
-                className="w-full bg-primary hover:bg-primary/90 text-black h-20 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all active:scale-95"
-              >
+              <Button type="submit" disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-20 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
                 {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Me"}
               </Button>
             </form>
