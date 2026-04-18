@@ -46,7 +46,7 @@
         "vehicleType": { "type": "string" },
         "routeName": { "type": "string" },
         "scheduledDate": { "type": "string" },
-        "status": { "type": "string", "enum": ["active", "completed", "cancelled"] },
+        "status": { "type": "string", "enum": ["active", "scheduled", "on-trip", "completed"] },
         "riderCount": { "type": "number", "default": 0 },
         "maxCapacity": { "type": "number", "default": 7 },
         "farePerRider": { "type": "number" },
@@ -59,7 +59,8 @@
               "name": { "type": "string" },
               "pickup": { "type": "string" },
               "destination": { "type": "string" },
-              "bookingDate": { "type": "string" }
+              "bookingDate": { "type": "string" },
+              "farePaid": { "type": "number" }
             }
           }
         },
@@ -74,7 +75,7 @@
     },
     "Route": {
       "title": "Route",
-      "description": "A community transit corridor definition.",
+      "description": "A community transit corridor definition with landmark stops.",
       "type": "object",
       "properties": {
         "routeName": { "type": "string" },
@@ -86,7 +87,8 @@
             "properties": { "name": { "type": "string" } } 
           } 
         },
-        "status": { "type": "string" }
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
       }
     },
     "AppConfig": {

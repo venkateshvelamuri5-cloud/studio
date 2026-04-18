@@ -23,7 +23,8 @@ import {
   Trophy,
   ShieldAlert,
   Clock,
-  Info
+  Info,
+  MapPin
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
 import { doc, updateDoc, collection, onSnapshot, query, where, arrayUnion, getDocs, increment, addDoc } from 'firebase/firestore';
@@ -56,9 +57,9 @@ export default function DriverApp() {
   const userRef = useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
+  // Grid Sync: Drivers see trips that have been "Processed" (Scheduled) according to capacity business model
   const { data: jobPool } = useCollection(useMemo(() => {
     if (!db) return null;
-    // Capacity logic: Drivers only see trips that are "Scheduled" (after the 3h segregation window)
     return query(collection(db, 'trips'), where('status', '==', 'scheduled'));
   }, [db]));
 
@@ -136,7 +137,7 @@ export default function DriverApp() {
     setIsUpdating(true);
     try {
       const yieldAmt = (activeTrip.passengerManifest?.length || 0) * (activeTrip.farePerRider || 0);
-      const driverShare = yieldAmt * 0.9;
+      const driverShare = yieldAmt * 0.9; // Operator gets 90%
       await updateDoc(doc(db, 'trips', activeTrip.id), { 
         status: 'completed', 
         endTime: new Date().toISOString() 
@@ -146,7 +147,7 @@ export default function DriverApp() {
         activeTripId: null,
         totalEarnings: increment(driverShare)
       });
-      toast({ title: "Mission Done" });
+      toast({ title: "Mission Completed" });
     } finally { setIsUpdating(false); }
   };
 
@@ -161,9 +162,9 @@ export default function DriverApp() {
           <ShieldAlert className="h-16 w-16" />
         </div>
         <div className="space-y-4 max-w-sm">
-          <h1 className="text-4xl font-black italic uppercase text-foreground leading-none tracking-tighter">Syncing ID</h1>
+          <h1 className="text-4xl font-black italic uppercase text-foreground leading-none tracking-tighter">Syncing Profile</h1>
           <p className="text-sm font-bold text-muted-foreground italic uppercase tracking-widest leading-relaxed">
-            Your identity is being verified by the Hub. Details will be synchronized for grid access once approved.
+            Your identity is being verified by the Hub. Grid access will be synchronized once an administrator authorizes your profile.
           </p>
         </div>
         <Button onClick={handleSignOut} variant="ghost" className="text-destructive font-black uppercase italic">Exit Terminal</Button>
@@ -185,7 +186,7 @@ export default function DriverApp() {
             </Badge>
           </div>
         </div>
-        <Button onClick={() => updateDoc(userRef!, { status: profile?.status === 'offline' ? 'available' : 'offline' })} className={`rounded-2xl h-11 w-11 p-0 ${profile?.status === 'offline' ? 'bg-white/5 text-muted-foreground' : 'bg-primary text-black'}`}>
+        <Button onClick={() => updateDoc(userRef!, { status: profile?.status === 'offline' ? 'available' : 'offline' })} className={`rounded-2xl h-11 w-11 p-0 transition-all ${profile?.status === 'offline' ? 'bg-white/5 text-muted-foreground' : 'bg-primary text-black'}`}>
           <Power className="h-6 w-6" />
         </Button>
       </header>
@@ -202,22 +203,22 @@ export default function DriverApp() {
              </Card>
 
              <div className="flex items-center justify-between px-2">
-                <h3 className="text-xl font-black italic uppercase flex items-center gap-2"><Target className="h-5 w-5 text-primary" /> Demand Pool</h3>
-                <Badge variant="outline" className="border-white/10 text-[8px] uppercase tracking-widest">3H WINDOW</Badge>
+                <h3 className="text-xl font-black italic uppercase flex items-center gap-2"><Target className="h-5 w-5 text-primary" /> Demand Sync</h3>
+                <Badge variant="outline" className="border-white/10 text-[8px] uppercase tracking-widest">3-HOUR POOLS</Badge>
              </div>
 
              <div className="space-y-3">
                 {jobPool?.length === 0 ? (
                   <div className="p-20 text-center text-muted-foreground italic bg-white/5 rounded-[2.5rem] border border-dashed border-white/10 flex flex-col items-center gap-4">
                      <Loader2 className="animate-spin h-6 w-6 opacity-20" />
-                     <p className="text-[10px] font-black uppercase tracking-widest">Awaiting Grid Sync...</p>
+                     <p className="text-[10px] font-black uppercase tracking-widest">Awaiting Grid Synchronization...</p>
                   </div>
                 ) : jobPool?.map((job: any) => (
                   <Card key={job.id} className="p-8 bg-white/5 border border-white/5 rounded-[2.5rem] flex justify-between items-center group hover:bg-white/10 transition-all">
                     <div className="space-y-2">
                        <h4 className="text-2xl font-black italic uppercase leading-none">{job.routeName}</h4>
                        <div className="flex items-center gap-3">
-                          <Badge className="bg-primary/20 text-primary border-none text-[9px] font-black uppercase px-3 py-1 rounded-full">{job.riderCount} Riders</Badge>
+                          <Badge className="bg-primary/20 text-primary border-none text-[9px] font-black uppercase px-3 py-1 rounded-full">{job.riderCount} Seats Filled</Badge>
                           <span className="text-[10px] font-bold text-muted-foreground uppercase">{job.scheduledDate}</span>
                        </div>
                     </div>
@@ -234,9 +235,9 @@ export default function DriverApp() {
                <div className="flex justify-between items-start">
                   <div className="space-y-1">
                      <h2 className="text-4xl font-black italic uppercase leading-none text-primary tracking-tighter">{activeTrip.routeName}</h2>
-                     <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-2">Mission Active</p>
+                     <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-2">Mission Synchronized</p>
                   </div>
-                  <Badge className="bg-primary/20 text-primary border-none text-[10px] font-black uppercase px-5 py-2 rounded-full">GRID LIVE</Badge>
+                  <Badge className="bg-primary/20 text-primary border-none text-[10px] font-black uppercase px-5 py-2 rounded-full">ACTIVE</Badge>
                </div>
 
                <div className="bg-black/60 p-8 rounded-[3rem] border border-white/10 space-y-6">
@@ -248,13 +249,16 @@ export default function DriverApp() {
                </div>
 
                <div className="space-y-4">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground ml-4 flex items-center gap-2"><Users className="h-4 w-4" /> Manifest</h3>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground ml-4 flex items-center gap-2"><Users className="h-4 w-4" /> Transit Manifest</h3>
                   <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                      {activeTrip.passengerManifest?.map((m: any, i: number) => (
                        <div key={i} className={`p-6 rounded-3xl border flex items-center justify-between ${activeTrip.verifiedPassengers?.includes(m.uid) ? 'bg-primary/10 border-primary/20' : 'bg-white/5 border-white/5'}`}>
                           <div>
                              <p className="font-black italic text-foreground text-sm uppercase leading-none">{m.name}</p>
-                             <p className="text-[8px] font-bold text-muted-foreground uppercase mt-1 italic">{m.pickup} → {m.destination}</p>
+                             <div className="flex items-center gap-2 mt-1">
+                                <MapPin className="h-3 w-3 text-primary" />
+                                <p className="text-[8px] font-bold text-muted-foreground uppercase italic">{m.pickup} → {m.destination}</p>
+                             </div>
                           </div>
                           {activeTrip.verifiedPassengers?.includes(m.uid) && <CheckCircle2 className="text-primary h-6 w-6" />}
                        </div>
@@ -262,7 +266,7 @@ export default function DriverApp() {
                   </div>
                </div>
 
-               <Button onClick={endTrip} disabled={isUpdating} className="w-full h-20 bg-primary/10 border-2 border-primary/50 text-primary rounded-[3rem] font-black uppercase italic text-xl shadow-2xl transition-all">Complete Mission</Button>
+               <Button onClick={endTrip} disabled={isUpdating} className="w-full h-20 bg-primary/10 border-2 border-primary/50 text-primary rounded-[3rem] font-black uppercase italic text-xl shadow-2xl transition-all">Complete Corridor Mission</Button>
             </Card>
           </div>
         ))}
@@ -276,10 +280,10 @@ export default function DriverApp() {
              <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-6">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Trophy className="h-6 w-6" /></div>
-                  <h4 className="text-xl font-black italic uppercase">Daily Goal</h4>
+                  <h4 className="text-xl font-black italic uppercase">Daily Mission Goal</h4>
                 </div>
-                <Progress value={Math.min(100, ((profile?.totalEarnings || 0) / 1000) * 100)} className="h-3 bg-white/5 [&>div]:bg-primary" />
-                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic text-center">90% of trip yield credited to operator wallet.</p>
+                <Progress value={Math.min(100, ((profile?.totalEarnings || 0) / 2000) * 100)} className="h-3 bg-white/5 [&>div]:bg-primary" />
+                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic text-center">90% of corridor yield is credited to operator balance.</p>
              </Card>
           </div>
         )}

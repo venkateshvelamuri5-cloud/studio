@@ -111,12 +111,13 @@ export default function RiderApp() {
     const stops = selectedRoute.stops || [];
     const pIdx = stops.findIndex((s: any) => s.name === pickupStop);
     const dIdx = stops.findIndex((s: any) => s.name === destinationStop);
-    if (pIdx === -1 || dIdx === -1 || dIdx <= pIdx) return 0;
+    if (pIdx === -1 || dIdx === -1 || dIdx <= pIdx) return selectedRoute.baseFare; // Default to base fare if logic fails
     
-    const segmentLength = dIdx - pIdx;
+    // Prorate fare based on landmarks covered
+    const segmentsTraveled = dIdx - pIdx;
     const totalSegments = stops.length - 1;
-    const proration = segmentLength / totalSegments;
-    return Math.ceil(selectedRoute.baseFare * proration);
+    const fare = (selectedRoute.baseFare / totalSegments) * segmentsTraveled;
+    return Math.max(15, Math.ceil(fare)); // Min 15 INR
   }, [selectedRoute, pickupStop, destinationStop]);
 
   const mapCenter = useMemo(() => {
@@ -149,7 +150,7 @@ export default function RiderApp() {
     } else {
       const vData = snap.docs[0].data();
       setAppliedDiscount(vData.discountAmount || vData.amount);
-      toast({ title: "Discount Active" });
+      toast({ title: "Discount Applied" });
     }
   };
 
@@ -172,7 +173,7 @@ export default function RiderApp() {
         bookedAt: new Date().toISOString()
       };
 
-      // Sequential Fill Logic: Find partially filled cars for this route and date
+      // Sequential Capacity Filling: Find the first available vehicle with space
       const tripQuery = query(
         collection(db, 'trips'), 
         where('routeName', '==', selectedRoute.routeName), 
@@ -181,8 +182,8 @@ export default function RiderApp() {
       );
       const tripSnap = await getDocs(tripQuery);
       
-      // Find the trip with the most passengers that still has room (Maximized Capacity)
       const existingTrips = tripSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      // Sort trips to fill the one with most passengers first (but not full)
       const targetTrip = existingTrips
         .filter((t: any) => (t.passengerManifest?.length || 0) < (t.maxCapacity || 7))
         .sort((a: any, b: any) => (b.passengerManifest?.length || 0) - (a.passengerManifest?.length || 0))[0];
@@ -216,28 +217,36 @@ export default function RiderApp() {
       toast({ title: "Joined Demand Pool", description: "Successfully queued for the grid." });
     } catch (e) {
       setIsPaying(false);
-      toast({ variant: "destructive", title: "Booking Error" });
+      toast({ variant: "destructive", title: "Booking Failed" });
     }
   };
 
   const initiatePayment = async () => {
     if (typeof window === 'undefined' || !selectedRoute) return;
     const finalAmount = Math.max(0, calculatedFare - appliedDiscount);
-    if (finalAmount === 0) {
-      await processPaymentSuccess('FREE_PROMO_' + Date.now());
-      return;
-    }
-
+    
+    // Explicitly preferring UPI as requested
     const options = {
       key: "rzp_test_SbhAeIVwQu3pji",
       amount: finalAmount * 100, 
       currency: "INR",
       name: "AAGO GRID",
-      description: `Ride: ${selectedRoute.routeName}`,
+      description: `Ride: ${selectedRoute.routeName} via Landmarks`,
       handler: (res: any) => processPaymentSuccess(res.razorpay_payment_id),
       prefill: { name: profile?.fullName || "", contact: profile?.phoneNumber || "" },
       theme: { color: "#00FFFF" },
-      modal: { ondismiss: () => setIsPaying(false) }
+      modal: { ondismiss: () => setIsPaying(false) },
+      config: {
+        display: {
+          blocks: {
+            upi: {
+              name: "Pay via UPI",
+              instruments: [{ method: "upi" }]
+            }
+          },
+          sequence: ["block.upi"]
+        }
+      }
     };
 
     const rzp = new (window as any).Razorpay(options);
@@ -268,7 +277,7 @@ export default function RiderApp() {
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
             <div className="flex justify-between items-center px-2">
               <div className="space-y-1">
-                <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest italic">Grid Member</p>
+                <p className="text-muted-foreground text-[10px] font-black uppercase tracking-widest italic">Member Portal</p>
                 <h2 className="text-3xl font-black text-foreground italic uppercase tracking-tighter">{profile?.fullName?.split(' ')[0]}</h2>
               </div>
               <div className="bg-white/5 p-4 rounded-2xl border border-white/10 flex items-center gap-2">
@@ -279,24 +288,24 @@ export default function RiderApp() {
 
             {currentBooking ? (
               <Card className="glass-card rounded-[3rem] p-8 shadow-2xl border-primary/30 relative overflow-hidden">
-                 <div className="flex flex-col items-center gap-4 mb-8">
-                    <p className="text-[10px] font-black uppercase tracking-[0.5em] text-muted-foreground italic">
-                      {currentBooking.status === 'active' ? 'Queued for Grid' : 'Journey Status'}
+                 <div className="flex flex-col items-center gap-4 mb-8 text-center">
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground italic">
+                      {currentBooking.status === 'active' ? 'Queued for Grid' : 'Mission Status'}
                     </p>
                     <h3 className="text-6xl font-black tracking-tighter italic text-primary text-glow leading-none">
-                      {(currentBooking.status === 'scheduled' || currentBooking.status === 'on-trip' || isVerified) ? 'LIVE' : profile?.activeOtp}
+                      {(currentBooking.status === 'scheduled' || currentBooking.status === 'on-trip' || isVerified) ? 'SYNCED' : profile?.activeOtp}
                     </h3>
                     <div className="flex items-center gap-2 bg-primary/10 px-4 py-2 rounded-full border border-primary/20">
                       <Clock className="h-3 w-3 text-primary" />
-                      <span className="text-[9px] font-black uppercase text-primary">Boarding: {currentBooking.scheduledDate}</span>
+                      <span className="text-[9px] font-black uppercase text-primary">Mission Date: {currentBooking.scheduledDate}</span>
                     </div>
                  </div>
                  
                  <div className="space-y-4">
                     <div className="bg-black/40 p-5 rounded-3xl border border-white/5 flex items-center gap-4">
                        <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Navigation className="h-5 w-5" /></div>
-                       <div>
-                          <p className="text-[9px] font-black uppercase text-muted-foreground">Active Corridor</p>
+                       <div className="flex-1">
+                          <p className="text-[9px] font-black uppercase text-muted-foreground">Corridor</p>
                           <p className="text-lg font-black italic uppercase text-foreground leading-none">{currentBooking.routeName}</p>
                        </div>
                     </div>
@@ -308,7 +317,7 @@ export default function RiderApp() {
                               {currentBooking.driverPhoto ? <img src={currentBooking.driverPhoto} className="h-full w-full object-cover" /> : <UserIcon className="h-6 w-6 text-primary" />}
                            </div>
                            <div>
-                              <p className="text-[9px] font-black uppercase text-primary">Operator Assigned</p>
+                              <p className="text-[9px] font-black uppercase text-primary">Operator Sync</p>
                               <p className="text-lg font-black italic uppercase leading-none">{currentBooking.driverName || 'Grid Operator'}</p>
                            </div>
                         </div>
@@ -320,9 +329,9 @@ export default function RiderApp() {
                       <div className="p-10 bg-black/40 border border-dashed border-white/10 rounded-[2.5rem] text-center space-y-4">
                          <div className="flex justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary opacity-50" /></div>
                          <div className="space-y-1">
-                           <p className="text-[10px] font-black uppercase italic text-primary tracking-widest">Demand Segregation</p>
+                           <p className="text-[10px] font-black uppercase italic text-primary tracking-widest">3-Hour Grid Segregation</p>
                            <p className="text-[9px] font-bold text-white/30 uppercase max-w-[200px] mx-auto leading-relaxed">
-                             Operator details will be shared 3 hours before departure as the grid optimizes capacity.
+                             Operator and Cab details released 3 hours before journey as the grid maximizes vehicle capacity.
                            </p>
                          </div>
                       </div>
@@ -335,15 +344,15 @@ export default function RiderApp() {
                   <div className="p-12 bg-primary text-black rounded-[3rem] shadow-2xl flex flex-col gap-2 cursor-pointer active:scale-95 transition-all group overflow-hidden relative">
                     <h3 className="text-5xl font-black italic uppercase tracking-tighter relative z-10 leading-none">Book <br/> Ride</h3>
                     <div className="flex items-center justify-between mt-4 relative z-10">
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Join Demand Pool</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Demand Pool System</p>
                       <ArrowRight className="h-8 w-8 group-hover:translate-x-2 transition-transform" />
                     </div>
                   </div>
                 </DialogTrigger>
                 <DialogContent className="bg-background border-white/5 rounded-[2.5rem] p-8 h-[90vh] flex flex-col shadow-2xl overflow-hidden">
                   <DialogHeader className="shrink-0 mb-4">
-                    <DialogTitle className="text-3xl font-black italic uppercase text-primary">
-                      {bookingStep === 1 ? "Select Corridor" : bookingStep === 2 ? "Pick Schedule" : bookingStep === 3 ? "UPI Payment" : "Synced"}
+                    <DialogTitle className="text-3xl font-black italic uppercase text-primary leading-none">
+                      {bookingStep === 1 ? "Select Corridor" : bookingStep === 2 ? "Pick Landmarks" : bookingStep === 3 ? "UPI Payment" : "Grid Synced"}
                     </DialogTitle>
                   </DialogHeader>
 
@@ -365,9 +374,9 @@ export default function RiderApp() {
                     {bookingStep === 2 && (
                       <div className="space-y-8 animate-in slide-in-from-right-8">
                         <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Date</Label>
+                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Mission Date</Label>
                           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                             {[0, 1, 2, 3].map((day) => {
+                             {[0, 1, 2, 3, 4].map((day) => {
                                const d = addDays(new Date(), day);
                                const dStr = format(d, 'yyyy-MM-dd');
                                return (
@@ -379,14 +388,24 @@ export default function RiderApp() {
                           </div>
                         </div>
                         <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Select Nodes</Label>
+                          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Boarding & Drop Landmarks</Label>
                           <div className="grid gap-2">
                              {selectedRoute?.stops.map((s: any, i: number) => (
-                               <button key={i} onClick={() => !pickupStop ? setPickupStop(s.name) : setDestinationStop(s.name)} className={`p-5 rounded-2xl border text-left font-black italic text-sm transition-all ${pickupStop === s.name ? 'bg-primary/20 border-primary text-primary' : destinationStop === s.name ? 'bg-accent/20 border-accent text-accent' : 'bg-white/5 border-white/5 text-muted-foreground'}`}>
-                                 {s.name} {pickupStop === s.name && "(Pickup)"} {destinationStop === s.name && "(Drop)"}
+                               <button 
+                                key={i} 
+                                onClick={() => !pickupStop ? setPickupStop(s.name) : setDestinationStop(s.name)} 
+                                className={`p-6 rounded-2xl border text-left font-black italic text-sm transition-all flex items-center justify-between ${pickupStop === s.name ? 'bg-primary/20 border-primary text-primary' : destinationStop === s.name ? 'bg-accent/20 border-accent text-accent' : 'bg-white/5 border-white/5 text-muted-foreground'}`}
+                               >
+                                 <div className="flex items-center gap-4">
+                                    <div className="h-8 w-8 rounded-full bg-white/5 flex items-center justify-center text-[10px]">{i + 1}</div>
+                                    {s.name}
+                                 </div>
+                                 {pickupStop === s.name && <Badge className="bg-primary text-black text-[8px]">PICKUP</Badge>}
+                                 {destinationStop === s.name && <Badge className="bg-accent text-white text-[8px]">DROP</Badge>}
                                </button>
                              ))}
                           </div>
+                          <Button variant="ghost" onClick={() => { setPickupStop(""); setDestinationStop(""); }} className="text-[10px] font-black uppercase text-primary/50">Reset Landmarks</Button>
                         </div>
                       </div>
                     )}
@@ -394,19 +413,19 @@ export default function RiderApp() {
                     {bookingStep === 3 && (
                       <div className="space-y-8 py-4 text-center">
                          <div className="p-12 bg-primary/5 rounded-[3.5rem] border-2 border-primary/20 shadow-2xl">
-                            <p className="text-[10px] font-black uppercase text-primary mb-3 tracking-[0.4em]">Fixed Fare</p>
+                            <p className="text-[10px] font-black uppercase text-primary mb-3 tracking-[0.4em]">Calculated Fare</p>
                             <h3 className="text-7xl font-black italic tracking-tighter leading-none">₹{Math.max(0, calculatedFare - appliedDiscount)}</h3>
                          </div>
                          <div className="p-6 bg-black/60 rounded-[2rem] border border-white/5 text-left space-y-2">
-                            <p className="text-[9px] font-black uppercase text-primary flex items-center gap-2"><Info className="h-3 w-3" /> Grid Protocol</p>
+                            <p className="text-[9px] font-black uppercase text-primary flex items-center gap-2"><Info className="h-3 w-3" /> Capacity Protocol</p>
                             <p className="text-[8px] font-bold text-muted-foreground uppercase italic leading-relaxed">
-                              You are joining a capacity pool. Cab details and operator info will be shared 3 hours before the journey for safety and efficiency.
+                              First vehicles are filled sequentially. Cab details shared 3 hours before journey once the grid pool clears.
                             </p>
                          </div>
                          <div className="space-y-3">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground">Promo Code</Label>
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Promo Code</Label>
                            <div className="flex gap-2">
-                              <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="CODE" className="h-16 w-full bg-white/5 border border-white/10 rounded-2xl font-black italic px-6 uppercase tracking-widest outline-none focus:border-primary" />
+                              <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="ENTER CODE" className="h-16 w-full bg-white/5 border border-white/10 rounded-2xl font-black italic px-6 uppercase tracking-widest outline-none focus:border-primary" />
                               <Button onClick={handleApplyVoucher} variant="outline" className="h-16 px-8 rounded-2xl font-black italic text-primary border-primary/30">Apply</Button>
                            </div>
                          </div>
@@ -416,8 +435,8 @@ export default function RiderApp() {
                     {bookingStep === 4 && (
                       <div className="flex flex-col items-center justify-center text-center space-y-8 py-20">
                          <div className="h-32 w-32 bg-primary text-black rounded-full flex items-center justify-center shadow-2xl animate-bounce"><CheckCircle2 className="h-16 w-16" /></div>
-                         <h3 className="text-5xl font-black italic uppercase text-primary tracking-tighter leading-none">Pool Joined</h3>
-                         <p className="text-xs font-bold text-muted-foreground italic uppercase tracking-widest px-6">Grid is being synchronized. Details shared 3h before boarding.</p>
+                         <h3 className="text-5xl font-black italic uppercase text-primary tracking-tighter leading-none">Demand Queued</h3>
+                         <p className="text-xs font-bold text-muted-foreground italic uppercase tracking-widest px-6">Seat locked in sequential queue. Grid sync releases cab info 3h ahead.</p>
                       </div>
                     )}
                   </div>
@@ -438,7 +457,7 @@ export default function RiderApp() {
                  <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Gift className="h-6 w-6" /></div>
                  <h4 className="text-xl font-black italic uppercase">Grid Referrals</h4>
               </div>
-              <p className="text-xs font-bold text-muted-foreground italic leading-relaxed">Refer a community member and get 50 loyalty points instantly. Higher usage, lower fares.</p>
+              <p className="text-xs font-bold text-muted-foreground italic leading-relaxed">Refer a community member and earn loyalty points instantly. More grid users, lower base fares.</p>
               <div className="flex gap-2 bg-black/40 p-4 rounded-2xl border border-white/5">
                  <p className="flex-1 font-black italic text-foreground uppercase tracking-widest pt-2.5 px-2">{profile?.referralCode || '...'}</p>
                  <Button variant="ghost" className="text-primary"><Copy className="h-5 w-5" /></Button>
@@ -468,7 +487,7 @@ export default function RiderApp() {
              <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">Grid Log</h2>
              <div className="space-y-4">
                 {allTrips?.filter(t => t.status === 'completed').length === 0 ? (
-                  <div className="p-20 text-center italic text-muted-foreground bg-white/5 rounded-[3rem] border border-dashed border-white/10 opacity-30 uppercase tracking-widest font-black text-[10px]">No mission records</div>
+                  <div className="p-20 text-center italic text-muted-foreground bg-white/5 rounded-[3rem] border border-dashed border-white/10 opacity-30 uppercase tracking-widest font-black text-[10px]">No grid records found.</div>
                 ) : allTrips?.filter(t => t.status === 'completed').map((t: any) => (
                   <Card key={t.id} className="bg-white/5 border border-white/5 rounded-[2.5rem] p-8 flex justify-between items-center shadow-xl">
                     <div className="space-y-1">
