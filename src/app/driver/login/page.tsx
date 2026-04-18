@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -74,10 +73,17 @@ export default function DriverLoginPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(2);
-      toast({ title: "OTP sent to your number." });
+      toast({ title: "OTP Sent", description: "Identity check code dispatched." });
     } catch (error: any) {
-      console.error("Auth Error:", error);
-      toast({ variant: "destructive", title: "Error", description: "Failed to send OTP. Please try again." });
+      if (error.code === 'auth/too-many-requests') {
+        toast({ 
+          variant: "destructive", 
+          title: "Limit Reached", 
+          description: "Please wait a few minutes before trying again." 
+        });
+      } else {
+        toast({ variant: "destructive", title: "Error", description: "Failed to send code. Please try again." });
+      }
     } finally {
       setLoading(false);
     }
@@ -100,7 +106,7 @@ export default function DriverLoginPage() {
       const profile = userSnap.data();
       if (profile.role !== 'driver') {
         await signOut(auth!);
-        toast({ variant: "destructive", title: "Access Error", description: "Use Member Login Hub." });
+        toast({ variant: "destructive", title: "Wrong Portal", description: "Please use Member Hub login." });
         router.push('/auth/login');
       } else {
         router.push('/driver');
@@ -124,14 +130,14 @@ export default function DriverLoginPage() {
         </div>
         <div className="text-center">
           <h1 className="text-4xl font-black italic uppercase tracking-tighter text-foreground leading-none">DRIVER</h1>
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mt-2">Operator Terminal</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mt-2">Operator Hub</p>
         </div>
       </div>
 
-      <Card className="w-full max-w-md glass-card border-none rounded-[3.5rem] overflow-hidden shadow-2xl">
-        <CardHeader className="pt-14 pb-8 text-center bg-white/5 border-b border-white/5">
+      <Card className="w-full max-w-md bg-white/5 border-none rounded-[3.5rem] overflow-hidden shadow-2xl">
+        <CardHeader className="pt-14 pb-8 text-center border-b border-white/5">
           <CardTitle className="text-2xl font-black uppercase italic tracking-tighter">Login</CardTitle>
-          <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic mt-2">Identity Verification</CardDescription>
+          <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic mt-2">Driver Identity</CardDescription>
         </CardHeader>
         <CardContent className="px-12 py-10">
           {step === 1 ? (
@@ -145,13 +151,13 @@ export default function DriverLoginPage() {
                     value={phoneNumber} 
                     onChange={(e) => setPhoneNumber(e.target.value)} 
                     placeholder="0000000000" 
-                    className="h-16 w-full pl-20 rounded-2xl bg-white/5 border border-white/10 font-black text-foreground text-xl italic outline-none" 
+                    className="h-16 w-full pl-20 rounded-2xl bg-white/5 border border-white/10 font-black text-foreground text-xl italic outline-none focus:border-primary" 
                     required
                   />
                 </div>
               </div>
               <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Get OTP"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Send Code"}
               </Button>
             </form>
           ) : (
@@ -169,7 +175,7 @@ export default function DriverLoginPage() {
                 />
               </div>
               <Button type="submit" disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-20 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify & Login"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Code"}
               </Button>
             </form>
           )}

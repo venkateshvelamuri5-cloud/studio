@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -74,10 +73,17 @@ export default function LoginPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(2);
-      toast({ title: "Verification code sent." });
+      toast({ title: "OTP Sent", description: "Please check your messages." });
     } catch (error: any) {
-      console.error("Auth Error:", error);
-      toast({ variant: "destructive", title: "Error", description: "Could not send code. Please try again." });
+      if (error.code === 'auth/too-many-requests') {
+        toast({ 
+          variant: "destructive", 
+          title: "Too Many Attempts", 
+          description: "Please wait 15-30 minutes before trying again. This is a security limit." 
+        });
+      } else {
+        toast({ variant: "destructive", title: "Error", description: "Failed to send code. Please try again." });
+      }
     } finally {
       setLoading(false);
     }
@@ -100,13 +106,13 @@ export default function LoginPage() {
       const profile = userSnap.data();
       if (profile.role === 'driver') {
         await signOut(auth!);
-        toast({ variant: "destructive", title: "Access Error", description: "Please use Driver Login." });
+        toast({ variant: "destructive", title: "Wrong Portal", description: "Drivers must use the Driver Login." });
         router.push('/driver/login');
       } else {
         router.push('/student');
       }
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Invalid Code", description: "Please check and try again." });
+      toast({ variant: "destructive", title: "Invalid Code", description: "Please check the OTP and try again." });
     } finally {
       setLoading(false);
     }
@@ -124,12 +130,12 @@ export default function LoginPage() {
         </div>
         <div className="text-center">
           <h1 className="text-3xl font-black italic uppercase tracking-tighter text-foreground">AAGO HUB</h1>
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mt-2">Member Portal</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mt-2">Member Login</p>
         </div>
       </div>
 
-      <Card className="w-full max-w-md glass-card border-none rounded-[3rem] overflow-hidden shadow-2xl">
-        <CardHeader className="pt-12 pb-8 text-center bg-white/5 border-b border-white/5">
+      <Card className="w-full max-w-md bg-white/5 border-none rounded-[3rem] overflow-hidden shadow-2xl">
+        <CardHeader className="pt-12 pb-8 text-center border-b border-white/5">
           <CardTitle className="text-2xl font-black uppercase italic tracking-tighter">Login</CardTitle>
           <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic mt-2">Secure Hub Access</CardDescription>
         </CardHeader>
@@ -150,8 +156,8 @@ export default function LoginPage() {
                   />
                 </div>
               </div>
-              <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Get OTP"}
+              <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all active:scale-95">
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Send Code"}
               </Button>
             </form>
           ) : (
@@ -169,14 +175,14 @@ export default function LoginPage() {
                 />
               </div>
               <Button type="submit" disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
-                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify OTP"}
+                {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify Code"}
               </Button>
             </form>
           )}
         </CardContent>
         <CardFooter className="bg-white/5 p-10 border-t border-white/5">
           <p className="text-[10px] text-center font-bold text-muted-foreground uppercase tracking-widest w-full">
-            New here? <Link href="/auth/signup" className="text-primary font-black hover:underline italic">Join Hub</Link>
+            New to Hub? <Link href="/auth/signup" className="text-primary font-black hover:underline italic">Join Now</Link>
           </p>
         </CardFooter>
       </Card>
