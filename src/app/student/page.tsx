@@ -249,7 +249,7 @@ export default function RiderApp() {
       prefill: {
         name: profile?.fullName || "",
         contact: profile?.phoneNumber || "",
-        method: "upi" // Prioritize UPI as per user request
+        method: "upi"
       },
       config: {
         display: {

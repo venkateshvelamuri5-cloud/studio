@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -23,7 +24,7 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
-import { doc, updateDoc, collection, onSnapshot, query, where, arrayUnion, getDocs, increment } from 'firebase/firestore';
+import { doc, updateDoc, collection, onSnapshot, query, where, arrayUnion, getDocs, increment, addDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -99,6 +100,20 @@ export default function DriverApp() {
     const newStatus = profile.status === 'offline' ? 'available' : 'offline';
     await updateDoc(userRef, { status: newStatus });
     toast({ title: newStatus === 'available' ? "Operator Ready" : "Offline" });
+  };
+
+  const handleSos = async () => {
+    if (!db || !user || !profile) return;
+    addDoc(collection(db, 'alerts'), {
+      type: 'SOS_DRIVER',
+      uid: user.uid,
+      name: profile.fullName,
+      vehicle: profile.vehicleNumber,
+      lat: profile.currentLat || null,
+      lng: profile.currentLng || null,
+      timestamp: new Date().toISOString()
+    });
+    toast({ variant: 'destructive', title: "SOS Broadcasted", description: "OPS Hub alerted." });
   };
 
   const startJob = async (trip: any) => {
@@ -213,9 +228,12 @@ export default function DriverApp() {
             </Badge>
           </div>
         </div>
-        <Button onClick={handleToggleStatus} className={`rounded-2xl h-11 w-11 p-0 shadow-xl transition-all active:scale-90 ${profile?.status === 'offline' ? 'bg-white/5 text-muted-foreground' : 'bg-primary text-black'}`}>
-          <Power className="h-6 w-6" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={handleSos} variant="ghost" size="icon" className="text-destructive bg-destructive/10 h-11 w-11 rounded-2xl border border-destructive/20 animate-pulse"><ShieldAlert className="h-5 w-5" /></Button>
+          <Button onClick={handleToggleStatus} className={`rounded-2xl h-11 w-11 p-0 shadow-xl transition-all active:scale-90 ${profile?.status === 'offline' ? 'bg-white/5 text-muted-foreground' : 'bg-primary text-black'}`}>
+            <Power className="h-6 w-6" />
+          </Button>
+        </div>
       </header>
 
       <main className="flex-1 p-5 space-y-6 max-w-lg mx-auto w-full">
@@ -346,7 +364,7 @@ export default function DriverApp() {
                  </div>
               </div>
             </div>
-            <Button onClick={handleSignOut} className="w-full max-w-sm mx-auto h-20 bg-destructive/10 text-destructive rounded-[2.5rem] font-black uppercase italic border border-destructive/20 text-xl shadow-2xl hover:bg-destructive hover:text-white transition-all group">
+            <Button onClick={handleSignOut} className="w-full max-w-sm mx-auto h-20 bg-destructive/10 text-destructive rounded-[2.5rem] font-black uppercase italic border border-destructive/20 text-xl shadow-xl hover:bg-destructive hover:text-white transition-all group">
               <LogOut className="h-7 w-7 mr-4 group-hover:scale-110 transition-transform" /> Exit Hub
             </Button>
           </div>
