@@ -21,14 +21,17 @@ import {
   ShieldAlert,
   Clock,
   MapPin,
-  CalendarDays
+  CalendarDays,
+  MapIcon,
+  ChevronRight,
+  UserCheck,
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
 import { doc, updateDoc, collection, onSnapshot, query, where, arrayUnion, getDocs, increment } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { isBefore, addHours, parse, format } from 'date-fns';
+import { isBefore, addHours, parse, format, subHours, parseISO } from 'date-fns';
 
 const Logo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -46,7 +49,7 @@ export default function DriverApp() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<'open-rides' | 'my-schedule' | 'money' | 'me'>('open-rides');
+  const [activeTab, setActiveTab] = useState<'open-routes' | 'my-work' | 'money' | 'me'>('open-routes');
   const [activeTrip, setActiveTrip] = useState<any>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [otpCode, setOtpCode] = useState("");
@@ -55,17 +58,17 @@ export default function DriverApp() {
   const userRef = useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
-  // Rides that no one has picked yet
-  const { data: availableRides } = useCollection(useMemo(() => {
+  // Available routes to pick from
+  const { data: availableRoutes } = useCollection(useMemo(() => {
     if (!db) return null;
-    return query(collection(db, 'trips'), where('status', '==', 'active'), where('driverId', '==', null));
+    return query(collection(db, 'routes'), where('status', '==', 'active'));
   }, [db]));
 
-  // Rides I have picked but haven't started yet
-  const { data: myPickedRides } = useCollection(useMemo(() => {
-    if (!db || !user?.uid) return null;
-    return query(collection(db, 'trips'), where('driverId', '==', user.uid), where('status', '==', 'active'));
-  }, [db, user?.uid]));
+  // Trips on the driver's preferred route
+  const { data: myRouteTrips } = useCollection(useMemo(() => {
+    if (!db || !profile?.preferredRoute) return null;
+    return query(collection(db, 'trips'), where('routeName', '==', profile.preferredRoute), where('status', '==', 'active'));
+  }, [db, profile?.preferredRoute]));
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/driver/login');
@@ -81,17 +84,13 @@ export default function DriverApp() {
     });
   }, [db, user?.uid]);
 
-  const pickRide = async (trip: any) => {
-    if (!db || !user || !profile) return;
+  const joinRoute = async (routeName: string) => {
+    if (!db || !userRef) return;
     setIsUpdating(true);
     try {
-      await updateDoc(doc(db, 'trips', trip.id), {
-        driverId: user.uid,
-        driverName: profile.fullName,
-        driverPhoto: profile.photoUrl || null,
-        vehicleNumber: profile.vehicleNumber
-      });
-      toast({ title: "Ride Picked!", description: "It's now in your schedule." });
+      await updateDoc(userRef, { preferredRoute: routeName });
+      toast({ title: "Route Selected", description: `You are now in the pool for ${routeName}.` });
+      setActiveTab('my-work');
     } finally { setIsUpdating(false); }
   };
 
@@ -101,13 +100,17 @@ export default function DriverApp() {
     try {
       await updateDoc(doc(db, 'trips', trip.id), {
         status: 'on-trip',
-        startTime: new Date().toISOString()
+        startTime: new Date().toISOString(),
+        driverId: user.uid,
+        driverName: profile.fullName,
+        driverPhoto: profile.photoUrl || null,
+        vehicleNumber: profile.vehicleNumber
       });
       await updateDoc(userRef, { 
         status: 'on-trip', 
         activeTripId: trip.id 
       });
-      toast({ title: "Ride Started!", description: "Drive safe." });
+      toast({ title: "Trip Started", description: "Safe travels!" });
     } finally { setIsUpdating(false); }
   };
 
@@ -145,19 +148,20 @@ export default function DriverApp() {
         activeTripId: null,
         totalEarnings: increment(share)
       });
-      toast({ title: "Ride Finished!" });
+      toast({ title: "Trip Finished!" });
     } finally { setIsUpdating(false); }
   };
 
-  const isWithin3Hours = (dateStr: string, timeStr: string) => {
+  const isReadyToStart = (dateStr: string, timeStr: string) => {
     try {
       if (!dateStr || !timeStr) return false;
       const combined = `${dateStr} ${timeStr}`;
       const tripTime = parse(combined, 'yyyy-MM-dd hh:mm a', new Date());
       const now = new Date();
-      const threeHoursFromNow = addHours(now, 3);
+      // Only allow starting 3 hours before start time
+      const threeHoursBefore = subHours(tripTime, 3);
       const twoHoursAfterStart = addHours(tripTime, 2);
-      return isBefore(now, threeHoursFromNow) && isBefore(now, twoHoursAfterStart);
+      return isAfter(now, threeHoursBefore) && isBefore(now, twoHoursAfterStart);
     } catch (e) {
       return false;
     }
@@ -210,13 +214,13 @@ export default function DriverApp() {
                <div className="flex justify-between items-start">
                   <div className="space-y-1">
                      <h2 className="text-4xl font-black italic uppercase leading-none text-primary tracking-tighter">{activeTrip.routeName}</h2>
-                     <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-2">Active Ride</p>
+                     <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-2">Active Trip</p>
                   </div>
                   <Badge className="bg-primary/20 text-primary border-none text-[10px] font-black uppercase px-5 py-2 rounded-full">LIVE</Badge>
                </div>
 
                <div className="bg-black/60 p-8 rounded-[3rem] border border-white/10 space-y-6">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-4">Enter Ride Code</Label>
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-4">Enter Trip Code</Label>
                   <div className="flex gap-4">
                      <input value={otpCode} onChange={(e) => setOtpCode(e.target.value)} placeholder="000000" className="h-20 w-full text-center font-black tracking-[0.5em] text-4xl rounded-3xl bg-white/5 border border-white/10 text-primary outline-none" maxLength={6} />
                      <Button onClick={verifyCustomer} disabled={isVerifying || !otpCode} className="h-20 w-20 rounded-3xl bg-primary text-black"><CheckCircle2 className="h-10 w-10" /></Button>
@@ -224,7 +228,7 @@ export default function DriverApp() {
                </div>
 
                <div className="space-y-4">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground ml-4">Customers</h3>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground ml-4">People List</h3>
                   <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                      {activeTrip.passengerManifest?.map((m: any, i: number) => (
                        <div key={i} className={`p-6 rounded-3xl border flex items-center justify-between ${activeTrip.verifiedPassengers?.includes(m.uid) ? 'bg-primary/10 border-primary/20' : 'bg-white/5 border-white/5'}`}>
@@ -241,70 +245,79 @@ export default function DriverApp() {
                   </div>
                </div>
 
-               <Button onClick={finishRide} disabled={isUpdating} className="w-full h-20 bg-primary/10 border-2 border-primary/50 text-primary rounded-[3rem] font-black uppercase italic text-xl">Finish Ride</Button>
+               <Button onClick={finishRide} disabled={isUpdating} className="w-full h-20 bg-primary/10 border-2 border-primary/50 text-primary rounded-[3rem] font-black uppercase italic text-xl">Finish Trip</Button>
             </Card>
           </div>
         ) : (
           <div className="space-y-6 animate-in fade-in">
-             {activeTab === 'open-rides' && (
+             {activeTab === 'open-routes' && (
                <div className="space-y-6">
                   <div className="flex items-center justify-between px-2">
-                     <h3 className="text-xl font-black italic uppercase flex items-center gap-2"><Target className="h-5 w-5 text-primary" /> Available Rides</h3>
+                     <h3 className="text-xl font-black italic uppercase flex items-center gap-2"><MapIcon className="h-5 w-5 text-primary" /> Available Routes</h3>
                   </div>
                   <div className="space-y-3">
-                     {availableRides?.length === 0 ? (
+                     {availableRoutes?.length === 0 ? (
                        <div className="p-20 text-center text-muted-foreground italic bg-white/5 rounded-[2.5rem] border border-dashed border-white/10 flex flex-col items-center gap-4">
                           <Loader2 className="animate-spin h-6 w-6 opacity-20" />
-                          <p className="text-[10px] font-black uppercase tracking-widest">Looking for rides...</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest">Loading routes...</p>
                        </div>
-                     ) : availableRides?.map((job: any) => (
-                       <Card key={job.id} className="p-8 bg-white/5 border border-white/5 rounded-[2.5rem] flex justify-between items-center">
+                     ) : availableRoutes?.map((route: any) => (
+                       <Card key={route.id} className="p-8 bg-white/5 border border-white/5 rounded-[2.5rem] flex justify-between items-center group cursor-pointer hover:border-primary/20 transition-all" onClick={() => joinRoute(route.routeName)}>
                          <div className="space-y-2">
-                            <h4 className="text-2xl font-black italic uppercase leading-none">{job.routeName}</h4>
+                            <h4 className="text-2xl font-black italic uppercase leading-none">{route.routeName}</h4>
                             <div className="flex items-center gap-3">
-                               <Badge className="bg-primary/20 text-primary border-none text-[9px] font-black uppercase px-3 py-1 rounded-full">{job.riderCount} Seats</Badge>
-                               <span className="text-[10px] font-bold text-muted-foreground uppercase">{job.scheduledDate} • {job.scheduledTime}</span>
+                               <Badge className="bg-primary/20 text-primary border-none text-[9px] font-black uppercase px-3 py-1 rounded-full">₹{route.baseFare}</Badge>
+                               <span className="text-[10px] font-bold text-muted-foreground uppercase">{route.schedule}</span>
                             </div>
                          </div>
-                         <Button onClick={() => pickRide(job)} disabled={isUpdating} className="rounded-2xl h-14 px-6 bg-primary text-black font-black uppercase italic text-xs">
-                            Get this ride
-                         </Button>
+                         <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-black transition-all">
+                            <ChevronRight className="h-6 w-6" />
+                         </div>
                        </Card>
                      ))}
                   </div>
                </div>
              )}
 
-             {activeTab === 'my-schedule' && (
+             {activeTab === 'my-work' && (
                <div className="space-y-6">
-                  <div className="flex items-center justify-between px-2">
-                     <h3 className="text-xl font-black italic uppercase flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" /> My Schedule</h3>
+                  <div className="flex flex-col gap-2 px-2">
+                     <h3 className="text-xl font-black italic uppercase flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" /> My Work Schedule</h3>
+                     <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Route Pool: {profile?.preferredRoute || 'No Route Selected'}</p>
                   </div>
                   <div className="space-y-3">
-                     {myPickedRides?.length === 0 ? (
+                     {!profile?.preferredRoute ? (
+                        <Card className="p-10 bg-white/5 border border-dashed border-white/10 rounded-[2.5rem] text-center space-y-4">
+                           <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Please pick a route first</p>
+                           <Button onClick={() => setActiveTab('open-routes')} className="bg-primary text-black font-black uppercase italic rounded-xl px-8 h-12">Pick a Route</Button>
+                        </Card>
+                     ) : myRouteTrips?.length === 0 ? (
                        <div className="p-20 text-center text-muted-foreground italic bg-white/5 rounded-[2.5rem] border border-dashed border-white/10 flex flex-col items-center gap-4 opacity-50">
-                          <p className="text-[10px] font-black uppercase tracking-widest">No rides picked yet</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest">No trips scheduled for this route yet</p>
                        </div>
-                     ) : myPickedRides?.map((job: any) => {
-                       const readyToStart = isWithin3Hours(job.scheduledDate, job.scheduledTime);
+                     ) : myRouteTrips?.map((trip: any) => {
+                       const ready = isReadyToStart(trip.scheduledDate, trip.scheduledTime);
                        return (
-                         <Card key={job.id} className="p-8 bg-white/5 border border-white/5 rounded-[2.5rem] space-y-6">
+                         <Card key={trip.id} className="p-8 bg-white/5 border border-white/5 rounded-[2.5rem] space-y-6">
                             <div className="flex justify-between items-start">
                                <div className="space-y-2">
-                                  <h4 className="text-2xl font-black italic uppercase leading-none">{job.routeName}</h4>
-                                  <p className="text-[10px] font-bold text-muted-foreground uppercase">{job.scheduledDate} • {job.scheduledTime}</p>
+                                  <h4 className="text-2xl font-black italic uppercase leading-none">{trip.routeName}</h4>
+                                  <p className="text-[10px] font-bold text-muted-foreground uppercase">{trip.scheduledDate} • {trip.scheduledTime}</p>
+                                  <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-3 py-1 rounded-full">{trip.riderCount} Customers Joined</Badge>
                                </div>
-                               <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-3 py-1 rounded-full">PICKED</Badge>
+                               <Badge className={`border-none text-[8px] font-black uppercase px-3 py-1 rounded-full ${ready ? 'bg-green-500/20 text-green-500' : 'bg-white/10 text-muted-foreground'}`}>
+                                 {ready ? 'READY' : 'POOL'}
+                               </Badge>
                             </div>
                             
-                            {readyToStart ? (
-                              <Button onClick={() => startRide(job)} disabled={profile?.status === 'offline' || isUpdating} className="w-full h-16 bg-primary text-black rounded-2xl font-black uppercase italic text-lg shadow-xl">
-                                 Start Ride
+                            {ready ? (
+                              <Button onClick={() => startRide(trip)} disabled={profile?.status === 'offline' || isUpdating} className="w-full h-16 bg-primary text-black rounded-2xl font-black uppercase italic text-lg shadow-xl">
+                                 Start Trip
                               </Button>
                             ) : (
                               <div className="w-full h-16 bg-white/5 border border-dashed border-white/10 rounded-2xl flex items-center justify-center gap-3">
                                  <Clock className="h-5 w-5 text-muted-foreground" />
-                                 <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Available 3 hours before start</span>
+                                 <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Allocation starts 3 hours before</span>
                               </div>
                             )}
                          </Card>
@@ -326,7 +339,7 @@ export default function DriverApp() {
                        <h4 className="text-xl font-black italic uppercase">Great Job!</h4>
                      </div>
                      <Progress value={Math.min(100, ((profile?.totalEarnings || 0) / 2000) * 100)} className="h-3 bg-white/5 [&>div]:bg-primary" />
-                     <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic">You keep 90% of your ride fare.</p>
+                     <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic">You keep 90% of your earnings.</p>
                   </Card>
                </div>
              )}
@@ -355,14 +368,14 @@ export default function DriverApp() {
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 p-5 bg-background/95 backdrop-blur-3xl border-t border-white/5 z-50 flex justify-around items-center safe-area-inset-bottom">
-        <Button variant="ghost" onClick={() => setActiveTab('open-rides')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl ${activeTab === 'open-rides' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
-          <LayoutGrid className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">Open</span>
+        <Button variant="ghost" onClick={() => setActiveTab('open-routes')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl ${activeTab === 'open-routes' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
+          <MapIcon className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">Routes</span>
         </Button>
-        <Button variant="ghost" onClick={() => setActiveTab('my-schedule')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl ${activeTab === 'my-schedule' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
-          <CalendarDays className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">Schedule</span>
+        <Button variant="ghost" onClick={() => setActiveTab('my-work')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl ${activeTab === 'my-work' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
+          <CalendarDays className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">My Work</span>
         </Button>
         <Button variant="ghost" onClick={() => setActiveTab('money')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl ${activeTab === 'money' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
-          <Wallet className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">Money</span>
+          <Wallet className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">Earnings</span>
         </Button>
         <Button variant="ghost" onClick={() => setActiveTab('me')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl ${activeTab === 'me' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
           <Settings className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">Me</span>

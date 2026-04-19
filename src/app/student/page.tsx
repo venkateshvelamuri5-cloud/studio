@@ -29,6 +29,7 @@ import {
   Copy,
   ZapIcon,
   Gift,
+  CalendarDays,
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc, onSnapshot } from 'firebase/firestore';
@@ -37,7 +38,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { googleMapsApiKey } from '@/firebase/config';
-import { format, addDays } from 'date-fns';
+import { format, addDays, parseISO, isAfter, subHours } from 'date-fns';
 
 const mapContainerStyle = { width: '100%', height: '100%' };
 const mapOptions = { 
@@ -90,7 +91,9 @@ export default function CustomerDashboard() {
   
   const currentRide = useMemo(() => {
     if (!allTrips || !user?.uid) return null;
-    return allTrips.find(t => (t.status === 'active' || t.status === 'on-trip') && t.passengerManifest?.some((m: any) => m.uid === user.uid));
+    // Find the nearest upcoming or active trip
+    const trips = allTrips.filter(t => (t.status === 'active' || t.status === 'on-trip') && t.passengerManifest?.some((m: any) => m.uid === user.uid));
+    return trips.length > 0 ? trips[0] : null;
   }, [allTrips, user?.uid]);
 
   useEffect(() => {
@@ -122,8 +125,8 @@ export default function CustomerDashboard() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'AAGO - Track My Trip',
-          text: `Check where I am. My ride code is ${profile?.activeOtp}`,
+          title: 'AAGO - My Trip',
+          text: `I have a ride scheduled for ${currentRide?.routeName}. My ride code is ${profile?.activeOtp}`,
           url: window.location.href,
         });
       } catch (error) {
@@ -239,7 +242,7 @@ export default function CustomerDashboard() {
       const order = await res.json();
 
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SeqhV0hEn1PXnz',
+        key: 'rzp_live_SeqhV0hEn1PXnz',
         amount: order.amount,
         currency: order.currency,
         name: "AAGO",
@@ -290,32 +293,41 @@ export default function CustomerDashboard() {
             {currentRide ? (
               <Card className="rounded-[3.5rem] p-10 shadow-2xl border-primary/30 bg-card/60 backdrop-blur-md relative overflow-hidden">
                  <div className="flex flex-col items-center gap-4 mb-10 text-center">
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground italic">Ride Code</p>
-                    <h3 className="text-7xl font-black tracking-tighter italic text-primary leading-none">
-                      {currentRide.status === 'on-trip' ? profile?.activeOtp : 'READY'}
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground italic">Your Ride Status</p>
+                    <h3 className="text-4xl font-black tracking-tighter italic text-primary leading-tight">
+                      Scheduled
                     </h3>
-                    <p className="text-[9px] font-black uppercase text-primary mt-4">{currentRide.scheduledDate} • {currentRide.scheduledTime}</p>
+                    <div className="mt-4 p-4 bg-black/40 rounded-2xl border border-white/5">
+                      <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">
+                        {currentRide.routeName}
+                      </p>
+                      <p className="text-xl font-black text-white mt-1">
+                        {currentRide.scheduledDate} • {currentRide.scheduledTime}
+                      </p>
+                    </div>
                  </div>
                  
                  <div className="space-y-4">
-                    <div className="bg-black/60 p-6 rounded-[2.5rem] border border-white/5 flex items-center gap-5">
-                       <div className="h-12 w-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary"><Navigation className="h-6 w-6" /></div>
-                       <div className="flex-1">
-                          <p className="text-[9px] font-black uppercase text-muted-foreground">Your Route</p>
-                          <p className="text-xl font-black italic uppercase leading-none mt-1">{currentRide.routeName}</p>
+                    <div className="bg-black/60 p-6 rounded-[2.5rem] border border-white/5 flex flex-col gap-3">
+                       <div className="flex items-center gap-4">
+                          <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><CalendarDays className="h-5 w-5" /></div>
+                          <p className="text-[11px] font-black uppercase text-foreground">Next Step</p>
                        </div>
+                       <p className="text-[10px] font-bold text-muted-foreground uppercase leading-relaxed italic">
+                         Seat allocation and driver details will be shared 3 hours before your trip. Keep this app open to see your code then!
+                       </p>
                     </div>
 
-                    {currentRide.status === 'active' ? (
+                    {currentRide.status === 'on-trip' ? (
+                      <Button onClick={() => setActiveTab('map')} className="w-full h-18 bg-primary text-black rounded-3xl font-black uppercase italic shadow-2xl flex items-center justify-center gap-3">
+                         <Zap className="h-6 w-6" /> Track Live
+                      </Button>
+                    ) : (
                       <div className="p-8 bg-black/40 border border-dashed border-white/10 rounded-[3rem] text-center">
                          <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest leading-relaxed">
-                           We are finding a driver for you. Ride details will show 3 hours before start.
+                           Waiting for 3-hour window...
                          </p>
                       </div>
-                    ) : (
-                      <Button onClick={() => setActiveTab('map')} className="w-full h-18 bg-primary text-black rounded-3xl font-black uppercase italic shadow-2xl flex items-center justify-center gap-3">
-                         <Zap className="h-6 w-6" /> Track Ride
-                      </Button>
                     )}
                  </div>
               </Card>
@@ -323,7 +335,7 @@ export default function CustomerDashboard() {
               <Dialog onOpenChange={(open) => { if (!open) setBookingStep(1); }}>
                 <DialogTrigger asChild>
                   <div className="p-14 bg-primary text-black rounded-[3.5rem] shadow-2xl flex flex-col gap-3 cursor-pointer group border-4 border-black/5">
-                    <h3 className="text-6xl font-black italic uppercase tracking-tighter leading-none">Book <br/> Ride</h3>
+                    <h3 className="text-6xl font-black italic uppercase tracking-tighter leading-none">Book <br/> Trip</h3>
                     <div className="flex items-center justify-between mt-6">
                       <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Fixed Price</p>
                       <div className="h-12 w-12 bg-black rounded-full flex items-center justify-center text-primary group-hover:translate-x-3 transition-transform">
@@ -335,7 +347,7 @@ export default function CustomerDashboard() {
                 <DialogContent className="bg-background border-white/5 rounded-[3.5rem] p-10 h-[90vh] flex flex-col shadow-2xl overflow-hidden">
                   <DialogHeader className="shrink-0 mb-6">
                     <DialogTitle className="text-4xl font-black italic uppercase text-primary leading-none tracking-tighter">
-                      {bookingStep === 1 ? "Pick a Route" : bookingStep === 2 ? "Pick a Time" : bookingStep === 3 ? "Review" : "Done!"}
+                      {bookingStep === 1 ? "Pick Route" : bookingStep === 2 ? "Pick Time" : bookingStep === 3 ? "Review" : "Done!"}
                     </DialogTitle>
                   </DialogHeader>
 
@@ -357,7 +369,7 @@ export default function CustomerDashboard() {
                     {bookingStep === 2 && (
                       <div className="space-y-8 animate-in slide-in-from-bottom-4">
                         <div className="space-y-4">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2 tracking-widest">Pickup Point</Label>
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2 tracking-widest">Pickup Location</Label>
                            <div className="grid grid-cols-2 gap-3">
                               {selectedRoute?.stops?.map((stop: any, idx: number) => (
                                 <Button 
@@ -372,7 +384,7 @@ export default function CustomerDashboard() {
                         </div>
                         
                         <div className="space-y-4">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2 tracking-widest">Drop Point</Label>
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2 tracking-widest">Drop Location</Label>
                            <div className="grid grid-cols-2 gap-3">
                               {selectedRoute?.stops?.map((stop: any, idx: number) => (
                                 <Button 
@@ -388,7 +400,7 @@ export default function CustomerDashboard() {
 
                         <div className="grid grid-cols-2 gap-4 pt-4">
                            <div className="space-y-3">
-                              <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Date</Label>
+                              <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Select Date</Label>
                               <select 
                                 value={bookingDate} 
                                 onChange={(e) => setBookingDate(e.target.value)} 
@@ -401,7 +413,7 @@ export default function CustomerDashboard() {
                               </select>
                            </div>
                            <div className="space-y-3">
-                              <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Time</Label>
+                              <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Select Time</Label>
                               <select 
                                 value={bookingTime} 
                                 onChange={(e) => setBookingTime(e.target.value)} 
@@ -446,9 +458,15 @@ export default function CustomerDashboard() {
                          <div className="h-32 w-32 bg-primary text-black rounded-full flex items-center justify-center shadow-3xl">
                            <CheckCircle2 className="h-16 w-16" />
                          </div>
-                         <div className="space-y-4">
-                           <h3 className="text-4xl font-black italic uppercase text-primary tracking-tighter leading-none">Done!</h3>
-                           <p className="text-[10px] font-bold text-muted-foreground italic uppercase tracking-[0.2em]">Your ride details and driver info will be shared 3 hours before the trip starts.</p>
+                         <div className="space-y-6">
+                           <h3 className="text-4xl font-black italic uppercase text-primary tracking-tighter leading-none">Trip Scheduled!</h3>
+                           <div className="bg-white/5 p-6 rounded-[2.5rem] border border-white/10 space-y-2">
+                              <p className="text-sm font-black text-white italic uppercase">{selectedRoute?.routeName}</p>
+                              <p className="text-xs font-bold text-muted-foreground uppercase">{bookingDate} • {bookingTime}</p>
+                           </div>
+                           <p className="text-[10px] font-bold text-muted-foreground italic uppercase tracking-widest leading-relaxed px-10">
+                             Seat allocation and driver details will be shared 3 hours before departure.
+                           </p>
                          </div>
                          <Button onClick={() => setBookingStep(1)} className="w-full h-18 bg-white/5 rounded-2xl border border-white/10 font-black uppercase italic">Close</Button>
                       </div>
@@ -476,7 +494,7 @@ export default function CustomerDashboard() {
 
         {activeTab === 'map' && (
           <div className="flex-1 flex flex-col space-y-6 h-[calc(100vh-240px)] animate-in fade-in">
-            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">Radar</h2>
+            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">Live Map</h2>
             <div className="flex-1 rounded-[4rem] overflow-hidden border-4 border-white/5 shadow-3xl bg-black relative">
                {isLoaded ? (
                  <GoogleMap mapContainerStyle={mapContainerStyle} center={driverLocation || DEFAULT_CENTER} zoom={15} options={mapOptions}>
@@ -489,18 +507,18 @@ export default function CustomerDashboard() {
 
         {activeTab === 'history' && (
           <div className="space-y-8 pb-12 animate-in fade-in">
-             <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">My History</h2>
+             <h2 className="text-4xl font-black text-foreground italic uppercase tracking-tighter pl-2">Past Trips</h2>
              <div className="space-y-4">
                 {(allTrips || []).filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid))?.length === 0 ? (
                   <div className="p-24 text-center italic text-muted-foreground bg-white/5 rounded-[3.5rem] border-2 border-dashed border-white/5 opacity-40 uppercase tracking-[0.4em] font-black text-[11px]">
-                    No rides yet
+                    No trips yet
                   </div>
                 ) : (allTrips || []).filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid))?.map((t: any) => (
                   <Card key={t.id} className="bg-card/40 border border-white/5 rounded-[2.5rem] p-8 flex justify-between items-center">
                     <div className="space-y-2">
-                      <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-3 py-1 rounded-full">{t.status.toUpperCase()}</Badge>
+                      <Badge className={`${t.status === 'completed' ? 'bg-green-500/10 text-green-500' : 'bg-primary/20 text-primary'} border-none text-[8px] font-black uppercase px-3 py-1 rounded-full`}>{t.status.toUpperCase()}</Badge>
                       <h4 className="font-black text-foreground uppercase italic text-2xl leading-none">{t.routeName}</h4>
-                      <p className="text-[9px] font-bold text-muted-foreground uppercase">{t.scheduledDate}</p>
+                      <p className="text-[9px] font-bold text-muted-foreground uppercase">{t.scheduledDate} • {t.scheduledTime}</p>
                     </div>
                     <span className="text-2xl font-black italic text-primary">₹{t.farePerRider}</span>
                   </Card>
