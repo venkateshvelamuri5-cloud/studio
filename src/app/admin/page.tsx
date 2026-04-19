@@ -83,6 +83,7 @@ export default function AdminDashboard() {
   const { user, loading: authLoading } = useUser();
   const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: googleMapsApiKey });
   
+  const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'routes' | 'drivers' | 'customers' | 'ai-planner' | 'discounts' | 'analytics'>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [isCleaning, setIsCleaning] = useState(false);
@@ -99,8 +100,12 @@ export default function AdminDashboard() {
   const [tempStopName, setTempStopName] = useState("");
 
   useEffect(() => {
-    if (!authLoading && !user) router.push('/admin/login');
-  }, [authLoading, user, router]);
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !authLoading && !user) router.push('/admin/login');
+  }, [mounted, authLoading, user, router]);
 
   const { data: allUsers } = useCollection(useMemo(() => db ? query(collection(db, 'users')) : null, [db]));
   const { data: allRoutes } = useCollection(useMemo(() => db ? query(collection(db, 'routes'), orderBy('createdAt', 'desc')) : null, [db]));
@@ -134,11 +139,18 @@ export default function AdminDashboard() {
   }, [allUsers, trips]);
 
   const chartData = useMemo(() => {
-    if (!allUsers || !trips) return { growth: [], repeatData: [], routeRevenue: [] };
+    if (!mounted || !allUsers || !trips) return { growth: [], repeatData: [], routeRevenue: [] };
 
     const growth = Array.from({ length: 7 }).map((_, i) => {
       const date = subDays(new Date(), 6 - i);
-      const count = allUsers.filter(u => u.createdAt && isSameDay(parseISO(u.createdAt), date)).length;
+      const count = allUsers.filter(u => {
+        if (!u.createdAt) return false;
+        try {
+          return isSameDay(parseISO(u.createdAt), date);
+        } catch (e) {
+          return false;
+        }
+      }).length;
       return { name: format(date, 'MMM dd'), users: count };
     });
 
@@ -150,12 +162,14 @@ export default function AdminDashboard() {
     const revenueMap: Record<string, number> = {};
     (trips || []).filter(t => t.status === 'completed').forEach(t => {
       const routeName = t.routeName || 'Unknown';
-      revenueMap[routeName] = (revenueMap[routeName] || 0) + (t.farePerRider * (t.passengerManifest?.length || 0));
+      const fare = t.farePerRider || 0;
+      const count = t.passengerManifest?.length || 0;
+      revenueMap[routeName] = (revenueMap[routeName] || 0) + (fare * count);
     });
     const routeRevenue = Object.entries(revenueMap).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value).slice(0, 5);
 
     return { growth, repeatData, routeRevenue };
-  }, [allUsers, trips, stats]);
+  }, [mounted, allUsers, trips, stats]);
 
   const handleMapClick = (e: google.maps.MapMouseEvent) => {
     if (!e.latLng) return;
@@ -192,7 +206,27 @@ export default function AdminDashboard() {
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/admin/login'); };
 
-  if (authLoading) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin h-12 w-12 text-primary" /></div>;
+  const handleClearData = async () => {
+    if (!db) return;
+    setIsCleaning(true);
+    try {
+      // Clear relevant collections for testing
+      const collections = ['trips', 'routes', 'vouchers'];
+      for (const colName of collections) {
+        const snap = await getDocs(collection(db, colName));
+        const deletions = snap.docs.map(d => deleteDoc(doc(db, colName, d.id)));
+        await Promise.all(deletions);
+      }
+      toast({ title: "Data Cleared", description: "All test data removed." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to clear data." });
+    } finally {
+      setIsCleaning(false);
+      setIsCleaning(false);
+    }
+  };
+
+  if (!mounted || authLoading) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin h-12 w-12 text-primary" /></div>;
 
   return (
     <div className="flex h-screen bg-background text-foreground font-body overflow-hidden">
@@ -376,6 +410,22 @@ export default function AdminDashboard() {
           )}
         </div>
       </main>
+
+      <Dialog open={isCleaning} onOpenChange={setIsCleaning}>
+        <DialogContent className="bg-background border-white/5 rounded-3xl p-8 max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black uppercase italic text-primary">Clear Hub Data?</DialogTitle>
+          </DialogHeader>
+          <div className="py-6 text-center">
+            <p className="text-muted-foreground text-sm font-bold uppercase italic">This will delete all trips, routes, and discount codes for testing.</p>
+          </div>
+          <DialogFooter className="flex gap-4">
+            <Button variant="ghost" onClick={() => setIsCleaning(false)} className="flex-1 rounded-xl font-black uppercase">Cancel</Button>
+            <Button onClick={handleClearData} className="flex-1 bg-destructive text-white rounded-xl font-black uppercase hover:bg-destructive/90">Yes, Clear</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
