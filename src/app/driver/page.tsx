@@ -15,8 +15,6 @@ import {
   Wallet,
   LayoutGrid,
   Settings,
-  ArrowUpRight,
-  Target,
   Trophy,
   ShieldAlert,
   Clock,
@@ -24,14 +22,13 @@ import {
   CalendarDays,
   MapIcon,
   ChevronRight,
-  UserCheck,
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
 import { doc, updateDoc, collection, onSnapshot, query, where, arrayUnion, getDocs, increment } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { isBefore, addHours, parse, format, subHours, parseISO } from 'date-fns';
+import { isBefore, addHours, parse, subHours } from 'date-fns';
 
 const Logo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -58,13 +55,11 @@ export default function DriverApp() {
   const userRef = useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
 
-  // Available routes to pick from
   const { data: availableRoutes } = useCollection(useMemo(() => {
     if (!db) return null;
     return query(collection(db, 'routes'), where('status', '==', 'active'));
   }, [db]));
 
-  // Trips on the driver's preferred route
   const { data: myRouteTrips } = useCollection(useMemo(() => {
     if (!db || !profile?.preferredRoute) return null;
     return query(collection(db, 'trips'), where('routeName', '==', profile.preferredRoute), where('status', '==', 'active'));
@@ -74,7 +69,19 @@ export default function DriverApp() {
     if (!authLoading && !user) router.push('/driver/login');
   }, [user, authLoading, router]);
 
-  // Listen for the currently live trip
+  // Live location tracking
+  useEffect(() => {
+    if (!userRef || profile?.status !== 'on-trip') return;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        updateDoc(userRef, { currentLat: pos.coords.latitude, currentLng: pos.coords.longitude });
+      },
+      (err) => console.error("GPS Error:", err),
+      { enableHighAccuracy: true, distanceFilter: 10 }
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [userRef, profile?.status]);
+
   useEffect(() => {
     if (!db || !user?.uid) return;
     const q = query(collection(db, 'trips'), where('driverId', '==', user.uid), where('status', '==', 'on-trip'));
@@ -85,32 +92,19 @@ export default function DriverApp() {
   }, [db, user?.uid]);
 
   const joinRoute = async (routeName: string) => {
-    if (!db || !userRef) return;
-    setIsUpdating(true);
-    try {
-      await updateDoc(userRef, { preferredRoute: routeName });
-      toast({ title: "Route Selected", description: `You are now in the pool for ${routeName}.` });
-      setActiveTab('my-work');
-    } finally { setIsUpdating(false); }
+    if (!userRef) return;
+    await updateDoc(userRef, { preferredRoute: routeName });
+    toast({ title: "Route selected!" });
+    setActiveTab('my-work');
   };
 
   const startRide = async (trip: any) => {
     if (!db || !user || !profile || !userRef) return;
     setIsUpdating(true);
     try {
-      await updateDoc(doc(db, 'trips', trip.id), {
-        status: 'on-trip',
-        startTime: new Date().toISOString(),
-        driverId: user.uid,
-        driverName: profile.fullName,
-        driverPhoto: profile.photoUrl || null,
-        vehicleNumber: profile.vehicleNumber
-      });
-      await updateDoc(userRef, { 
-        status: 'on-trip', 
-        activeTripId: trip.id 
-      });
-      toast({ title: "Trip Started", description: "Safe travels!" });
+      await updateDoc(doc(db, 'trips', trip.id), { status: 'on-trip', startTime: new Date().toISOString(), driverId: user.uid, driverName: profile.fullName, driverPhoto: profile.photoUrl || null, vehicleNumber: profile.vehicleNumber });
+      await updateDoc(userRef, { status: 'on-trip', activeTripId: trip.id });
+      toast({ title: "Trip Started!" });
     } finally { setIsUpdating(false); }
   };
 
@@ -119,15 +113,12 @@ export default function DriverApp() {
     setIsVerifying(true);
     const q = query(collection(db, 'users'), where('activeOtp', '==', otpCode.trim()));
     const snap = await getDocs(q);
-    if (snap.empty) {
-      toast({ variant: "destructive", title: "Wrong Code" });
-    } else {
+    if (snap.empty) toast({ variant: "destructive", title: "Wrong Code" });
+    else {
       const passengerId = snap.docs[0].id;
-      await updateDoc(doc(db, 'trips', activeTrip.id), { 
-        verifiedPassengers: arrayUnion(passengerId) 
-      });
+      await updateDoc(doc(db, 'trips', activeTrip.id), { verifiedPassengers: arrayUnion(passengerId) });
       await updateDoc(doc(db, 'users', passengerId), { activeOtp: null });
-      toast({ title: "Customer Verified!" });
+      toast({ title: "Verified!" });
       setOtpCode("");
     }
     setIsVerifying(false);
@@ -139,70 +130,35 @@ export default function DriverApp() {
     try {
       const totalFare = (activeTrip.passengerManifest?.length || 0) * (activeTrip.farePerRider || 0);
       const share = totalFare * 0.9; 
-      await updateDoc(doc(db, 'trips', activeTrip.id), { 
-        status: 'completed', 
-        endTime: new Date().toISOString() 
-      });
-      await updateDoc(userRef, { 
-        status: 'available', 
-        activeTripId: null,
-        totalEarnings: increment(share)
-      });
+      await updateDoc(doc(db, 'trips', activeTrip.id), { status: 'completed', endTime: new Date().toISOString() });
+      await updateDoc(userRef, { status: 'available', activeTripId: null, totalEarnings: increment(share) });
       toast({ title: "Trip Finished!" });
     } finally { setIsUpdating(false); }
   };
 
   const isReadyToStart = (dateStr: string, timeStr: string) => {
     try {
-      if (!dateStr || !timeStr) return false;
-      const combined = `${dateStr} ${timeStr}`;
-      const tripTime = parse(combined, 'yyyy-MM-dd hh:mm a', new Date());
+      const tripTime = parse(`${dateStr} ${timeStr}`, 'yyyy-MM-dd hh:mm a', new Date());
       const now = new Date();
-      // Only allow starting 3 hours before start time
-      const threeHoursBefore = subHours(tripTime, 3);
-      const twoHoursAfterStart = addHours(tripTime, 2);
-      return isAfter(now, threeHoursBefore) && isBefore(now, twoHoursAfterStart);
-    } catch (e) {
-      return false;
-    }
+      return isBefore(subHours(tripTime, 3), now) && isBefore(now, addHours(tripTime, 2));
+    } catch (e) { return false; }
   };
 
   const handleSignOut = async () => { if (auth) await signOut(auth); router.push('/driver/login'); };
 
   if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin text-primary h-12 w-12" /></div>;
 
-  if (profile && !profile.isVerified) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-10 text-center space-y-8 safe-area-inset">
-        <div className="h-32 w-32 bg-primary/10 rounded-full flex items-center justify-center text-primary animate-pulse shadow-2xl">
-          <ShieldAlert className="h-16 w-16" />
-        </div>
-        <div className="space-y-4 max-w-sm">
-          <h1 className="text-4xl font-black italic uppercase text-foreground leading-none tracking-tighter">Checking Details</h1>
-          <p className="text-sm font-bold text-muted-foreground italic uppercase tracking-widest leading-relaxed">
-            We are checking your details. We will let you know once you can start driving.
-          </p>
-        </div>
-        <Button onClick={handleSignOut} variant="ghost" className="text-destructive font-black uppercase italic">Logout</Button>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-body pb-24 safe-area-inset">
       <header className="px-6 py-6 flex items-center justify-between border-b border-white/5 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center text-black">
-            <Logo className="h-6 w-6" />
-          </div>
+          <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center text-black"><Logo className="h-6 w-6" /></div>
           <div>
             <h1 className="text-lg font-black italic uppercase text-primary">DRIVER</h1>
-            <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase mt-1 px-3 py-1 rounded-full">
-              {profile?.status?.toUpperCase() || 'OFFLINE'}
-            </Badge>
+            <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase mt-1 px-3 py-1 rounded-full">{profile?.status?.toUpperCase() || 'OFFLINE'}</Badge>
           </div>
         </div>
-        <Button onClick={() => updateDoc(userRef!, { status: profile?.status === 'offline' ? 'available' : 'offline' })} className={`rounded-2xl h-11 w-11 p-0 transition-all ${profile?.status === 'offline' ? 'bg-white/5 text-muted-foreground' : 'bg-primary text-black'}`}>
+        <Button onClick={() => updateDoc(userRef!, { status: profile?.status === 'offline' ? 'available' : 'offline' })} className={`rounded-2xl h-11 w-11 p-0 ${profile?.status === 'offline' ? 'bg-white/5' : 'bg-primary text-black'}`}>
           <Power className="h-6 w-6" />
         </Button>
       </header>
@@ -213,56 +169,29 @@ export default function DriverApp() {
             <Card className="rounded-[3.5rem] p-8 space-y-8 border-primary/30 relative shadow-2xl bg-card/60 backdrop-blur-md">
                <div className="flex justify-between items-start">
                   <div className="space-y-1">
-                     <h2 className="text-4xl font-black italic uppercase leading-none text-primary tracking-tighter">{activeTrip.routeName}</h2>
+                     <h2 className="text-4xl font-black italic uppercase leading-none text-primary">{activeTrip.routeName}</h2>
                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-2">Active Trip</p>
                   </div>
                   <Badge className="bg-primary/20 text-primary border-none text-[10px] font-black uppercase px-5 py-2 rounded-full">LIVE</Badge>
                </div>
-
-               <div className="bg-black/60 p-8 rounded-[3rem] border border-white/10 space-y-6">
+               <div className="bg-black/60 p-8 rounded-[3rem] border border-white/10 space-y-4">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-4">Enter Trip Code</Label>
                   <div className="flex gap-4">
-                     <input value={otpCode} onChange={(e) => setOtpCode(e.target.value)} placeholder="000000" className="h-20 w-full text-center font-black tracking-[0.5em] text-4xl rounded-3xl bg-white/5 border border-white/10 text-primary outline-none" maxLength={6} />
-                     <Button onClick={verifyCustomer} disabled={isVerifying || !otpCode} className="h-20 w-20 rounded-3xl bg-primary text-black"><CheckCircle2 className="h-10 w-10" /></Button>
+                     <input value={otpCode} onChange={e => setOtpCode(e.target.value)} placeholder="000000" className="h-16 w-full text-center font-black tracking-[0.5em] text-2xl rounded-2xl bg-white/5 border border-white/10 text-primary" maxLength={6} />
+                     <Button onClick={verifyCustomer} disabled={isVerifying || !otpCode} className="h-16 w-16 rounded-2xl bg-primary text-black"><CheckCircle2 className="h-8 w-8" /></Button>
                   </div>
                </div>
-
-               <div className="space-y-4">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground ml-4">People List</h3>
-                  <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                     {activeTrip.passengerManifest?.map((m: any, i: number) => (
-                       <div key={i} className={`p-6 rounded-3xl border flex items-center justify-between ${activeTrip.verifiedPassengers?.includes(m.uid) ? 'bg-primary/10 border-primary/20' : 'bg-white/5 border-white/5'}`}>
-                          <div>
-                             <p className="font-black italic text-foreground text-sm uppercase leading-none">{m.name}</p>
-                             <div className="flex items-center gap-2 mt-1">
-                                <MapPin className="h-3 w-3 text-primary" />
-                                <p className="text-[8px] font-bold text-muted-foreground uppercase italic">{m.pickup} → {m.destination}</p>
-                             </div>
-                          </div>
-                          {activeTrip.verifiedPassengers?.includes(m.uid) && <CheckCircle2 className="text-primary h-6 w-6" />}
-                       </div>
-                     ))}
-                  </div>
-               </div>
-
                <Button onClick={finishRide} disabled={isUpdating} className="w-full h-20 bg-primary/10 border-2 border-primary/50 text-primary rounded-[3rem] font-black uppercase italic text-xl">Finish Trip</Button>
             </Card>
           </div>
         ) : (
-          <div className="space-y-6 animate-in fade-in">
+          <div className="space-y-6">
              {activeTab === 'open-routes' && (
                <div className="space-y-6">
-                  <div className="flex items-center justify-between px-2">
-                     <h3 className="text-xl font-black italic uppercase flex items-center gap-2"><MapIcon className="h-5 w-5 text-primary" /> Available Routes</h3>
-                  </div>
+                  <h3 className="text-xl font-black italic uppercase flex items-center gap-2"><MapIcon className="h-5 w-5 text-primary" /> Available Routes</h3>
                   <div className="space-y-3">
-                     {availableRoutes?.length === 0 ? (
-                       <div className="p-20 text-center text-muted-foreground italic bg-white/5 rounded-[2.5rem] border border-dashed border-white/10 flex flex-col items-center gap-4">
-                          <Loader2 className="animate-spin h-6 w-6 opacity-20" />
-                          <p className="text-[10px] font-black uppercase tracking-widest">Loading routes...</p>
-                       </div>
-                     ) : availableRoutes?.map((route: any) => (
-                       <Card key={route.id} className="p-8 bg-white/5 border border-white/5 rounded-[2.5rem] flex justify-between items-center group cursor-pointer hover:border-primary/20 transition-all" onClick={() => joinRoute(route.routeName)}>
+                     {availableRoutes?.map((route: any) => (
+                       <Card key={route.id} className="p-8 bg-white/5 border border-white/5 rounded-[2.5rem] flex justify-between items-center cursor-pointer hover:border-primary/20 transition-all" onClick={() => joinRoute(route.routeName)}>
                          <div className="space-y-2">
                             <h4 className="text-2xl font-black italic uppercase leading-none">{route.routeName}</h4>
                             <div className="flex items-center gap-3">
@@ -270,9 +199,7 @@ export default function DriverApp() {
                                <span className="text-[10px] font-bold text-muted-foreground uppercase">{route.schedule}</span>
                             </div>
                          </div>
-                         <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-black transition-all">
-                            <ChevronRight className="h-6 w-6" />
-                         </div>
+                         <ChevronRight className="h-8 w-8 text-primary" />
                        </Card>
                      ))}
                   </div>
@@ -281,21 +208,10 @@ export default function DriverApp() {
 
              {activeTab === 'my-work' && (
                <div className="space-y-6">
-                  <div className="flex flex-col gap-2 px-2">
-                     <h3 className="text-xl font-black italic uppercase flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" /> My Work Schedule</h3>
-                     <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Route Pool: {profile?.preferredRoute || 'No Route Selected'}</p>
-                  </div>
+                  <h3 className="text-xl font-black italic uppercase flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" /> My Schedule</h3>
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest pl-2">Route Pool: {profile?.preferredRoute || 'None'}</p>
                   <div className="space-y-3">
-                     {!profile?.preferredRoute ? (
-                        <Card className="p-10 bg-white/5 border border-dashed border-white/10 rounded-[2.5rem] text-center space-y-4">
-                           <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Please pick a route first</p>
-                           <Button onClick={() => setActiveTab('open-routes')} className="bg-primary text-black font-black uppercase italic rounded-xl px-8 h-12">Pick a Route</Button>
-                        </Card>
-                     ) : myRouteTrips?.length === 0 ? (
-                       <div className="p-20 text-center text-muted-foreground italic bg-white/5 rounded-[2.5rem] border border-dashed border-white/10 flex flex-col items-center gap-4 opacity-50">
-                          <p className="text-[10px] font-black uppercase tracking-widest">No trips scheduled for this route yet</p>
-                       </div>
-                     ) : myRouteTrips?.map((trip: any) => {
+                     {myRouteTrips?.map((trip: any) => {
                        const ready = isReadyToStart(trip.scheduledDate, trip.scheduledTime);
                        return (
                          <Card key={trip.id} className="p-8 bg-white/5 border border-white/5 rounded-[2.5rem] space-y-6">
@@ -303,21 +219,14 @@ export default function DriverApp() {
                                <div className="space-y-2">
                                   <h4 className="text-2xl font-black italic uppercase leading-none">{trip.routeName}</h4>
                                   <p className="text-[10px] font-bold text-muted-foreground uppercase">{trip.scheduledDate} • {trip.scheduledTime}</p>
-                                  <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-3 py-1 rounded-full">{trip.riderCount} Customers Joined</Badge>
                                </div>
-                               <Badge className={`border-none text-[8px] font-black uppercase px-3 py-1 rounded-full ${ready ? 'bg-green-500/20 text-green-500' : 'bg-white/10 text-muted-foreground'}`}>
-                                 {ready ? 'READY' : 'POOL'}
-                               </Badge>
+                               <Badge className={`text-[8px] font-black uppercase px-3 py-1 rounded-full ${ready ? 'bg-green-500/20 text-green-500' : 'bg-white/10 text-muted-foreground'}`}>{ready ? 'READY' : 'POOL'}</Badge>
                             </div>
-                            
                             {ready ? (
-                              <Button onClick={() => startRide(trip)} disabled={profile?.status === 'offline' || isUpdating} className="w-full h-16 bg-primary text-black rounded-2xl font-black uppercase italic text-lg shadow-xl">
-                                 Start Trip
-                              </Button>
+                              <Button onClick={() => startRide(trip)} disabled={profile?.status === 'offline' || isUpdating} className="w-full h-16 bg-primary text-black rounded-2xl font-black uppercase italic text-lg shadow-xl">Start Trip</Button>
                             ) : (
                               <div className="w-full h-16 bg-white/5 border border-dashed border-white/10 rounded-2xl flex items-center justify-center gap-3">
-                                 <Clock className="h-5 w-5 text-muted-foreground" />
-                                 <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Allocation starts 3 hours before</span>
+                                 <Clock className="h-5 w-5 text-muted-foreground" /><span className="text-[10px] font-black uppercase text-muted-foreground">Unlocks 3 hrs before</span>
                               </div>
                             )}
                          </Card>
@@ -330,37 +239,29 @@ export default function DriverApp() {
              {activeTab === 'money' && (
                <div className="space-y-8 animate-in fade-in pb-12">
                   <div className="flex items-center justify-between px-2">
-                     <h3 className="text-3xl font-black italic uppercase text-foreground tracking-tighter">My Money</h3>
-                     <Badge className="bg-primary text-black border-none font-black text-[10px] uppercase px-4 py-1.5 rounded-full tracking-widest">₹{(profile?.totalEarnings || 0).toFixed(0)}</Badge>
+                     <h3 className="text-3xl font-black italic uppercase text-foreground">My Money</h3>
+                     <Badge className="bg-primary text-black font-black text-[10px] px-4 py-1.5 rounded-full">₹{(profile?.totalEarnings || 0).toFixed(0)}</Badge>
                   </div>
                   <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-6 text-center">
-                     <div className="flex flex-col items-center gap-4">
-                       <div className="p-3 bg-primary/10 rounded-2xl text-primary"><Trophy className="h-10 w-10" /></div>
-                       <h4 className="text-xl font-black italic uppercase">Great Job!</h4>
-                     </div>
+                     <div className="p-3 bg-primary/10 rounded-2xl text-primary w-fit mx-auto"><Trophy className="h-10 w-10" /></div>
                      <Progress value={Math.min(100, ((profile?.totalEarnings || 0) / 2000) * 100)} className="h-3 bg-white/5 [&>div]:bg-primary" />
-                     <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic">You keep 90% of your earnings.</p>
+                     <p className="text-[10px] font-black uppercase text-muted-foreground italic">You keep 90% of your earnings.</p>
                   </Card>
                </div>
              )}
 
              {activeTab === 'me' && (
-               <div className="space-y-12 text-center pb-24 pt-10 animate-in fade-in">
+               <div className="space-y-12 text-center pb-24 pt-10">
                   <div className="flex flex-col items-center gap-6">
                      <div className="h-40 w-40 rounded-full border-[8px] border-white/5 bg-primary/5 flex items-center justify-center overflow-hidden shadow-2xl relative">
                        {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : <div className="h-full w-full bg-primary/5 flex items-center justify-center text-primary/20"><LayoutGrid className="h-12 w-12" /></div>}
                      </div>
                      <div className="space-y-2">
-                        <h2 className="text-5xl font-black italic uppercase text-foreground leading-none tracking-tighter">{profile?.fullName}</h2>
-                        <div className="flex flex-col gap-2 items-center">
-                           <Badge className="bg-primary/20 text-primary border-none uppercase text-[9px] font-black tracking-widest px-6 py-1.5 rounded-full">{profile?.vehicleType}</Badge>
-                           <p className="text-sm font-black uppercase text-muted-foreground italic tracking-tighter opacity-50">{profile?.vehicleNumber}</p>
-                        </div>
+                        <h2 className="text-5xl font-black italic uppercase text-foreground leading-none">{profile?.fullName}</h2>
+                        <Badge className="bg-primary/20 text-primary border-none uppercase text-[9px] font-black px-6 py-1.5 rounded-full">{profile?.vehicleNumber}</Badge>
                      </div>
                   </div>
-                  <Button onClick={handleSignOut} className="w-full max-w-sm mx-auto h-20 bg-destructive/10 text-destructive rounded-[2.5rem] font-black uppercase italic border border-destructive/20 text-xl">
-                     <LogOut className="mr-3 h-6 w-6" /> Logout
-                  </Button>
+                  <Button onClick={handleSignOut} className="w-full max-w-sm mx-auto h-20 bg-destructive/10 text-destructive rounded-[2.5rem] font-black uppercase italic border border-destructive/20 text-xl"><LogOut className="mr-3 h-6 w-6" /> Logout</Button>
                </div>
              )}
           </div>
@@ -372,10 +273,10 @@ export default function DriverApp() {
           <MapIcon className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">Routes</span>
         </Button>
         <Button variant="ghost" onClick={() => setActiveTab('my-work')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl ${activeTab === 'my-work' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
-          <CalendarDays className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">My Work</span>
+          <CalendarDays className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">My Schedule</span>
         </Button>
         <Button variant="ghost" onClick={() => setActiveTab('money')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl ${activeTab === 'money' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
-          <Wallet className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">Earnings</span>
+          <Wallet className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">Money</span>
         </Button>
         <Button variant="ghost" onClick={() => setActiveTab('me')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl ${activeTab === 'me' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
           <Settings className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">Me</span>

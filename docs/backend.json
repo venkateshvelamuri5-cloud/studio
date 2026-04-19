@@ -3,7 +3,7 @@
   "entities": {
     "User": {
       "title": "User",
-      "description": "A community member (rider), operator (driver), or administrative profile.",
+      "description": "A community member (customer), driver, or admin profile.",
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
@@ -12,20 +12,16 @@
         "email": { "type": "string" },
         "identityNumber": { "type": "string" },
         "gender": { "type": "string", "enum": ["Male", "Female", "Other"] },
-        "emergencyContactName": { "type": "string" },
-        "emergencyContactPhone": { "type": "string" },
         "role": { "type": "string", "enum": ["rider", "admin", "driver"] },
         "status": { "type": "string", "enum": ["available", "on-trip", "offline"] },
         "isVerified": { "type": "boolean", "default": false },
         "photoUrl": { "type": "string" },
         "vehicleNumber": { "type": "string" },
         "vehicleType": { "type": "string", "enum": ["5 Seater", "7 Seater", "Mini-Bus"] },
-        "seatingCapacity": { "type": "number" },
-        "aadhaarNumber": { "type": "string" },
         "currentLat": { "type": "number" },
         "currentLng": { "type": "number" },
         "activeOtp": { "type": "string" },
-        "destinationStopName": { "type": "string" },
+        "preferredRoute": { "type": "string" },
         "totalEarnings": { "type": "number", "default": 0 },
         "loyaltyPoints": { "type": "number", "default": 0 },
         "referralCode": { "type": "string" },
@@ -36,7 +32,7 @@
     },
     "Trip": {
       "title": "Trip",
-      "description": "A record of a community mobility trip.",
+      "description": "A record of a community trip.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -44,10 +40,10 @@
         "driverName": { "type": "string" },
         "driverPhoto": { "type": "string" },
         "vehicleNumber": { "type": "string" },
-        "vehicleType": { "type": "string" },
         "routeName": { "type": "string" },
         "scheduledDate": { "type": "string" },
-        "status": { "type": "string", "enum": ["active", "scheduled", "on-trip", "completed"] },
+        "scheduledTime": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "on-trip", "completed"] },
         "riderCount": { "type": "number", "default": 0 },
         "maxCapacity": { "type": "number", "default": 7 },
         "farePerRider": { "type": "number" },
@@ -66,9 +62,6 @@
           }
         },
         "verifiedPassengers": { "type": "array", "items": { "type": "string" } },
-        "totalYield": { "type": "number" },
-        "currentLat": { "type": "number" },
-        "currentLng": { "type": "number" },
         "startTime": { "type": "string", "format": "date-time" },
         "endTime": { "type": "string", "format": "date-time" }
       },
@@ -76,7 +69,7 @@
     },
     "Route": {
       "title": "Route",
-      "description": "A community transit corridor definition with landmark stops.",
+      "description": "A transit corridor with landmark stops.",
       "type": "object",
       "properties": {
         "routeName": { "type": "string" },
@@ -85,20 +78,16 @@
           "type": "array", 
           "items": { 
             "type": "object", 
-            "properties": { "name": { "type": "string" } } 
+            "properties": { 
+              "name": { "type": "string" },
+              "lat": { "type": "number" },
+              "lng": { "type": "number" }
+            } 
           } 
         },
+        "schedule": { "type": "string" },
         "status": { "type": "string" },
         "createdAt": { "type": "string" }
-      }
-    },
-    "AppConfig": {
-      "title": "AppConfig",
-      "description": "Global settings for the mobility grid.",
-      "type": "object",
-      "properties": {
-        "primaryUpiId": { "type": "string" },
-        "secondaryUpiId": { "type": "string" }
       }
     }
   },
@@ -106,10 +95,10 @@
     "providers": ["phone", "password"]
   },
   "firestore": {
-    "/users/{userId}": { "schema": "User", "description": "User and operator profiles." },
-    "/trips/{tripId}": { "schema": "Trip", "description": "Grid trip records." },
+    "/users/{userId}": { "schema": "User", "description": "User and driver profiles." },
+    "/trips/{tripId}": { "schema": "Trip", "description": "Trip records." },
     "/routes/{routeId}": { "schema": "Route", "description": "Transit corridors." },
-    "/vouchers/{voucherId}": { "schema": "Voucher", "description": "Discount vouchers." },
-    "/config/global": { "schema": "AppConfig", "description": "Global grid settings." }
+    "/vouchers/{voucherId}": { "schema": "Voucher", "description": "Discount codes." },
+    "/config/global": { "schema": "AppConfig", "description": "Global settings." }
   }
 }
