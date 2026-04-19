@@ -145,7 +145,7 @@ export default function AdminDashboard() {
     // Growth Data (last 7 days)
     const growth = Array.from({ length: 7 }).map((_, i) => {
       const date = subDays(new Date(), 6 - i);
-      const count = allUsers.filter(u => u.createdAt && isSameDay(parseISO(u.createdAt), date)).length;
+      const count = allUsers.filter(u => u.createdAt && u.createdAt !== 'admin-manual' && isSameDay(parseISO(u.createdAt), date)).length;
       return { name: format(date, 'MMM dd'), users: count };
     });
 
@@ -549,7 +549,7 @@ export default function AdminDashboard() {
                            <input type="number" value={newRoute.fare} onChange={e => setNewRoute({...newRoute, fare: e.target.value})} placeholder="150" className="h-14 w-full px-6 rounded-xl bg-white/5 border border-white/10 font-black italic outline-none focus:border-primary" />
                         </div>
                         <div className="space-y-2">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Times</Label>
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-2">Times (comma separated)</Label>
                            <input value={newRoute.schedule} onChange={e => setNewRoute({...newRoute, schedule: e.target.value})} placeholder="08:00 AM, 05:30 PM" className="h-14 w-full px-6 rounded-xl bg-white/5 border border-white/10 font-black italic outline-none focus:border-primary" />
                         </div>
                      </div>

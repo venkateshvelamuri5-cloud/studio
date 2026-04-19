@@ -332,7 +332,7 @@ export default function CustomerDashboard() {
                     </div>
                   </div>
                 </DialogTrigger>
-                <DialogContent className="bg-background border-white/5 rounded-[3.5rem] p-10 h-[90vh] flex flex-col shadow-2xl">
+                <DialogContent className="bg-background border-white/5 rounded-[3.5rem] p-10 h-[90vh] flex flex-col shadow-2xl overflow-hidden">
                   <DialogHeader className="shrink-0 mb-6">
                     <DialogTitle className="text-4xl font-black italic uppercase text-primary leading-none tracking-tighter">
                       {bookingStep === 1 ? "Pick a Route" : bookingStep === 2 ? "Pick a Time" : bookingStep === 3 ? "Review" : "Done!"}
@@ -355,51 +355,75 @@ export default function CustomerDashboard() {
                     )}
 
                     {bookingStep === 2 && (
-                      <div className="space-y-8">
+                      <div className="space-y-8 animate-in slide-in-from-bottom-4">
                         <div className="space-y-4">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Pickup Point</Label>
-                           <div className="grid grid-cols-1 gap-2">
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2 tracking-widest">Pickup Point</Label>
+                           <div className="grid grid-cols-2 gap-3">
                               {selectedRoute?.stops?.map((stop: any, idx: number) => (
-                                <Button key={idx} onClick={() => setPickupStop(stop.name)} variant={pickupStop === stop.name ? 'default' : 'outline'} className={`h-14 rounded-xl font-black italic justify-start px-6 ${pickupStop === stop.name ? 'bg-primary text-black' : 'border-white/10 text-muted-foreground'}`}>
+                                <Button 
+                                  key={idx} 
+                                  onClick={() => setPickupStop(stop.name)} 
+                                  className={`h-16 rounded-2xl font-black italic uppercase text-[10px] tracking-tighter transition-all ${pickupStop === stop.name ? 'bg-primary text-black scale-105 shadow-xl' : 'bg-white/5 border border-white/10 text-muted-foreground hover:bg-white/10'}`}
+                                >
                                   {stop.name}
                                 </Button>
                               ))}
                            </div>
                         </div>
+                        
                         <div className="space-y-4">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Drop Point</Label>
-                           <div className="grid grid-cols-1 gap-2">
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2 tracking-widest">Drop Point</Label>
+                           <div className="grid grid-cols-2 gap-3">
                               {selectedRoute?.stops?.map((stop: any, idx: number) => (
-                                <Button key={idx} onClick={() => setDropStop(stop.name)} variant={dropStop === stop.name ? 'default' : 'outline'} className={`h-14 rounded-xl font-black italic justify-start px-6 ${dropStop === stop.name ? 'bg-primary text-black' : 'border-white/10 text-muted-foreground'}`}>
+                                <Button 
+                                  key={idx} 
+                                  onClick={() => setDropStop(stop.name)} 
+                                  className={`h-16 rounded-2xl font-black italic uppercase text-[10px] tracking-tighter transition-all ${dropStop === stop.name ? 'bg-primary text-black scale-105 shadow-xl' : 'bg-white/5 border border-white/10 text-muted-foreground hover:bg-white/10'}`}
+                                >
                                   {stop.name}
                                 </Button>
                               ))}
                            </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                           <div className="space-y-4">
+
+                        <div className="grid grid-cols-2 gap-4 pt-4">
+                           <div className="space-y-3">
                               <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Date</Label>
-                              <select value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 font-black italic outline-none">
+                              <select 
+                                value={bookingDate} 
+                                onChange={(e) => setBookingDate(e.target.value)} 
+                                className="w-full h-16 bg-white rounded-2xl px-4 font-black italic uppercase text-black outline-none shadow-xl border-none"
+                              >
                                  {[0, 1, 2, 3].map(d => {
                                    const date = addDays(new Date(), d);
                                    return <option key={d} value={format(date, 'yyyy-MM-dd')}>{format(date, 'EEE, dd MMM')}</option>;
                                  })}
                               </select>
                            </div>
-                           <div className="space-y-4">
+                           <div className="space-y-3">
                               <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Time</Label>
-                              <select value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} className="w-full h-14 bg-white/5 border border-white/10 rounded-xl px-4 font-black italic outline-none">
-                                 <option value="">Select Time</option>
+                              <select 
+                                value={bookingTime} 
+                                onChange={(e) => setBookingTime(e.target.value)} 
+                                className="w-full h-16 bg-white rounded-2xl px-4 font-black italic uppercase text-black outline-none shadow-xl border-none"
+                              >
+                                 <option value="">Choose Time</option>
                                  {availableTimes.map(t => <option key={t} value={t}>{t}</option>)}
                               </select>
                            </div>
                         </div>
-                        <Button onClick={() => setBookingStep(3)} disabled={!bookingTime || !pickupStop || !dropStop} className="w-full h-18 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-xl">Review & Pay</Button>
+                        <Button 
+                          onClick={() => setBookingStep(3)} 
+                          disabled={!bookingTime || !pickupStop || !dropStop || pickupStop === dropStop} 
+                          className="w-full h-20 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-xl shadow-2xl transition-all active:scale-95"
+                        >
+                           Review & Pay
+                        </Button>
                       </div>
                     )}
 
                     {bookingStep === 3 && (
-                      <div className="space-y-10 py-6 text-center">
+                      <div className="space-y-10 py-6 text-center animate-in slide-in-from-bottom-4">
                          <div className="p-10 bg-primary/5 rounded-[4rem] border-4 border-primary/20 shadow-2xl relative">
                             <p className="text-[11px] font-black uppercase text-primary mb-5 tracking-[0.5em] italic">Fare</p>
                             <h3 className="text-8xl font-black italic tracking-tighter leading-none text-white">₹{Math.max(0, calculatedFare - appliedDiscount)}</h3>
