@@ -182,8 +182,14 @@ export default function CustomerDashboard() {
     if (typeof window === 'undefined' || !selectedRoute) return;
     setIsPaying(true);
     try {
-      const price = Math.max(100, (calculatedFare - appliedDiscount) * 100);
-      const res = await fetch('/api/create-order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: price, receipt: `ride_${Date.now()}` }) });
+      const finalAmountInRupees = Math.max(1, calculatedFare - appliedDiscount);
+      const amountInPaise = finalAmountInRupees * 100;
+
+      const res = await fetch('/api/create-order', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ amount: amountInPaise, receipt: `ride_${Date.now()}` }) 
+      });
       const order = await res.json();
       const options = {
         key: 'rzp_live_SeqhV0hEn1PXnz',
@@ -241,7 +247,7 @@ export default function CustomerDashboard() {
                     </div>
                  </div>
                  <div className="p-6 bg-black/60 rounded-[2.5rem] border border-white/5 space-y-3">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase leading-relaxed italic">
+                    <p className="text-[10px] font-bold text-white/60 uppercase leading-relaxed italic">
                       Seat allocation and driver info will be shared 3 hours before departure.
                     </p>
                     <Button onClick={() => setActiveTab('map')} className="w-full h-14 bg-primary text-black rounded-2xl font-black uppercase italic shadow-xl">Live Radar</Button>
@@ -261,7 +267,7 @@ export default function CustomerDashboard() {
                 <DialogContent className="bg-background border-white/5 rounded-[3.5rem] p-10 h-[90vh] flex flex-col shadow-2xl overflow-hidden">
                   <DialogHeader className="shrink-0 mb-6">
                     <DialogTitle className="text-4xl font-black italic uppercase text-primary tracking-tighter">
-                      {bookingStep === 1 ? "Pick Route" : bookingStep === 2 ? "Pick Time" : bookingStep === 3 ? "Review" : "Done!"}
+                      {bookingStep === 1 ? "Pick Route" : bookingStep === 2 ? "Pick Details" : bookingStep === 3 ? "Review" : "Done!"}
                     </DialogTitle>
                   </DialogHeader>
                   <div className="flex-1 overflow-y-auto space-y-8 custom-scrollbar">
@@ -288,14 +294,25 @@ export default function CustomerDashboard() {
                              </GoogleMap>
                            ) : <div className="h-full flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>}
                         </div>
+                        
                         <div className="space-y-4">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Pickup Point</Label>
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Where to pick you up?</Label>
                            <div className="grid grid-cols-2 gap-3">
                               {selectedRoute?.stops?.map((stop: any, idx: number) => (
-                                <Button key={idx} onClick={() => setPickupStop(stop.name)} className={`h-14 rounded-2xl font-black italic text-[10px] transition-all ${pickupStop === stop.name ? 'bg-primary text-black' : 'bg-white/5 border border-white/10 text-muted-foreground'}`}>{stop.name}</Button>
+                                <Button key={idx} onClick={() => setPickupStop(stop.name)} className={`h-14 rounded-2xl font-black italic text-[10px] transition-all ${pickupStop === stop.name ? 'bg-primary text-black' : 'bg-white text-black border border-white/10'}`}>{stop.name}</Button>
                               ))}
                            </div>
                         </div>
+
+                        <div className="space-y-4">
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Where to drop you?</Label>
+                           <div className="grid grid-cols-2 gap-3">
+                              {selectedRoute?.stops?.map((stop: any, idx: number) => (
+                                <Button key={idx} onClick={() => setDropStop(stop.name)} className={`h-14 rounded-2xl font-black italic text-[10px] transition-all ${dropStop === stop.name ? 'bg-primary text-black' : 'bg-white text-black border border-white/10'}`}>{stop.name}</Button>
+                              ))}
+                           </div>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-4">
                            <div className="space-y-3">
                               <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Date</Label>
@@ -306,22 +323,32 @@ export default function CustomerDashboard() {
                            <div className="space-y-3">
                               <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Time</Label>
                               <select value={bookingTime} onChange={e => setBookingTime(e.target.value)} className="w-full h-14 bg-white rounded-2xl px-4 font-black text-black outline-none border-none">
-                                 <option value="">Select Time</option>
+                                 <option value="">Time</option>
                                  {availableTimes.map(t => <option key={t} value={t}>{t}</option>)}
                               </select>
                            </div>
                         </div>
-                        <Button onClick={() => setBookingStep(3)} disabled={!bookingTime || !pickupStop} className="w-full h-18 bg-primary text-black rounded-3xl font-black uppercase italic text-lg shadow-2xl">Confirm & Pay</Button>
+                        <Button onClick={() => setBookingStep(3)} disabled={!bookingTime || !pickupStop || !dropStop} className="w-full h-18 bg-primary text-black rounded-3xl font-black uppercase italic text-lg shadow-2xl">Confirm Details</Button>
                       </div>
                     )}
                     {bookingStep === 3 && (
                       <div className="space-y-8 animate-in slide-in-from-bottom-4">
                          <div className="p-8 bg-white/5 border border-white/10 rounded-[2.5rem] space-y-6">
                             <div className="space-y-1">
-                               <p className="text-[10px] font-black uppercase text-muted-foreground">Route</p>
+                               <p className="text-[10px] font-black uppercase text-muted-foreground">Trip</p>
                                <p className="text-2xl font-black italic uppercase text-primary">{selectedRoute?.routeName}</p>
                             </div>
-                            <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-3 pt-4 border-t border-white/5">
+                               <div>
+                                  <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">From</p>
+                                  <p className="text-lg font-black italic text-white">{pickupStop}</p>
+                               </div>
+                               <div>
+                                  <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">To</p>
+                                  <p className="text-lg font-black italic text-white">{dropStop}</p>
+                               </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-6 pt-4 border-t border-white/5">
                                <div className="space-y-1">
                                   <p className="text-[10px] font-black uppercase text-muted-foreground">Date</p>
                                   <p className="text-lg font-black italic">{bookingDate}</p>
@@ -332,21 +359,21 @@ export default function CustomerDashboard() {
                                </div>
                             </div>
                             <div className="pt-4 border-t border-white/5 flex justify-between items-center">
-                               <p className="text-[10px] font-black uppercase text-muted-foreground">Fare</p>
-                               <p className="text-3xl font-black italic text-primary">₹{calculatedFare}</p>
+                               <p className="text-[10px] font-black uppercase text-muted-foreground">Final Fare</p>
+                               <p className="text-3xl font-black italic text-primary">₹{Math.max(0, calculatedFare - appliedDiscount)}</p>
                             </div>
                          </div>
                          
                          <div className="space-y-4">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Voucher Code</Label>
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Apply Discount</Label>
                             <div className="flex gap-3">
-                               <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="AAGO10" className="flex-1 h-14 bg-white/5 border border-white/10 rounded-2xl px-6 font-black italic text-lg outline-none" />
+                               <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="CODE" className="flex-1 h-14 bg-white/5 border border-white/10 rounded-2xl px-6 font-black italic text-lg outline-none" />
                                <Button onClick={applyDiscount} variant="outline" className="h-14 px-8 rounded-2xl border-primary text-primary font-black uppercase">Apply</Button>
                             </div>
                          </div>
 
                          <Button onClick={startPayment} disabled={isPaying} className="w-full h-20 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-xl shadow-3xl">
-                           {isPaying ? <Loader2 className="animate-spin h-8 w-8" /> : "Pay via Phone"}
+                           {isPaying ? <Loader2 className="animate-spin h-8 w-8" /> : "Pay with Phone"}
                          </Button>
                       </div>
                     )}
@@ -355,8 +382,8 @@ export default function CustomerDashboard() {
                          <div className="h-24 w-24 bg-primary text-black rounded-full flex items-center justify-center shadow-3xl"><CheckCircle2 className="h-12 w-12" /></div>
                          <div className="space-y-2">
                            <h3 className="text-3xl font-black italic uppercase text-primary leading-none">Trip Booked!</h3>
-                           <p className="text-[11px] font-bold text-muted-foreground uppercase leading-relaxed px-6 mt-4">
-                             Your seat is locked! Detailed ride info and driver contact will be shared 3 hours before start.
+                           <p className="text-[11px] font-bold text-white/60 uppercase leading-relaxed px-6 mt-4">
+                             Your seat is locked! Ride details and driver info will be shared 3 hours before start.
                            </p>
                          </div>
                          <Button onClick={() => setBookingStep(1)} className="w-full h-14 bg-white/5 rounded-2xl font-black uppercase border border-white/10">Back to Home</Button>
@@ -389,7 +416,7 @@ export default function CustomerDashboard() {
 
         {activeTab === 'history' && (
           <div className="space-y-6 animate-in slide-in-from-right-8">
-            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">History</h2>
+            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">My Trips</h2>
             <div className="space-y-4">
                {allTrips?.filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid)).map((trip: any) => (
                  <Card key={trip.id} className="p-8 bg-white/5 border border-white/10 rounded-[2.5rem] flex justify-between items-center">

@@ -85,15 +85,7 @@ export default function AdminDashboard() {
   
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'routes' | 'drivers' | 'customers' | 'ai-planner' | 'discounts' | 'analytics'>('dashboard');
-  const [searchQuery, setSearchQuery] = useState('');
   const [isCleaning, setIsCleaning] = useState(false);
-
-  // Edit State
-  const [editingUser, setEditingUser] = useState<any>(null);
-  const [viewingDocs, setViewingDocs] = useState<any>(null);
-
-  // New Discount State
-  const [newCoupon, setNewCoupon] = useState({ code: '', discount: 0, status: 'active' });
 
   // Route Creation State
   const [newRoute, setNewRoute] = useState({ name: '', fare: '', schedule: '', stops: [] as any[] });
@@ -110,7 +102,6 @@ export default function AdminDashboard() {
   const { data: allUsers } = useCollection(useMemo(() => db ? query(collection(db, 'users')) : null, [db]));
   const { data: allRoutes } = useCollection(useMemo(() => db ? query(collection(db, 'routes'), orderBy('createdAt', 'desc')) : null, [db]));
   const { data: trips } = useCollection(useMemo(() => db ? query(collection(db, 'trips')) : null, [db]));
-  const { data: coupons } = useCollection(useMemo(() => db ? query(collection(db, 'vouchers')) : null, [db]));
 
   const stats = useMemo(() => {
     if (!allUsers) return { totalCustomers: 0, totalDrivers: 0, utilization: 0, activeDrivers: 0, avgNps: 8.8, repeatRate: 0 };
@@ -173,8 +164,9 @@ export default function AdminDashboard() {
 
   const handleMapClick = (e: google.maps.MapMouseEvent) => {
     if (!e.latLng) return;
+    const label = newRoute.stops.length === 0 ? "Pickup" : "Drop-off";
     const newStop = {
-      name: tempStopName || `Stop ${newRoute.stops.length + 1}`,
+      name: tempStopName || `${label} Point`,
       lat: e.latLng.lat(),
       lng: e.latLng.lng()
     };
@@ -184,7 +176,7 @@ export default function AdminDashboard() {
 
   const handleAddRoute = async () => {
     if (!db || !newRoute.name || newRoute.stops.length < 2) {
-      toast({ variant: 'destructive', title: "Error", description: "Route needs a name and at least 2 stops." });
+      toast({ variant: 'destructive', title: "Error", description: "Route needs a name and at least 2 points." });
       return;
     }
 
@@ -210,7 +202,6 @@ export default function AdminDashboard() {
     if (!db) return;
     setIsCleaning(true);
     try {
-      // Clear relevant collections for testing
       const collections = ['trips', 'routes', 'vouchers'];
       for (const colName of collections) {
         const snap = await getDocs(collection(db, colName));
@@ -218,10 +209,9 @@ export default function AdminDashboard() {
         await Promise.all(deletions);
       }
       toast({ title: "Data Cleared", description: "All test data removed." });
+      setIsCleaning(false);
     } catch (e) {
       toast({ variant: "destructive", title: "Error", description: "Failed to clear data." });
-    } finally {
-      setIsCleaning(false);
       setIsCleaning(false);
     }
   };
@@ -241,10 +231,7 @@ export default function AdminDashboard() {
           {[
             { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
             { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-            { id: 'drivers', label: 'Drivers', icon: Car },
-            { id: 'customers', label: 'Customers', icon: Users },
             { id: 'routes', label: 'Routes', icon: RouteIcon },
-            { id: 'discounts', label: 'Discount Codes', icon: Gift },
           ].map((item) => (
             <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`w-full flex items-center justify-start rounded-xl font-black uppercase italic h-14 px-5 transition-all ${activeTab === item.id ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'text-muted-foreground hover:bg-white/5'}`}>
               <item.icon className="mr-4 h-5 w-5" /> {item.label}
@@ -269,10 +256,10 @@ export default function AdminDashboard() {
             <div className="space-y-10 animate-in fade-in">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {[
-                  { label: 'Drivers On Trip', value: stats.activeDrivers, icon: Car },
+                  { label: 'Drivers Ready', value: stats.activeDrivers, icon: Car },
                   { label: 'Total Customers', value: stats.totalCustomers, icon: Users },
-                  { label: 'Happy Level', value: stats.avgNps, icon: Smile },
-                  { label: 'Repeat People', value: `${stats.repeatRate}%`, icon: Target },
+                  { label: 'Happiness', value: stats.avgNps, icon: Smile },
+                  { label: 'Loyalty Rate', value: `${stats.repeatRate}%`, icon: Target },
                 ].map((metric, i) => (
                   <Card key={i} className="bg-white/5 border-white/10 rounded-2xl">
                     <CardContent className="p-6">
@@ -291,19 +278,19 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                 <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-8 h-fit">
                    <div className="space-y-4">
-                      <h3 className="text-2xl font-black italic uppercase text-primary">Map Route Creator</h3>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Click on the map to add Boarding, Middle, and Drop-off points.</p>
+                      <h3 className="text-2xl font-black italic uppercase text-primary">Route Builder</h3>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Click the map to add stops. First click is Pickup, Last click is Drop-off.</p>
                    </div>
 
                    <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Next Stop Name</Label>
-                           <Input value={tempStopName} onChange={e => setTempStopName(e.target.value)} placeholder="e.g. Main Gate" className="h-12 bg-white/5 rounded-xl font-black italic" />
+                           <Input value={tempStopName} onChange={e => setTempStopName(e.target.value)} placeholder="e.g. City Mall" className="h-12 bg-white/5 rounded-xl font-black italic" />
                         </div>
                         <div className="space-y-2">
                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Route Name</Label>
-                           <Input value={newRoute.name} onChange={e => setNewRoute({...newRoute, name: e.target.value})} placeholder="e.g. City Express" className="h-12 bg-white/5 rounded-xl font-black italic" />
+                           <Input value={newRoute.name} onChange={e => setNewRoute({...newRoute, name: e.target.value})} placeholder="e.g. Metro Express" className="h-12 bg-white/5 rounded-xl font-black italic" />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
@@ -312,7 +299,7 @@ export default function AdminDashboard() {
                            <Input type="number" value={newRoute.fare} onChange={e => setNewRoute({...newRoute, fare: e.target.value})} placeholder="150" className="h-12 bg-white/5 rounded-xl font-black italic" />
                         </div>
                         <div className="space-y-2">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Schedule</Label>
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Daily Schedule</Label>
                            <Input value={newRoute.schedule} onChange={e => setNewRoute({...newRoute, schedule: e.target.value})} placeholder="08:00 AM, 05:00 PM" className="h-12 bg-white/5 rounded-xl font-black italic" />
                         </div>
                       </div>
@@ -326,7 +313,7 @@ export default function AdminDashboard() {
                         onClick={handleMapClick}
                      >
                         {newRoute.stops.map((stop, idx) => (
-                          <Marker key={idx} position={{ lat: stop.lat, lng: stop.lng }} label={{ text: (idx + 1).toString(), color: 'white', fontWeight: 'bold' }} />
+                          <Marker key={idx} position={{ lat: stop.lat, lng: stop.lng }} label={{ text: stop.name.charAt(0), color: 'white', fontWeight: 'bold' }} />
                         ))}
                         {newRoute.stops.length > 1 && (
                           <Polyline path={newRoute.stops.map(s => ({ lat: s.lat, lng: s.lng }))} options={{ strokeColor: '#EAB308', strokeOpacity: 1, strokeWeight: 4 }} />
@@ -335,7 +322,7 @@ export default function AdminDashboard() {
                    ) : <div className="h-[400px] bg-white/5 rounded-[1.5rem] flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>}
 
                    <div className="space-y-3">
-                      <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Landmarks Added ({newRoute.stops.length})</Label>
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Stops List ({newRoute.stops.length})</Label>
                       <div className="flex flex-wrap gap-2">
                          {newRoute.stops.map((s, i) => (
                            <Badge key={i} className="bg-primary/20 text-primary border-none font-black px-3 py-1.5 rounded-xl flex items-center gap-2">
@@ -345,7 +332,7 @@ export default function AdminDashboard() {
                       </div>
                    </div>
 
-                   <Button onClick={handleAddRoute} className="w-full h-18 bg-primary text-black font-black uppercase italic rounded-2xl shadow-xl shadow-primary/20 text-lg">Create Route</Button>
+                   <Button onClick={handleAddRoute} className="w-full h-18 bg-primary text-black font-black uppercase italic rounded-2xl shadow-xl shadow-primary/20 text-lg">Launch Route</Button>
                 </Card>
 
                 <div className="space-y-6">
@@ -357,7 +344,7 @@ export default function AdminDashboard() {
                               <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><RouteIcon className="h-6 w-6" /></div>
                               <div>
                                  <p className="text-xl font-black italic uppercase text-foreground leading-none">{r.routeName}</p>
-                                 <p className="text-[9px] font-bold text-muted-foreground uppercase mt-2">{r.stops?.length || 0} Landmarks • ₹{r.baseFare}</p>
+                                 <p className="text-[9px] font-bold text-muted-foreground uppercase mt-2">{r.stops?.length || 0} Stops • ₹{r.baseFare}</p>
                               </div>
                            </div>
                            <Button variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => deleteDoc(doc(db!, 'routes', r.id))}><Trash2 className="h-5 w-5" /></Button>
@@ -373,7 +360,7 @@ export default function AdminDashboard() {
             <div className="space-y-10 animate-in fade-in">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                 <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-8">
-                  <CardHeader className="px-0 pt-0 pb-8"><CardTitle className="text-xl font-black italic uppercase text-primary">New People</CardTitle></CardHeader>
+                  <CardHeader className="px-0 pt-0 pb-8"><CardTitle className="text-xl font-black italic uppercase text-primary">Daily New People</CardTitle></CardHeader>
                   <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={chartData.growth}>
@@ -388,7 +375,7 @@ export default function AdminDashboard() {
                 </Card>
 
                 <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-8">
-                  <CardHeader className="px-0 pt-0 pb-8"><CardTitle className="text-xl font-black italic uppercase text-primary">Repeat vs New</CardTitle></CardHeader>
+                  <CardHeader className="px-0 pt-0 pb-8"><CardTitle className="text-xl font-black italic uppercase text-primary">Repeat Customer Logic</CardTitle></CardHeader>
                   <div className="h-[300px] w-full flex items-center justify-center relative">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -401,7 +388,7 @@ export default function AdminDashboard() {
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                       <span className="text-3xl font-black italic text-primary">{stats.repeatRate}%</span>
-                      <span className="text-[8px] font-bold text-muted-foreground uppercase">Repeated</span>
+                      <span className="text-[8px] font-bold text-muted-foreground uppercase">Loyalty</span>
                     </div>
                   </div>
                 </Card>
@@ -414,18 +401,17 @@ export default function AdminDashboard() {
       <Dialog open={isCleaning} onOpenChange={setIsCleaning}>
         <DialogContent className="bg-background border-white/5 rounded-3xl p-8 max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black uppercase italic text-primary">Clear Hub Data?</DialogTitle>
+            <DialogTitle className="text-2xl font-black uppercase italic text-primary">Clear Test Data?</DialogTitle>
           </DialogHeader>
           <div className="py-6 text-center">
-            <p className="text-muted-foreground text-sm font-bold uppercase italic">This will delete all trips, routes, and discount codes for testing.</p>
+            <p className="text-muted-foreground text-sm font-bold uppercase italic">This will delete all trips, routes, and discount codes for clean testing.</p>
           </div>
           <DialogFooter className="flex gap-4">
             <Button variant="ghost" onClick={() => setIsCleaning(false)} className="flex-1 rounded-xl font-black uppercase">Cancel</Button>
-            <Button onClick={handleClearData} className="flex-1 bg-destructive text-white rounded-xl font-black uppercase hover:bg-destructive/90">Yes, Clear</Button>
+            <Button onClick={handleClearData} className="flex-1 bg-destructive text-white rounded-xl font-black uppercase hover:bg-destructive/90">Confirm</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
-
