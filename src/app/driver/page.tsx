@@ -69,19 +69,6 @@ export default function DriverApp() {
     if (!authLoading && !user) router.push('/driver/login');
   }, [user, authLoading, router]);
 
-  // Live location tracking
-  useEffect(() => {
-    if (!userRef || profile?.status !== 'on-trip') return;
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        updateDoc(userRef, { currentLat: pos.coords.latitude, currentLng: pos.coords.longitude });
-      },
-      (err) => console.error("GPS Error:", err),
-      { enableHighAccuracy: true, distanceFilter: 10 }
-    );
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, [userRef, profile?.status]);
-
   useEffect(() => {
     if (!db || !user?.uid) return;
     const q = query(collection(db, 'trips'), where('driverId', '==', user.uid), where('status', '==', 'on-trip'));
@@ -102,7 +89,14 @@ export default function DriverApp() {
     if (!db || !user || !profile || !userRef) return;
     setIsUpdating(true);
     try {
-      await updateDoc(doc(db, 'trips', trip.id), { status: 'on-trip', startTime: new Date().toISOString(), driverId: user.uid, driverName: profile.fullName, driverPhoto: profile.photoUrl || null, vehicleNumber: profile.vehicleNumber });
+      await updateDoc(doc(db, 'trips', trip.id), { 
+        status: 'on-trip', 
+        startTime: new Date().toISOString(), 
+        driverId: user.uid, 
+        driverName: profile.fullName, 
+        driverPhoto: profile.photoUrl || null, 
+        vehicleNumber: profile.vehicleNumber 
+      });
       await updateDoc(userRef, { status: 'on-trip', activeTripId: trip.id });
       toast({ title: "Trip Started!" });
     } finally { setIsUpdating(false); }
@@ -117,7 +111,6 @@ export default function DriverApp() {
     else {
       const passengerId = snap.docs[0].id;
       await updateDoc(doc(db, 'trips', activeTrip.id), { verifiedPassengers: arrayUnion(passengerId) });
-      await updateDoc(doc(db, 'users', passengerId), { activeOtp: null });
       toast({ title: "Verified!" });
       setOtpCode("");
     }
@@ -140,6 +133,7 @@ export default function DriverApp() {
     try {
       const tripTime = parse(`${dateStr} ${timeStr}`, 'yyyy-MM-dd hh:mm a', new Date());
       const now = new Date();
+      // Only allowed 3 hours before start
       return isBefore(subHours(tripTime, 3), now) && isBefore(now, addHours(tripTime, 2));
     } catch (e) { return false; }
   };
@@ -170,12 +164,12 @@ export default function DriverApp() {
                <div className="flex justify-between items-start">
                   <div className="space-y-1">
                      <h2 className="text-4xl font-black italic uppercase leading-none text-primary">{activeTrip.routeName}</h2>
-                     <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-2">Active Trip</p>
+                     <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-2">Trip in Progress</p>
                   </div>
                   <Badge className="bg-primary/20 text-primary border-none text-[10px] font-black uppercase px-5 py-2 rounded-full">LIVE</Badge>
                </div>
                <div className="bg-black/60 p-8 rounded-[3rem] border border-white/10 space-y-4">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-4">Enter Trip Code</Label>
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-4">Check-in Code</Label>
                   <div className="flex gap-4">
                      <input value={otpCode} onChange={e => setOtpCode(e.target.value)} placeholder="000000" className="h-16 w-full text-center font-black tracking-[0.5em] text-2xl rounded-2xl bg-white/5 border border-white/10 text-primary" maxLength={6} />
                      <Button onClick={verifyCustomer} disabled={isVerifying || !otpCode} className="h-16 w-16 rounded-2xl bg-primary text-black"><CheckCircle2 className="h-8 w-8" /></Button>
@@ -209,7 +203,7 @@ export default function DriverApp() {
              {activeTab === 'my-work' && (
                <div className="space-y-6">
                   <h3 className="text-xl font-black italic uppercase flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" /> My Schedule</h3>
-                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest pl-2">Route Pool: {profile?.preferredRoute || 'None'}</p>
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest pl-2">Current Route: {profile?.preferredRoute || 'None Selected'}</p>
                   <div className="space-y-3">
                      {myRouteTrips?.map((trip: any) => {
                        const ready = isReadyToStart(trip.scheduledDate, trip.scheduledTime);
@@ -220,7 +214,7 @@ export default function DriverApp() {
                                   <h4 className="text-2xl font-black italic uppercase leading-none">{trip.routeName}</h4>
                                   <p className="text-[10px] font-bold text-muted-foreground uppercase">{trip.scheduledDate} • {trip.scheduledTime}</p>
                                </div>
-                               <Badge className={`text-[8px] font-black uppercase px-3 py-1 rounded-full ${ready ? 'bg-green-500/20 text-green-500' : 'bg-white/10 text-muted-foreground'}`}>{ready ? 'READY' : 'POOL'}</Badge>
+                               <Badge className={`text-[8px] font-black uppercase px-3 py-1 rounded-full ${ready ? 'bg-green-500/20 text-green-500' : 'bg-white/10 text-muted-foreground'}`}>{ready ? 'READY' : 'WAITING'}</Badge>
                             </div>
                             {ready ? (
                               <Button onClick={() => startRide(trip)} disabled={profile?.status === 'offline' || isUpdating} className="w-full h-16 bg-primary text-black rounded-2xl font-black uppercase italic text-lg shadow-xl">Start Trip</Button>
@@ -273,7 +267,7 @@ export default function DriverApp() {
           <MapIcon className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">Routes</span>
         </Button>
         <Button variant="ghost" onClick={() => setActiveTab('my-work')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl ${activeTab === 'my-work' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
-          <CalendarDays className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">My Schedule</span>
+          <CalendarDays className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">Schedule</span>
         </Button>
         <Button variant="ghost" onClick={() => setActiveTab('money')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl ${activeTab === 'money' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
           <Wallet className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">Money</span>

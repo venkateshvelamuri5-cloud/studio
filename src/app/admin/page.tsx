@@ -141,7 +141,7 @@ export default function AdminDashboard() {
 
   const handleAddRoute = async () => {
     if (!db || !newRoute.name || newRoute.stops.length < 2) {
-      toast({ variant: 'destructive', title: "Error", description: "Route needs a name and at least 2 points." });
+      toast({ variant: 'destructive', title: "Missing Info", description: "Route needs a name and at least 2 points." });
       return;
     }
 
@@ -154,10 +154,10 @@ export default function AdminDashboard() {
         status: 'active',
         createdAt: new Date().toISOString()
       });
-      toast({ title: "Route Created", description: "New route added successfully." });
+      toast({ title: "Route Created", description: "The new route is now live." });
       setNewRoute({ name: '', fare: '', schedule: '', stops: [] });
     } catch (e) {
-      toast({ variant: 'destructive', title: "Error", description: "Failed to save route." });
+      toast({ variant: 'destructive', title: "Error", description: "Could not save the route." });
     }
   };
 
@@ -173,10 +173,10 @@ export default function AdminDashboard() {
         const deletions = snap.docs.map(d => deleteDoc(doc(db, colName, d.id)));
         await Promise.all(deletions);
       }
-      toast({ title: "Data Cleared", description: "All test data removed." });
+      toast({ title: "System Cleaned", description: "All test data has been removed." });
       setIsCleaning(false);
     } catch (e) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to clear data." });
+      toast({ variant: "destructive", title: "Error", description: "Could not clear data." });
       setIsCleaning(false);
     }
   };
@@ -195,7 +195,7 @@ export default function AdminDashboard() {
         <nav className="flex-1 p-6 space-y-2 overflow-y-auto">
           {[
             { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
-            { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+            { id: 'analytics', label: 'Data', icon: BarChart3 },
             { id: 'routes', label: 'Routes', icon: RouteIcon },
           ].map((item) => (
             <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`w-full flex items-center justify-start rounded-xl font-black uppercase italic h-14 px-5 transition-all ${activeTab === item.id ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'text-muted-foreground hover:bg-white/5'}`}>
@@ -224,7 +224,7 @@ export default function AdminDashboard() {
                   { label: 'Drivers Ready', value: stats.activeDrivers, icon: Car },
                   { label: 'Total Customers', value: stats.totalCustomers, icon: Users },
                   { label: 'Happiness', value: stats.avgNps, icon: Smile },
-                  { label: 'Loyalty Rate', value: `${stats.repeatRate}%`, icon: Target },
+                  { label: 'Loyalty', value: `${stats.repeatRate}%`, icon: Target },
                 ].map((metric, i) => (
                   <Card key={i} className="bg-white/5 border-white/10 rounded-2xl">
                     <CardContent className="p-6">
@@ -244,7 +244,7 @@ export default function AdminDashboard() {
                 <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-8 h-fit">
                    <div className="space-y-4">
                       <h3 className="text-2xl font-black italic uppercase text-primary">Route Builder</h3>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Add stops in order. First stop is Boarding, Last is Drop-off.</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Add points in order. First point is Pickup, Last is Drop-off.</p>
                    </div>
 
                    <div className="space-y-6">
@@ -259,22 +259,22 @@ export default function AdminDashboard() {
                               <Input type="number" value={newRoute.fare} onChange={e => setNewRoute({...newRoute, fare: e.target.value})} placeholder="150" className="h-14 bg-white/5 rounded-xl font-black italic" />
                            </div>
                            <div className="space-y-2">
-                              <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Schedule</Label>
+                              <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Times</Label>
                               <Input value={newRoute.schedule} onChange={e => setNewRoute({...newRoute, schedule: e.target.value})} placeholder="08:00 AM, 05:00 PM" className="h-14 bg-white/5 rounded-xl font-black italic" />
                            </div>
                         </div>
                       </div>
 
                       <div className="space-y-4 pt-4 border-t border-white/5">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Add Stop</Label>
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Add Point</Label>
                         <div className="flex gap-4">
-                           <Input value={tempStopName} onChange={e => setTempStopName(e.target.value)} placeholder="Stop name (e.g. City Mall)" className="h-14 bg-white/5 rounded-xl font-black italic flex-1" />
+                           <Input value={tempStopName} onChange={e => setTempStopName(e.target.value)} placeholder="Point name (e.g. City Mall)" className="h-14 bg-white/5 rounded-xl font-black italic flex-1" />
                            <Button onClick={handleAddStop} className="h-14 w-14 rounded-xl bg-primary text-black"><Plus /></Button>
                         </div>
                       </div>
 
                       <div className="space-y-3">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Route Stops ({newRoute.stops.length})</Label>
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Points ({newRoute.stops.length})</Label>
                         <div className="space-y-2">
                            {newRoute.stops.map((s, i) => (
                              <div key={i} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
@@ -285,7 +285,7 @@ export default function AdminDashboard() {
                                 <Button variant="ghost" size="icon" onClick={() => setNewRoute({...newRoute, stops: newRoute.stops.filter((_, idx) => idx !== i)})} className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button>
                              </div>
                            ))}
-                           {newRoute.stops.length === 0 && <p className="text-[10px] font-bold text-muted-foreground uppercase text-center py-4 italic border-2 border-dashed border-white/5 rounded-xl">No stops added yet</p>}
+                           {newRoute.stops.length === 0 && <p className="text-[10px] font-bold text-muted-foreground uppercase text-center py-4 italic border-2 border-dashed border-white/5 rounded-xl">No points added yet</p>}
                         </div>
                       </div>
                    </div>
@@ -302,7 +302,7 @@ export default function AdminDashboard() {
                               <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><RouteIcon className="h-6 w-6" /></div>
                               <div>
                                  <p className="text-xl font-black italic uppercase text-foreground leading-none">{r.routeName}</p>
-                                 <p className="text-[9px] font-bold text-muted-foreground uppercase mt-2">{r.stops?.length || 0} Stops • ₹{r.baseFare}</p>
+                                 <p className="text-[9px] font-bold text-muted-foreground uppercase mt-2">{r.stops?.length || 0} Points • ₹{r.baseFare}</p>
                               </div>
                            </div>
                            <Button variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => deleteDoc(doc(db!, 'routes', r.id))}><Trash2 className="h-5 w-5" /></Button>
@@ -333,7 +333,7 @@ export default function AdminDashboard() {
                 </Card>
 
                 <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-8">
-                  <CardHeader className="px-0 pt-0 pb-8"><CardTitle className="text-xl font-black italic uppercase text-primary">Repeat Customer Logic</CardTitle></CardHeader>
+                  <CardHeader className="px-0 pt-0 pb-8"><CardTitle className="text-xl font-black italic uppercase text-primary">Customer Loyalty</CardTitle></CardHeader>
                   <div className="h-[300px] w-full flex items-center justify-center relative">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -346,7 +346,7 @@ export default function AdminDashboard() {
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                       <span className="text-3xl font-black italic text-primary">{stats.repeatRate}%</span>
-                      <span className="text-[8px] font-bold text-muted-foreground uppercase">Loyalty</span>
+                      <span className="text-[8px] font-bold text-muted-foreground uppercase">Repeat</span>
                     </div>
                   </div>
                 </Card>
@@ -359,7 +359,7 @@ export default function AdminDashboard() {
       <Dialog open={isCleaning} onOpenChange={setIsCleaning}>
         <DialogContent className="bg-background border-white/5 rounded-3xl p-8 max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black uppercase italic text-primary">Clear Test Data?</DialogTitle>
+            <DialogTitle className="text-2xl font-black uppercase italic text-primary">Clear System?</DialogTitle>
           </DialogHeader>
           <div className="py-6 text-center">
             <p className="text-muted-foreground text-sm font-bold uppercase italic">This will delete all trips, routes, and discount codes for clean testing.</p>
