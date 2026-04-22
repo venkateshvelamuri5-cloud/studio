@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -21,33 +21,19 @@ import {
   Loader2,
   Users,
   Route as RouteIcon,
-  Sparkles,
-  Search,
   Car,
-  User,
-  ShieldCheck,
-  Activity,
   Target,
-  TrendingUp,
-  Map as MapIcon,
-  Clock,
+  BarChart3,
+  Smile,
   Plus,
   Trash2,
-  FileText,
-  Gift,
-  Edit,
-  Eye,
-  BarChart3,
-  PieChart as PieChartIcon,
-  Smile,
-  MapPin
+  ChevronRight,
+  ListOrdered
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useAuth } from '@/firebase';
-import { collection, query, doc, updateDoc, orderBy, addDoc, where, deleteDoc, getDocs } from 'firebase/firestore';
+import { collection, query, doc, orderBy, addDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
-import { GoogleMap, useJsApiLoader, Marker, Polyline } from '@react-google-maps/api';
-import { googleMapsApiKey } from '@/firebase/config';
 import { 
   BarChart, 
   Bar, 
@@ -72,19 +58,15 @@ const Logo = ({ className = "h-8 w-8" }: { className?: string }) => (
   </svg>
 );
 
-const mapContainerStyle = { width: '100%', height: '400px', borderRadius: '1.5rem' };
-const DEFAULT_CENTER = { lat: 17.6868, lng: 83.2185 };
-
 export default function AdminDashboard() {
   const db = useFirestore();
   const auth = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const { user, loading: authLoading } = useUser();
-  const { isLoaded } = useJsApiLoader({ id: 'google-map-script', googleMapsApiKey: googleMapsApiKey });
   
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'routes' | 'drivers' | 'customers' | 'ai-planner' | 'discounts' | 'analytics'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'routes' | 'analytics'>('dashboard');
   const [isCleaning, setIsCleaning] = useState(false);
 
   // Route Creation State
@@ -104,10 +86,9 @@ export default function AdminDashboard() {
   const { data: trips } = useCollection(useMemo(() => db ? query(collection(db, 'trips')) : null, [db]));
 
   const stats = useMemo(() => {
-    if (!allUsers) return { totalCustomers: 0, totalDrivers: 0, utilization: 0, activeDrivers: 0, avgNps: 8.8, repeatRate: 0 };
+    if (!allUsers) return { totalCustomers: 0, totalDrivers: 0, activeDrivers: 0, avgNps: 8.8, repeatRate: 0 };
     const drivers = allUsers.filter(u => u.role === 'driver');
-    const customers = allUsers.filter(u => u.role === 'rider');
-    const onTrip = drivers.filter(d => d.status === 'on-trip').length;
+    const customers = allUsers.filter(u => u.role === 'rider' || u.role === 'customer');
     
     const completedTrips = (trips || []).filter(t => t.status === 'completed');
     const riderVisits: Record<string, number> = {};
@@ -123,14 +104,13 @@ export default function AdminDashboard() {
       totalCustomers: customers.length,
       totalDrivers: drivers.length,
       activeDrivers: drivers.filter(d => d.status === 'available' || d.status === 'on-trip').length,
-      utilization: drivers.length > 0 ? Math.round((onTrip / drivers.length) * 100) : 0,
       avgNps: 8.8,
       repeatRate
     };
   }, [allUsers, trips]);
 
   const chartData = useMemo(() => {
-    if (!mounted || !allUsers || !trips) return { growth: [], repeatData: [], routeRevenue: [] };
+    if (!mounted || !allUsers || !trips) return { growth: [], repeatData: [] };
 
     const growth = Array.from({ length: 7 }).map((_, i) => {
       const date = subDays(new Date(), 6 - i);
@@ -150,27 +130,12 @@ export default function AdminDashboard() {
       { name: 'New', value: Math.max(0, 100 - stats.repeatRate), fill: 'rgba(255,255,255,0.1)' }
     ];
 
-    const revenueMap: Record<string, number> = {};
-    (trips || []).filter(t => t.status === 'completed').forEach(t => {
-      const routeName = t.routeName || 'Unknown';
-      const fare = t.farePerRider || 0;
-      const count = t.passengerManifest?.length || 0;
-      revenueMap[routeName] = (revenueMap[routeName] || 0) + (fare * count);
-    });
-    const routeRevenue = Object.entries(revenueMap).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value).slice(0, 5);
-
-    return { growth, repeatData, routeRevenue };
+    return { growth, repeatData };
   }, [mounted, allUsers, trips, stats]);
 
-  const handleMapClick = (e: google.maps.MapMouseEvent) => {
-    if (!e.latLng) return;
-    const label = newRoute.stops.length === 0 ? "Pickup" : "Drop-off";
-    const newStop = {
-      name: tempStopName || `${label} Point`,
-      lat: e.latLng.lat(),
-      lng: e.latLng.lng()
-    };
-    setNewRoute({ ...newRoute, stops: [...newRoute.stops, newStop] });
+  const handleAddStop = () => {
+    if (!tempStopName) return;
+    setNewRoute({ ...newRoute, stops: [...newRoute.stops, { name: tempStopName }] });
     setTempStopName("");
   };
 
@@ -189,7 +154,7 @@ export default function AdminDashboard() {
         status: 'active',
         createdAt: new Date().toISOString()
       });
-      toast({ title: "Route Created", description: "The new route path is live." });
+      toast({ title: "Route Created", description: "New route added successfully." });
       setNewRoute({ name: '', fare: '', schedule: '', stops: [] });
     } catch (e) {
       toast({ variant: 'destructive', title: "Error", description: "Failed to save route." });
@@ -279,64 +244,57 @@ export default function AdminDashboard() {
                 <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-8 h-fit">
                    <div className="space-y-4">
                       <h3 className="text-2xl font-black italic uppercase text-primary">Route Builder</h3>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Click the map to add stops. First click is Pickup, Last click is Drop-off.</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Add stops in order. First stop is Boarding, Last is Drop-off.</p>
                    </div>
 
-                   <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Next Stop Name</Label>
-                           <Input value={tempStopName} onChange={e => setTempStopName(e.target.value)} placeholder="e.g. City Mall" className="h-12 bg-white/5 rounded-xl font-black italic" />
-                        </div>
+                   <div className="space-y-6">
+                      <div className="grid grid-cols-1 gap-4">
                         <div className="space-y-2">
                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Route Name</Label>
-                           <Input value={newRoute.name} onChange={e => setNewRoute({...newRoute, name: e.target.value})} placeholder="e.g. Metro Express" className="h-12 bg-white/5 rounded-xl font-black italic" />
+                           <Input value={newRoute.name} onChange={e => setNewRoute({...newRoute, name: e.target.value})} placeholder="e.g. Metro Express" className="h-14 bg-white/5 rounded-xl font-black italic" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                           <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Fare (₹)</Label>
+                              <Input type="number" value={newRoute.fare} onChange={e => setNewRoute({...newRoute, fare: e.target.value})} placeholder="150" className="h-14 bg-white/5 rounded-xl font-black italic" />
+                           </div>
+                           <div className="space-y-2">
+                              <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Schedule</Label>
+                              <Input value={newRoute.schedule} onChange={e => setNewRoute({...newRoute, schedule: e.target.value})} placeholder="08:00 AM, 05:00 PM" className="h-14 bg-white/5 rounded-xl font-black italic" />
+                           </div>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Fare (₹)</Label>
-                           <Input type="number" value={newRoute.fare} onChange={e => setNewRoute({...newRoute, fare: e.target.value})} placeholder="150" className="h-12 bg-white/5 rounded-xl font-black italic" />
+
+                      <div className="space-y-4 pt-4 border-t border-white/5">
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Add Stop</Label>
+                        <div className="flex gap-4">
+                           <Input value={tempStopName} onChange={e => setTempStopName(e.target.value)} placeholder="Stop name (e.g. City Mall)" className="h-14 bg-white/5 rounded-xl font-black italic flex-1" />
+                           <Button onClick={handleAddStop} className="h-14 w-14 rounded-xl bg-primary text-black"><Plus /></Button>
                         </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Route Stops ({newRoute.stops.length})</Label>
                         <div className="space-y-2">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Daily Schedule</Label>
-                           <Input value={newRoute.schedule} onChange={e => setNewRoute({...newRoute, schedule: e.target.value})} placeholder="08:00 AM, 05:00 PM" className="h-12 bg-white/5 rounded-xl font-black italic" />
+                           {newRoute.stops.map((s, i) => (
+                             <div key={i} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
+                                <div className="flex items-center gap-3">
+                                   <Badge className="bg-primary/20 text-primary border-none h-6 w-6 flex items-center justify-center p-0 rounded-full">{i + 1}</Badge>
+                                   <span className="font-black italic text-sm">{s.name}</span>
+                                </div>
+                                <Button variant="ghost" size="icon" onClick={() => setNewRoute({...newRoute, stops: newRoute.stops.filter((_, idx) => idx !== i)})} className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button>
+                             </div>
+                           ))}
+                           {newRoute.stops.length === 0 && <p className="text-[10px] font-bold text-muted-foreground uppercase text-center py-4 italic border-2 border-dashed border-white/5 rounded-xl">No stops added yet</p>}
                         </div>
                       </div>
                    </div>
 
-                   {isLoaded ? (
-                     <GoogleMap 
-                        mapContainerStyle={mapContainerStyle} 
-                        center={newRoute.stops.length > 0 ? { lat: newRoute.stops[newRoute.stops.length-1].lat, lng: newRoute.stops[newRoute.stops.length-1].lng } : DEFAULT_CENTER} 
-                        zoom={14} 
-                        onClick={handleMapClick}
-                     >
-                        {newRoute.stops.map((stop, idx) => (
-                          <Marker key={idx} position={{ lat: stop.lat, lng: stop.lng }} label={{ text: stop.name.charAt(0), color: 'white', fontWeight: 'bold' }} />
-                        ))}
-                        {newRoute.stops.length > 1 && (
-                          <Polyline path={newRoute.stops.map(s => ({ lat: s.lat, lng: s.lng }))} options={{ strokeColor: '#EAB308', strokeOpacity: 1, strokeWeight: 4 }} />
-                        )}
-                     </GoogleMap>
-                   ) : <div className="h-[400px] bg-white/5 rounded-[1.5rem] flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>}
-
-                   <div className="space-y-3">
-                      <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Stops List ({newRoute.stops.length})</Label>
-                      <div className="flex flex-wrap gap-2">
-                         {newRoute.stops.map((s, i) => (
-                           <Badge key={i} className="bg-primary/20 text-primary border-none font-black px-3 py-1.5 rounded-xl flex items-center gap-2">
-                              {s.name} <button onClick={() => setNewRoute({...newRoute, stops: newRoute.stops.filter((_, idx) => idx !== i)})}><Trash2 className="h-3 w-3" /></button>
-                           </Badge>
-                         ))}
-                      </div>
-                   </div>
-
-                   <Button onClick={handleAddRoute} className="w-full h-18 bg-primary text-black font-black uppercase italic rounded-2xl shadow-xl shadow-primary/20 text-lg">Launch Route</Button>
+                   <Button onClick={handleAddRoute} disabled={newRoute.stops.length < 2 || !newRoute.name} className="w-full h-18 bg-primary text-black font-black uppercase italic rounded-2xl shadow-xl shadow-primary/20 text-lg">Create Route</Button>
                 </Card>
 
                 <div className="space-y-6">
-                   <h3 className="text-2xl font-black italic uppercase text-foreground">Active Routes</h3>
+                   <h3 className="text-2xl font-black italic uppercase text-foreground">Live Routes</h3>
                    <div className="grid gap-4">
                       {allRoutes?.map((r: any) => (
                         <Card key={r.id} className="p-6 bg-white/5 border-white/10 rounded-3xl flex justify-between items-center group hover:border-primary/20 transition-all">
