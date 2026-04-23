@@ -67,9 +67,27 @@ export default function CustomerDashboard() {
   const userRef = useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
   
-  const { data: activeRoutes } = useCollection(useMemo(() => (db) ? query(collection(db, 'routes'), where('status', '==', 'active')) : null, [db]));
+  const { data: allActiveRoutes } = useCollection(useMemo(() => (db) ? query(collection(db, 'routes'), where('status', '==', 'active')) : null, [db]));
   const { data: allTrips } = useCollection(useMemo(() => (db) ? query(collection(db, 'trips')) : null, [db]));
   
+  // Group routes by name to avoid duplicate options
+  const uniqueRoutes = useMemo(() => {
+    if (!allActiveRoutes) return [];
+    const grouped: Record<string, any> = {};
+    allActiveRoutes.forEach(r => {
+      if (!grouped[r.routeName]) {
+        grouped[r.routeName] = r;
+      } else {
+        // Merge schedules if they are different documents
+        const existingSchedules = grouped[r.routeName].schedule?.split(',').map((s: string) => s.trim()) || [];
+        const newSchedules = r.schedule?.split(',').map((s: string) => s.trim()) || [];
+        const combined = Array.from(new Set([...existingSchedules, ...newSchedules])).join(', ');
+        grouped[r.routeName].schedule = combined;
+      }
+    });
+    return Object.values(grouped);
+  }, [allActiveRoutes]);
+
   const currentRide = useMemo(() => {
     if (!allTrips || !user?.uid) return null;
     const trips = allTrips.filter(t => (t.status === 'active' || t.status === 'on-trip') && t.passengerManifest?.some((m: any) => m.uid === user.uid));
@@ -94,6 +112,7 @@ export default function CustomerDashboard() {
   const calculatedFare = useMemo(() => selectedRoute?.baseFare || 0, [selectedRoute]);
   const availableTimes = useMemo(() => selectedRoute?.schedule?.split(',').map((s: string) => s.trim()) || [], [selectedRoute]);
 
+  // Only filter landmarks from the selected route's stops
   const filteredLandmarks = useMemo(() => {
     if (!selectedRoute?.stops) return [];
     return selectedRoute.stops.filter((s: any) => 
@@ -168,7 +187,6 @@ export default function CustomerDashboard() {
         });
       }
       
-      // Update user and voucher usage if applied
       if (appliedDiscount > 0 && voucherCode) {
         const vQuery = query(collection(db, 'vouchers'), where('code', '==', voucherCode.toUpperCase()));
         const vSnap = await getDocs(vQuery);
@@ -289,7 +307,7 @@ export default function CustomerDashboard() {
                   <div className="flex-1 overflow-y-auto space-y-8 custom-scrollbar">
                     {bookingStep === 1 && (
                       <div className="space-y-4">
-                        {activeRoutes?.map((route: any) => (
+                        {uniqueRoutes?.map((route: any) => (
                           <div key={route.id} onClick={() => { setSelectedRoute(route); setBookingStep(2); }} className="p-8 bg-white/5 border border-white/10 rounded-[2.5rem] cursor-pointer flex justify-between items-center group">
                              <div className="space-y-2">
                                 <h4 className="text-2xl font-black italic uppercase group-hover:text-primary transition-colors leading-none">{route.routeName}</h4>
@@ -448,7 +466,7 @@ export default function CustomerDashboard() {
                  <div className="space-y-4">
                     <Label className="text-[10px] font-black uppercase text-muted-foreground ml-4">Route Landmarks</Label>
                     <div className="space-y-3">
-                       {activeRoutes?.find(r => r.routeName === currentRide.routeName)?.stops.map((s: any, i: number) => (
+                       {allActiveRoutes?.find(r => r.routeName === currentRide.routeName)?.stops.map((s: any, i: number) => (
                          <div key={i} className="flex items-center gap-4 px-6 py-4 bg-white/5 rounded-2xl border border-white/5">
                             <Badge className="bg-primary/20 text-primary border-none font-black h-6 w-6 p-0 flex items-center justify-center rounded-full">{i + 1}</Badge>
                             <span className="font-black italic text-sm">{s.name}</span>
