@@ -52,13 +52,14 @@ export default function CustomerDashboard() {
   const router = useRouter();
   const { toast } = useToast();
   
+  const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<'home' | 'status' | 'history' | 'profile'>('home');
   const [bookingStep, setBookingStep] = useState(1); 
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [boardingPoint, setBoardingPoint] = useState("");
   const [droppingPoint, setDroppingPoint] = useState("");
   const [landmarkSearch, setLandmarkSearch] = useState("");
-  const [bookingDate, setBookingDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [bookingDate, setBookingDate] = useState<string>("");
   const [bookingTime, setBookingTime] = useState<string>("");
   const [voucherCode, setVoucherCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState(0);
@@ -70,6 +71,11 @@ export default function CustomerDashboard() {
   const { data: allActiveRoutes } = useCollection(useMemo(() => (db) ? query(collection(db, 'routes'), where('status', '==', 'active')) : null, [db]));
   const { data: allTrips } = useCollection(useMemo(() => (db) ? query(collection(db, 'trips')) : null, [db]));
   
+  useEffect(() => {
+    setMounted(true);
+    setBookingDate(format(new Date(), 'yyyy-MM-dd'));
+  }, []);
+
   const uniqueRoutes = useMemo(() => {
     if (!allActiveRoutes) return [];
     const grouped: Record<string, any> = {};
@@ -93,7 +99,7 @@ export default function CustomerDashboard() {
   }, [allTrips, user?.uid]);
 
   const isShowOtpAllowed = useMemo(() => {
-    if (!currentRide) return false;
+    if (!currentRide || !mounted) return false;
     try {
       const tripTime = parse(`${currentRide.scheduledDate} ${currentRide.scheduledTime}`, 'yyyy-MM-dd hh:mm a', new Date());
       const now = new Date();
@@ -101,7 +107,7 @@ export default function CustomerDashboard() {
     } catch (e) {
       return false;
     }
-  }, [currentRide]);
+  }, [currentRide, mounted]);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/auth/login');
@@ -233,7 +239,7 @@ export default function CustomerDashboard() {
     }
   };
 
-  if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin text-primary h-12 w-12" /></div>;
+  if (!mounted || authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin text-primary h-12 w-12" /></div>;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-body pb-24 safe-area-inset">

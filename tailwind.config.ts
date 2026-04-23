@@ -1,3 +1,4 @@
+
 import type {Config} from 'tailwindcss';
 
 export default {
@@ -51,9 +52,27 @@ export default {
       },
       borderRadius: {
         lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 0.5rem)',
-        sm: 'calc(var(--radius) - 0.75rem)',
-      }
+        md: 'calc(var(--radius) - 1rem)',
+        sm: 'calc(var(--radius) - 1.5rem)',
+      },
+      fontSize: {
+        '10xl': ['10rem', { lineHeight: '1' }],
+        '11xl': ['12rem', { lineHeight: '1' }],
+      },
+      keyframes: {
+        dash: {
+          '0%': { strokeDashoffset: '1000' },
+          '100%': { strokeDashoffset: '0' },
+        },
+        'pulse-slow': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.7' },
+        }
+      },
+      animation: {
+        'dash': 'dash 30s linear infinite',
+        'pulse-slow': 'pulse-slow 4s ease-in-out infinite',
+      },
     },
   },
   plugins: [require('tailwindcss-animate')],
