@@ -1,3 +1,4 @@
+
 {
   "placeholderImages": [
     {
@@ -23,6 +24,18 @@
       "description": "Sleek white shuttle van on a city street",
       "imageUrl": "https://picsum.photos/seed/aago-shuttle-modern/1200/800",
       "imageHint": "modern shuttle"
+    },
+    {
+      "id": "happy-commuter",
+      "description": "A person smiling while using their phone inside a clean transit vehicle",
+      "imageUrl": "https://picsum.photos/seed/aago-happy/1200/800",
+      "imageHint": "happy commuter"
+    },
+    {
+      "id": "safety-verified",
+      "description": "Abstract shield icon with verified checkmark",
+      "imageUrl": "https://picsum.photos/seed/aago-safety/800/800",
+      "imageHint": "safety verified"
     }
   ]
 }
