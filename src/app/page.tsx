@@ -4,7 +4,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -20,19 +19,50 @@ import {
   Loader2,
   Users,
   Clock,
-  Sparkles
+  Sparkles,
+  Route as RouteIcon,
+  CircleDot
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { PlaceHolderImages } from '@/app/lib/placeholder-images';
 
 const Logo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-    <circle cx="10" cy="10" r="3" fill="currentColor" />
+    <circle cx="10" cy="10" r="3" fill="currentColor" className="animate-pulse" />
     <circle cx="30" cy="10" r="3" fill="currentColor" />
-    <circle cx="20" cy="30" r="3" fill="currentColor" />
-    <path d="M10 10L30 10M30 10L20 30M20 30L10 10" stroke="currentColor" strokeWidth="2" />
+    <circle cx="20" cy="30" r="3" fill="currentColor" className="animate-pulse" style={{ animationDelay: '1s' }} />
+    <path d="M10 10L30 10M30 10L20 30M20 30L10 10" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" />
   </svg>
+);
+
+const AbstractHubGraphic = () => (
+  <div className="relative w-full h-full flex items-center justify-center p-12">
+    <div className="absolute inset-0 bg-primary/5 rounded-[4rem] blur-[100px] animate-pulse"></div>
+    <div className="relative w-full h-full border-2 border-white/5 rounded-[4rem] flex items-center justify-center overflow-hidden bg-black/20 backdrop-blur-sm">
+      <svg className="w-full h-full opacity-30" viewBox="0 0 400 400">
+        <defs>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="0.5" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+        <g className="text-primary">
+          <circle cx="100" cy="100" r="4" fill="currentColor" />
+          <circle cx="300" cy="150" r="4" fill="currentColor" />
+          <circle cx="200" cy="300" r="4" fill="currentColor" />
+          <path d="M100 100 L300 150 L200 300 Z" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="10 10" className="animate-[dash_30s_linear_infinite]" />
+        </g>
+      </svg>
+      <div className="absolute flex flex-col items-center gap-6 animate-slow-float">
+        <div className="bg-primary p-8 rounded-[2rem] text-black shadow-2xl">
+          <Logo className="h-20 w-20" />
+        </div>
+        <div className="bg-white/10 backdrop-blur-2xl px-8 py-4 rounded-2xl border border-white/10">
+          <span className="text-xs font-black uppercase italic tracking-widest text-primary">AAGO HUB ONLINE</span>
+        </div>
+      </div>
+    </div>
+  </div>
 );
 
 export default function LandingPage() {
@@ -58,13 +88,6 @@ export default function LandingPage() {
     }
   }, [user, profile, authLoading, router]);
 
-  const images = {
-    hero: PlaceHolderImages.find(img => img.id === 'animated-shuttle'),
-    commute: PlaceHolderImages.find(img => img.id === 'commute-abstract'),
-    map: PlaceHolderImages.find(img => img.id === 'city-abstract'),
-    safety: PlaceHolderImages.find(img => img.id === 'safety-abstract'),
-  };
-
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground font-body overflow-x-hidden selection:bg-primary selection:text-black">
       {/* Header */}
@@ -83,13 +106,13 @@ export default function LandingPage() {
             <Loader2 className="animate-spin h-6 w-6 text-primary" />
           ) : user ? (
             <Link href={profile?.role === 'driver' ? '/driver' : '/student'}>
-              <Button className="bg-primary hover:bg-primary/90 text-black rounded-2xl font-black uppercase italic px-10 h-14 shadow-2xl shadow-primary/20 text-lg transition-all active:scale-95">Go to Hub</Button>
+              <Button className="bg-primary hover:bg-primary/90 text-black rounded-2xl font-black uppercase italic px-10 h-14 shadow-2xl shadow-primary/20 text-lg transition-all active:scale-95">Open Hub</Button>
             </Link>
           ) : (
             <div className="flex items-center gap-6">
               <Link href="/auth/login" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors italic">Login</Link>
               <Link href="/auth/signup">
-                <Button className="bg-primary hover:bg-primary/90 text-black rounded-2xl font-black uppercase italic px-10 h-14 shadow-2xl shadow-primary/20 text-lg transition-all active:scale-95">Book Now</Button>
+                <Button className="bg-primary hover:bg-primary/90 text-black rounded-2xl font-black uppercase italic px-10 h-14 shadow-2xl shadow-primary/20 text-lg transition-all active:scale-95">Book Ticket</Button>
               </Link>
             </div>
           )}
@@ -106,12 +129,12 @@ export default function LandingPage() {
           <Link href="#how-it-works" onClick={() => setIsMenuOpen(false)} className="text-4xl font-black italic uppercase text-foreground">How it works</Link>
           <Link href="#features" onClick={() => setIsMenuOpen(false)} className="text-4xl font-black italic uppercase text-foreground">Benefits</Link>
           {user ? (
-             <Link href={profile?.role === 'driver' ? '/driver' : '/student'} onClick={() => setIsMenuOpen(false)} className="text-5xl font-black italic uppercase text-primary tracking-tighter">My Account</Link>
+             <Link href={profile?.role === 'driver' ? '/driver' : '/student'} onClick={() => setIsMenuOpen(false)} className="text-5xl font-black italic uppercase text-primary tracking-tighter">My Hub</Link>
           ) : (
             <>
               <Link href="/auth/login" onClick={() => setIsMenuOpen(false)} className="text-5xl font-black italic uppercase text-foreground tracking-tighter">Login</Link>
               <Link href="/auth/signup" onClick={() => setIsMenuOpen(false)} className="text-5xl font-black italic uppercase text-primary tracking-tighter">Join AAGO</Link>
-              <Link href="/driver/signup" onClick={() => setIsMenuOpen(false)} className="text-5xl font-black italic uppercase text-muted-foreground tracking-tighter">Apply to Drive</Link>
+              <Link href="/driver/signup" onClick={() => setIsMenuOpen(false)} className="text-5xl font-black italic uppercase text-muted-foreground tracking-tighter">Apply for Duty</Link>
             </>
           )}
         </div>
@@ -126,24 +149,24 @@ export default function LandingPage() {
                 <Badge className="px-6 py-2.5 text-primary border-primary/30 bg-primary/5 font-black uppercase tracking-[0.4em] text-[10px] italic rounded-full shadow-lg">
                   <Sparkles className="h-3 w-3 mr-2 inline" /> Community Mobility Hub
                 </Badge>
-                <h1 className="text-6xl lg:text-9xl font-black text-foreground italic uppercase tracking-tighter leading-[0.85] animate-pulse-slow">
+                <h1 className="text-6xl lg:text-9xl font-black text-foreground italic uppercase tracking-tighter leading-[0.85]">
                   Pakka <br /> <span className="text-primary">Travel.</span>
                 </h1>
                 <p className="text-xl text-muted-foreground leading-relaxed max-w-xl mx-auto lg:mx-0 italic font-medium opacity-80">
-                  Fixed fares, no bargaining. Simple, secure, and timed city transit for your community.
+                  Fixed fares, no bargaining. Professional city transit for your community. Timely, safe, and reliable.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-6 pt-6 justify-center lg:justify-start">
                   {user ? (
                     <Link href={profile?.role === 'driver' ? '/driver' : '/student'}>
-                      <Button size="lg" className="w-full sm:w-auto h-20 px-16 bg-primary hover:bg-primary/90 text-black rounded-[2rem] font-black uppercase italic text-2xl shadow-3xl shadow-primary/20 transition-all active:scale-95">Open Hub</Button>
+                      <Button size="lg" className="w-full sm:w-auto h-20 px-16 bg-primary hover:bg-primary/90 text-black rounded-[2rem] font-black uppercase italic text-2xl shadow-3xl shadow-primary/20 transition-all active:scale-95">Enter My Hub</Button>
                     </Link>
                   ) : (
                     <>
                       <Link href="/auth/signup">
-                        <Button size="lg" className="w-full sm:w-auto h-20 px-16 bg-primary hover:bg-primary/90 text-black rounded-[2rem] font-black uppercase italic text-2xl shadow-3xl shadow-primary/20 transition-all active:scale-95">Register Now</Button>
+                        <Button size="lg" className="w-full sm:w-auto h-20 px-16 bg-primary hover:bg-primary/90 text-black rounded-[2rem] font-black uppercase italic text-2xl shadow-3xl shadow-primary/20 transition-all active:scale-95">Join Now</Button>
                       </Link>
                       <Link href="/driver/signup">
-                        <Button variant="outline" size="lg" className="w-full sm:w-auto h-20 px-16 rounded-[2rem] font-black uppercase italic text-2xl border-2 border-primary text-primary hover:bg-primary/5 transition-all">Apply to Drive</Button>
+                        <Button variant="outline" size="lg" className="w-full sm:w-auto h-20 px-16 rounded-[2rem] font-black uppercase italic text-2xl border-2 border-primary text-primary hover:bg-primary/5 transition-all">Apply for Duty</Button>
                       </Link>
                     </>
                   )}
@@ -151,28 +174,7 @@ export default function LandingPage() {
               </div>
 
               <div className="relative aspect-square animate-in zoom-in duration-1000">
-                <div className="absolute inset-0 bg-primary/20 rounded-[4rem] blur-[120px] animate-pulse"></div>
-                <div className="relative h-full w-full rounded-[4rem] overflow-hidden border-4 border-white/5 shadow-3xl bg-slate-950 flex items-center justify-center animate-slow-float">
-                   {images.hero && (
-                     <Image 
-                       src={images.hero.imageUrl} 
-                       alt={images.hero.description}
-                       fill
-                       className="object-cover opacity-60 scale-105 hover:scale-100 transition-transform duration-1000"
-                       data-ai-hint={images.hero.imageHint}
-                     />
-                   )}
-                   <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
-                   <div className="absolute bottom-12 left-12 right-12">
-                      <div className="bg-white/10 backdrop-blur-2xl border border-white/10 p-8 rounded-[3rem] shadow-2xl">
-                         <div className="flex items-center gap-4 mb-3">
-                            <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse"></div>
-                            <span className="text-[10px] font-black uppercase italic text-white tracking-widest">Active Hub</span>
-                         </div>
-                         <h4 className="text-2xl font-black italic text-white uppercase leading-none">Smart Fleet Online</h4>
-                      </div>
-                   </div>
-                </div>
+                <AbstractHubGraphic />
               </div>
             </div>
           </div>
@@ -182,7 +184,7 @@ export default function LandingPage() {
         <section id="how-it-works" className="py-40 bg-black/40 relative">
            <div className="container mx-auto px-6 lg:px-24">
               <div className="text-center space-y-4 mb-24 animate-in fade-in duration-700">
-                 <h2 className="text-4xl lg:text-7xl font-black italic uppercase tracking-tighter leading-none">How AAGO Works</h2>
+                 <h2 className="text-4xl lg:text-7xl font-black italic uppercase tracking-tighter leading-none text-primary">How AAGO Works</h2>
                  <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.4em] italic mt-4">Simple 3-Step Process</p>
               </div>
 
@@ -191,47 +193,35 @@ export default function LandingPage() {
                    { 
                      step: "01", 
                      title: "Book Ticket", 
-                     desc: "Choose your route and time. Pay the fixed fare online. No more bargaining.",
+                     desc: "Pick your route and time. Pay the fixed fare online. No more bargaining at the stop.",
                      icon: Navigation,
-                     img: images.map
+                     color: "text-primary"
                    },
                    { 
                      step: "02", 
                      title: "Get Ride Info", 
-                     desc: "3 hours before departure, we share ride details and your pakka Ride Code (OTP).",
+                     desc: "3 hours before start, we share boarding details and your pakka Ride Code (OTP).",
                      icon: Clock,
-                     img: images.commute
+                     color: "text-blue-400"
                    },
                    { 
                      step: "03", 
                      title: "Travel Safe", 
-                     desc: "Share your code with the driver. Enjoy your ride in a clean community van.",
+                     desc: "Share your code with the driver. Enjoy your travel in a clean, verified 7-seater van.",
                      icon: CheckCircle2,
-                     img: images.safety
+                     color: "text-green-400"
                    }
                  ].map((item, i) => (
                    <div key={i} className="group space-y-10 animate-in slide-in-from-bottom-12 duration-700" style={{ animationDelay: `${i * 200}ms` }}>
-                      <div className="relative aspect-[4/3] rounded-[3.5rem] overflow-hidden border border-white/5 shadow-2xl bg-white/5">
-                         {item.img && (
-                           <Image 
-                             src={item.img.imageUrl} 
-                             alt={item.img.description} 
-                             fill 
-                             className="object-cover opacity-20 group-hover:opacity-40 transition-opacity duration-700"
-                             data-ai-hint={item.img.imageHint}
-                           />
-                         )}
-                         <div className="absolute inset-0 p-12 flex flex-col justify-end">
+                      <div className="relative aspect-square rounded-[3.5rem] overflow-hidden border border-white/5 shadow-2xl bg-white/5 flex items-center justify-center">
+                         <div className={`absolute inset-0 opacity-5 bg-gradient-to-br from-primary to-transparent`}></div>
+                         <item.icon className={`h-40 w-40 ${item.color} opacity-20 group-hover:opacity-60 group-hover:scale-110 transition-all duration-700`} />
+                         <div className="absolute top-12 left-12">
                             <span className="text-7xl font-black italic text-primary/10 group-hover:text-primary/30 transition-colors duration-500">{item.step}</span>
                          </div>
                       </div>
-                      <div className="px-6 space-y-6">
-                         <div className="flex items-center gap-5">
-                            <div className="h-14 w-14 rounded-[1.5rem] bg-primary text-black flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
-                               <item.icon className="h-7 w-7" />
-                            </div>
-                            <h3 className="text-3xl font-black italic uppercase">{item.title}</h3>
-                         </div>
+                      <div className="px-6 space-y-6 text-center lg:text-left">
+                         <h3 className="text-3xl font-black italic uppercase text-foreground">{item.title}</h3>
                          <p className="text-muted-foreground italic text-lg leading-relaxed opacity-70">{item.desc}</p>
                       </div>
                    </div>
@@ -248,52 +238,52 @@ export default function LandingPage() {
                   <div className="grid grid-cols-2 gap-8">
                     <Card className="p-10 border-none bg-white/5 rounded-[3rem] shadow-2xl hover:-translate-y-4 transition-transform duration-500 animate-slow-float">
                        <IndianRupee className="h-12 w-12 text-primary mb-8" />
-                       <h4 className="text-2xl font-black italic uppercase mb-3 text-primary">No Bargaining</h4>
-                       <p className="text-sm text-muted-foreground italic leading-relaxed">Always know your price. Fixed fares for every corridor.</p>
+                       <h4 className="text-2xl font-black italic uppercase mb-3 text-primary leading-none">Fixed Fares</h4>
+                       <p className="text-[11px] font-bold text-muted-foreground italic uppercase tracking-widest mt-4">Zero Bargaining</p>
                     </Card>
                     <Card className="p-10 border-none bg-white/5 rounded-[3rem] shadow-2xl hover:-translate-y-4 transition-transform duration-500 mt-16">
-                       <Navigation className="h-12 w-12 text-primary mb-8" />
-                       <h4 className="text-2xl font-black italic uppercase mb-3 text-primary">Boarding Info</h4>
-                       <p className="text-sm text-muted-foreground italic leading-relaxed">Know your boarding point and vehicle details 3 hours early.</p>
+                       <RouteIcon className="h-12 w-12 text-primary mb-8" />
+                       <h4 className="text-2xl font-black italic uppercase mb-3 text-primary leading-none">Timed Routes</h4>
+                       <p className="text-[11px] font-bold text-muted-foreground italic uppercase tracking-widest mt-4">Always On Time</p>
                     </Card>
                     <Card className="p-10 border-none bg-white/5 rounded-[3rem] shadow-2xl hover:-translate-y-4 transition-transform duration-500 -mt-16 animate-slow-float" style={{ animationDelay: '1s' }}>
                        <ShieldCheck className="h-12 w-12 text-primary mb-8" />
-                       <h4 className="text-2xl font-black italic uppercase mb-3 text-primary">Verified</h4>
-                       <p className="text-sm text-muted-foreground italic leading-relaxed">Every driver is identity-checked and pakka verified by us.</p>
+                       <h4 className="text-2xl font-black italic uppercase mb-3 text-primary leading-none">Verified</h4>
+                       <p className="text-[11px] font-bold text-muted-foreground italic uppercase tracking-widest mt-4">Pakka Safe</p>
                     </Card>
                     <Card className="p-10 border-none bg-white/5 rounded-[3rem] shadow-2xl hover:-translate-y-4 transition-transform duration-500">
                        <Users className="h-12 w-12 text-primary mb-8" />
-                       <h4 className="text-2xl font-black italic uppercase mb-3 text-primary">Community</h4>
-                       <p className="text-sm text-muted-foreground italic leading-relaxed">Travel with verified members from your own local hub.</p>
+                       <h4 className="text-2xl font-black italic uppercase mb-3 text-primary leading-none">Community</h4>
+                       <p className="text-[11px] font-bold text-muted-foreground italic uppercase tracking-widest mt-4">Safe Bubble</p>
                     </Card>
                   </div>
                </div>
 
                <div className="space-y-12 order-1 lg:order-2 animate-in fade-in slide-in-from-right-12 duration-1000">
-                  <h2 className="text-5xl lg:text-8xl font-black italic uppercase tracking-tighter leading-none">
-                    Smart Hub. <br /> <span className="text-primary">Safe Journey.</span>
+                  <h2 className="text-5xl lg:text-8xl font-black italic uppercase tracking-tighter leading-[0.9] text-foreground">
+                    Smart Hub. <br /> <span className="text-primary">Safe Travel.</span>
                   </h2>
                   <p className="text-2xl text-muted-foreground leading-relaxed italic opacity-80">
-                    We have stopped the daily struggle of city travel. AAGO hub gives you timed routes, verified drivers, and a simple booking experience.
+                    AAGO Hub is designed for families and office-goers. We pick standard routes, assign verified drivers, and keep the price fixed. Simple.
                   </p>
                   <div className="space-y-8 pt-8">
                     {[
-                      "Fixed 7-seater vehicle assigned for you",
-                      "Ride Code (OTP) for secure boarding",
-                      "Cashless digital payments via phone",
-                      "Direct corridor-based travel"
+                      "Standard 7-seater vehicles only",
+                      "Ride Code (OTP) for safe boarding",
+                      "Full ticket refund if we are late",
+                      "Direct Boarding to Dropping transit"
                     ].map((feature, i) => (
                       <div key={i} className="flex items-center gap-6 group">
                         <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary transition-colors duration-300">
                           <CheckCircle2 className="h-5 w-5 text-primary group-hover:text-black" />
                         </div>
-                        <span className="font-black italic uppercase text-xs tracking-[0.2em] text-foreground opacity-80 group-hover:opacity-100 transition-opacity">{feature}</span>
+                        <span className="font-black italic uppercase text-xs tracking-[0.2em] text-foreground opacity-70 group-hover:opacity-100 transition-opacity">{feature}</span>
                       </div>
                     ))}
                   </div>
                   <Link href="/auth/signup" className="inline-block pt-12">
                     <Button className="h-20 px-16 bg-primary text-black rounded-[2rem] font-black uppercase italic text-xl shadow-3xl shadow-primary/20 active:scale-95 transition-all">
-                      Start Your Journey <ArrowRight className="ml-4 h-6 w-6" />
+                      Join Our Hub <ArrowRight className="ml-4 h-6 w-6" />
                     </Button>
                   </Link>
                </div>
@@ -303,20 +293,26 @@ export default function LandingPage() {
 
         {/* Final CTA */}
         <section className="py-48 bg-primary relative overflow-hidden">
-          <div className="absolute inset-0 bg-black/5 pointer-events-none"></div>
           <div className="container mx-auto px-6 lg:px-24 text-center space-y-16 relative z-10">
             <h2 className="text-7xl lg:text-11xl font-black italic uppercase text-black tracking-tighter leading-none animate-pulse-slow">
               Ready to <br /> AAGO?
             </h2>
-            <p className="text-3xl text-black font-black italic uppercase opacity-60 tracking-widest">Join the smart mobility revolution.</p>
+            <p className="text-3xl text-black font-black italic uppercase opacity-60 tracking-widest">Join the smart mobility hub today.</p>
             <div className="flex flex-col sm:flex-row gap-8 justify-center pt-12">
               <Link href="/auth/signup" className="group">
-                <Button size="lg" className="h-24 px-20 bg-black text-white rounded-[3rem] font-black uppercase italic text-3xl shadow-3xl hover:scale-105 transition-all active:scale-95">Join as Passenger</Button>
+                <Button size="lg" className="h-24 px-20 bg-black text-white rounded-[3rem] font-black uppercase italic text-3xl shadow-3xl hover:scale-105 transition-all active:scale-95">Join as Member</Button>
               </Link>
               <Link href="/driver/signup" className="group">
-                <Button variant="outline" size="lg" className="h-24 px-20 bg-transparent border-4 border-black text-black rounded-[3rem] font-black uppercase italic text-3xl hover:bg-black/5 transition-all active:scale-95">Apply to Drive</Button>
+                <Button variant="outline" size="lg" className="h-24 px-20 bg-transparent border-4 border-black text-black rounded-[3rem] font-black uppercase italic text-3xl hover:bg-black/10 transition-all active:scale-95">Apply for Duty</Button>
               </Link>
             </div>
+          </div>
+          {/* Decorative SVG Shapes */}
+          <div className="absolute top-0 right-0 opacity-10 rotate-45 translate-x-1/2 -translate-y-1/2">
+            <CircleDot className="h-[600px] w-[600px]" />
+          </div>
+          <div className="absolute bottom-0 left-0 opacity-10 -rotate-12 -translate-x-1/4 translate-y-1/4">
+            <RouteIcon className="h-[800px] w-[800px]" />
           </div>
         </section>
       </main>
@@ -329,12 +325,12 @@ export default function LandingPage() {
               <Logo className="h-10 w-10 text-primary" />
               <span className="text-3xl font-black italic tracking-tighter text-foreground uppercase">AAGO</span>
             </div>
-            <p className="text-[11px] font-black uppercase tracking-[0.5em] text-muted-foreground opacity-50">© 2024 AAGO Mobility. Pakka Transit.</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.5em] text-muted-foreground opacity-50">© 2024 AAGO Hub. Pakka Travel.</p>
           </div>
           <div className="flex gap-12">
-             <Link href="/admin/login" className="text-[10px] font-black uppercase text-muted-foreground hover:text-primary italic transition-colors">Admin Portal</Link>
-             <Link href="/driver/login" className="text-[10px] font-black uppercase text-muted-foreground hover:text-primary italic transition-colors">Driver Login</Link>
-             <Link href="/auth/login" className="text-[10px] font-black uppercase text-muted-foreground hover:text-primary italic transition-colors">Member Login</Link>
+             <Link href="/admin/login" className="text-[10px] font-black uppercase text-muted-foreground hover:text-primary italic transition-colors">Admin Hub</Link>
+             <Link href="/driver/login" className="text-[10px] font-black uppercase text-muted-foreground hover:text-primary italic transition-colors">Driver Duty</Link>
+             <Link href="/auth/login" className="text-[10px] font-black uppercase text-muted-foreground hover:text-primary italic transition-colors">Member Terminal</Link>
           </div>
         </div>
       </footer>
