@@ -114,12 +114,10 @@ export default function AdminDashboard() {
     setIsAllocatingBatch(true);
     let assignedCount = 0;
     try {
-      // Prioritize trips with most riders for maximum utilization
       const unassignedTrips = trips.filter(t => !t.driverId && t.status === 'active' && t.riderCount > 0).sort((a, b) => (b.riderCount || 0) - (a.riderCount || 0));
       const verifiedDrivers = drivers.filter(d => d.isVerified && !d.isBlocked);
 
       for (const trip of unassignedTrips) {
-        // Find a driver who is free at this time and prefers this route
         const candidate = verifiedDrivers.find(d => {
           const isPreferringRoute = d.preferredRoute === trip.routeName;
           const isFree = !trips.some(t => t.driverId === d.uid && t.status !== 'completed' && t.scheduledDate === trip.scheduledDate && t.scheduledTime === trip.scheduledTime);
@@ -181,7 +179,7 @@ export default function AdminDashboard() {
           {[
             { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }, { id: 'customers', label: 'Customers', icon: Users }, { id: 'drivers', label: 'Drivers', icon: Car }, { id: 'routes', label: 'Routes', icon: RouteIcon }, { id: 'trips', label: 'Trips', icon: Briefcase }, { id: 'analytics', label: 'Analytics', icon: BarChart3 }, { id: 'vouchers', label: 'Discounts', icon: Ticket },
           ].map((item) => (
-            <button key={item.id} onClick={() => setActiveTab(item.id as Admin tab)} className={`w-full flex items-center justify-start rounded-xl font-black uppercase italic h-14 px-5 transition-all ${activeTab === item.id ? 'bg-primary text-black shadow-lg shadow-primary/20 scale-105' : 'text-muted-foreground hover:bg-white/5'}`}>
+            <button key={item.id} onClick={() => setActiveTab(item.id as AdminTab)} className={`w-full flex items-center justify-start rounded-xl font-black uppercase italic h-14 px-5 transition-all ${activeTab === item.id ? 'bg-primary text-black shadow-lg shadow-primary/20 scale-105' : 'text-muted-foreground hover:bg-white/5'}`}>
               <item.icon className="mr-4 h-5 w-5" /> {item.label}
             </button>
           ))}
@@ -203,7 +201,7 @@ export default function AdminDashboard() {
             <div className="space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {[ { label: 'Drivers Ready', value: stats.activeDrivers, icon: Car }, { label: 'Total Customers', value: stats.totalCustomers, icon: Users }, { label: 'User Happiness', value: stats.avgNps, icon: Smile }, { label: 'Repeat Rate', value: `${stats.repeatRate}%`, icon: Target }, ].map((metric, i) => (
-                  <Card key={i} className="bg-white/5 border-white/10 rounded-2xl border-b-4 border-b-primary/20 shadow-xl"><CardContent className="p-6"><div className="p-3 bg-primary/10 rounded-xl w-fit mb-4 shadow-inner"><metric.icon className="h-5 w-5 text-primary" /></div><p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">{metric.label}</p><h3 className="text-3xl font-black text-foreground italic">{metric.value}</h3></CardContent></Card>
+                  <Card key={i} className="bg-white/5 border-white/10 rounded-2xl border-b-4 border-primary/20 shadow-xl"><CardContent className="p-6"><div className="p-3 bg-primary/10 rounded-xl w-fit mb-4 shadow-inner"><metric.icon className="h-5 w-5 text-primary" /></div><p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">{metric.label}</p><h3 className="text-3xl font-black text-foreground italic">{metric.value}</h3></CardContent></Card>
                 ))}
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
