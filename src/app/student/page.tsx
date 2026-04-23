@@ -52,11 +52,11 @@ export default function CustomerDashboard() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [activeTab, setActiveTab] = useState<'home' | 'radar' | 'history' | 'profile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'status' | 'history' | 'profile'>('home');
   const [bookingStep, setBookingStep] = useState(1); 
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
-  const [pickupStop, setPickupStop] = useState("");
-  const [dropStop, setDropStop] = useState("");
+  const [boardingPoint, setBoardingPoint] = useState("");
+  const [droppingPoint, setDroppingPoint] = useState("");
   const [landmarkSearch, setLandmarkSearch] = useState("");
   const [bookingDate, setBookingDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [bookingTime, setBookingTime] = useState<string>("");
@@ -119,9 +119,9 @@ export default function CustomerDashboard() {
 
   const handleShare = async () => {
     const text = isShowOtpAllowed 
-      ? `I'm on my way with AAGO! My check-in code: ${profile?.activeOtp}`
-      : `I've booked a ride with AAGO! Trip at ${currentRide?.scheduledTime}`;
-    if (navigator.share) navigator.share({ title: 'AAGO - Trip Status', text, url: window.location.href });
+      ? `I'm on my way with AAGO! My Ride Code (OTP): ${profile?.activeOtp}`
+      : `I've booked a ride with AAGO! Ride at ${currentRide?.scheduledTime}`;
+    if (navigator.share) navigator.share({ title: 'AAGO - Ride Status', text, url: window.location.href });
     else { navigator.clipboard.writeText(text); toast({ title: "Copied to clipboard" }); }
   };
 
@@ -135,19 +135,19 @@ export default function CustomerDashboard() {
       const usedBy = voucherData.usedBy || [];
       
       if (usedBy.includes(user.uid)) {
-        toast({ variant: "destructive", title: "Already Used", description: "You have already used this code once." });
+        toast({ variant: "destructive", title: "Already Used", description: "You have used this code once before." });
         return;
       }
 
       if (voucherData.usageLimit && usedBy.length >= voucherData.usageLimit) {
-        toast({ variant: "destructive", title: "Expired", description: "This discount code has reached its limit." });
+        toast({ variant: "destructive", title: "Limit Reached", description: "This discount code is now full." });
         return;
       }
 
       setAppliedDiscount(voucherData.discount || 0);
       toast({ title: `Discount applied!` });
     } else {
-      toast({ variant: "destructive", title: "Invalid code", description: "Please check the code and try again." });
+      toast({ variant: "destructive", title: "Invalid code", description: "Check the code again." });
     }
   };
 
@@ -157,7 +157,7 @@ export default function CustomerDashboard() {
     try {
       const finalPrice = Math.max(0, calculatedFare - appliedDiscount);
       const code = Math.floor(100000 + Math.random() * 900000).toString();
-      const entry = { uid: user!.uid, name: profile.fullName, pickup: pickupStop, destination: dropStop, bookingDate, bookingTime, farePaid: finalPrice, bookedAt: new Date().toISOString() };
+      const entry = { uid: user!.uid, name: profile.fullName, pickup: boardingPoint, destination: droppingPoint, bookingDate, bookingTime, farePaid: finalPrice, bookedAt: new Date().toISOString() };
       
       const q = query(collection(db, 'trips'), where('routeName', '==', selectedRoute.routeName), where('scheduledDate', '==', bookingDate), where('scheduledTime', '==', bookingTime), where('status', '==', 'active'));
       const snap = await getDocs(q);
@@ -197,7 +197,7 @@ export default function CustomerDashboard() {
       await updateDoc(userRef, { activeOtp: code, loyaltyPoints: increment(10) });
       setBookingStep(4);
     } catch (e) {
-      toast({ variant: "destructive", title: "Booking Error", description: "Could not save your trip." });
+      toast({ variant: "destructive", title: "Error", description: "Could not save your ride." });
     } finally { setIsPaying(false); }
   };
 
@@ -215,7 +215,7 @@ export default function CustomerDashboard() {
       });
       const order = await res.json();
       const options = {
-        key: 'rzp_live_SeqhV0hEn1PXnz',
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SeqhV0hEn1PXnz',
         amount: order.amount,
         currency: order.currency,
         name: "AAGO",
@@ -228,7 +228,7 @@ export default function CustomerDashboard() {
       const rzp = new (window as any).Razorpay(options);
       rzp.open();
     } catch (e) { 
-      toast({ variant: "destructive", title: "Payment Failed", description: "Could not start payment process." });
+      toast({ variant: "destructive", title: "Payment Failed", description: "Could not start payment." });
       setIsPaying(false); 
     }
   };
@@ -240,7 +240,7 @@ export default function CustomerDashboard() {
       <header className="px-6 py-6 flex items-center justify-between border-b border-white/5 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center text-black"><Logo className="h-6 w-6" /></div>
-          <h1 className="text-xl font-black italic uppercase text-primary tracking-tighter">AAGO</h1>
+          <h1 className="text-xl font-black italic uppercase text-primary tracking-tighter">AAGO Hub</h1>
         </div>
         <Button variant="ghost" size="icon" onClick={handleShare} className="text-primary bg-primary/10 h-11 w-11 rounded-2xl"><Share2 className="h-5 w-5" /></Button>
       </header>
@@ -250,7 +250,7 @@ export default function CustomerDashboard() {
           <div className="space-y-6 animate-in fade-in">
             <div className="flex justify-between items-center px-2">
               <div className="space-y-1">
-                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic opacity-50">Hello,</p>
+                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic opacity-50">Namaste,</p>
                 <h2 className="text-4xl font-black italic uppercase tracking-tighter">{profile?.fullName?.split(' ')[0]}</h2>
               </div>
               <div className="bg-white/5 p-4 rounded-3xl border border-white/10 flex items-center gap-2">
@@ -262,8 +262,8 @@ export default function CustomerDashboard() {
             {currentRide ? (
               <Card className="rounded-[3.5rem] p-10 shadow-2xl border-primary/30 bg-card/60 backdrop-blur-md relative overflow-hidden">
                  <div className="flex flex-col items-center gap-4 mb-8 text-center">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Upcoming Ride</p>
-                    <h3 className="text-4xl font-black tracking-tighter italic text-primary leading-tight">Scheduled</h3>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Next Ride</p>
+                    <h3 className="text-4xl font-black tracking-tighter italic text-primary leading-tight">Confirmed</h3>
                     <div className="mt-4 p-6 bg-black/40 rounded-2xl border border-white/5 w-full">
                       <p className="text-[10px] font-bold text-white/60 uppercase">{currentRide.routeName}</p>
                       <p className="text-xl font-black text-white mt-1">{currentRide.scheduledDate} • {currentRide.scheduledTime}</p>
@@ -273,24 +273,24 @@ export default function CustomerDashboard() {
                  <div className="p-6 bg-black/60 rounded-[2.5rem] border border-white/5 space-y-4">
                     {isShowOtpAllowed ? (
                       <div className="text-center space-y-3">
-                        <p className="text-[10px] font-black uppercase text-primary tracking-widest">Your Check-in Code</p>
+                        <p className="text-[10px] font-black uppercase text-primary tracking-widest">Your Ride Code (OTP)</p>
                         <h4 className="text-4xl font-black tracking-[0.3em] text-white">{profile?.activeOtp}</h4>
                       </div>
                     ) : (
                       <p className="text-[11px] font-bold text-white/60 uppercase leading-relaxed italic text-center">
-                        Ride details and check-in code will be shared 3 hours before start.
+                        Ride details and OTP will show here 3 hours before start.
                       </p>
                     )}
-                    <Button onClick={() => setActiveTab('radar')} className="w-full h-14 bg-primary text-black rounded-2xl font-black uppercase italic shadow-xl">Ride Status</Button>
+                    <Button onClick={() => setActiveTab('status')} className="w-full h-14 bg-primary text-black rounded-2xl font-black uppercase italic shadow-xl">Ride Info</Button>
                  </div>
               </Card>
             ) : (
               <Dialog onOpenChange={open => !open && setBookingStep(1)}>
                 <DialogTrigger asChild>
                   <div className="p-14 bg-primary text-black rounded-[3.5rem] shadow-2xl flex flex-col gap-3 cursor-pointer group">
-                    <h3 className="text-6xl font-black italic uppercase tracking-tighter leading-none">Book <br/> Ride</h3>
+                    <h3 className="text-6xl font-black italic uppercase tracking-tighter leading-none">Book <br/> Ticket</h3>
                     <div className="flex items-center justify-between mt-6">
-                      <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Fixed Price Service</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Fixed Fare Service</p>
                       <div className="h-12 w-12 bg-black rounded-full flex items-center justify-center text-primary group-hover:translate-x-3 transition-transform"><ChevronRight className="h-6 w-6" /></div>
                     </div>
                   </div>
@@ -325,7 +325,7 @@ export default function CustomerDashboard() {
                                <Input 
                                  value={landmarkSearch} 
                                  onChange={e => setLandmarkSearch(e.target.value)} 
-                                 placeholder="Search landmarks..." 
+                                 placeholder="Search stops..." 
                                  className="h-12 pl-12 bg-white/5 rounded-xl font-black italic"
                                />
                              </div>
@@ -333,10 +333,10 @@ export default function CustomerDashboard() {
 
                            <div className="space-y-6">
                               <div className="space-y-3">
-                                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Pickup Point</Label>
+                                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Boarding Point</Label>
                                 <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
                                    {filteredLandmarks.map((stop: any, idx: number) => (
-                                     <Button key={idx} variant="outline" onClick={() => setPickupStop(stop.name)} className={`h-16 justify-center text-center px-4 rounded-xl font-black italic text-[11px] leading-tight border-2 ${pickupStop === stop.name ? 'bg-primary border-primary text-black' : 'bg-white border-white text-black'}`}>
+                                     <Button key={idx} variant="outline" onClick={() => setBoardingPoint(stop.name)} className={`h-16 justify-center text-center px-4 rounded-xl font-black italic text-[11px] leading-tight border-2 ${boardingPoint === stop.name ? 'bg-primary border-primary text-black' : 'bg-white border-white text-black'}`}>
                                        {stop.name}
                                      </Button>
                                    ))}
@@ -344,10 +344,10 @@ export default function CustomerDashboard() {
                               </div>
 
                               <div className="space-y-3">
-                                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Drop Point</Label>
+                                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Dropping Point</Label>
                                 <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
                                    {filteredLandmarks.map((stop: any, idx: number) => (
-                                     <Button key={idx} variant="outline" onClick={() => setDropStop(stop.name)} className={`h-16 justify-center text-center px-4 rounded-xl font-black italic text-[11px] leading-tight border-2 ${dropStop === stop.name ? 'bg-primary border-primary text-black' : 'bg-white border-white text-black'}`}>
+                                     <Button key={idx} variant="outline" onClick={() => setDroppingPoint(stop.name)} className={`h-16 justify-center text-center px-4 rounded-xl font-black italic text-[11px] leading-tight border-2 ${droppingPoint === stop.name ? 'bg-primary border-primary text-black' : 'bg-white border-white text-black'}`}>
                                        {stop.name}
                                      </Button>
                                    ))}
@@ -366,12 +366,12 @@ export default function CustomerDashboard() {
                            <div className="space-y-3">
                               <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Time</Label>
                               <select value={bookingTime} onChange={e => setBookingTime(e.target.value)} className="w-full h-16 bg-white rounded-2xl px-4 font-black text-black outline-none border-none">
-                                 <option value="">Select</option>
+                                 <option value="">Select Time</option>
                                  {availableTimes.map(t => <option key={t} value={t}>{t}</option>)}
                               </select>
                            </div>
                         </div>
-                        <Button onClick={() => setBookingStep(3)} disabled={!bookingTime || !pickupStop || !dropStop} className="w-full h-18 bg-primary text-black rounded-3xl font-black uppercase italic text-lg shadow-2xl">Confirm Details</Button>
+                        <Button onClick={() => setBookingStep(3)} disabled={!bookingTime || !boardingPoint || !droppingPoint} className="w-full h-18 bg-primary text-black rounded-3xl font-black uppercase italic text-lg shadow-2xl">Check Details</Button>
                       </div>
                     )}
                     {bookingStep === 3 && (
@@ -383,12 +383,12 @@ export default function CustomerDashboard() {
                             </div>
                             <div className="space-y-4 pt-4 border-t border-white/5">
                                <div>
-                                  <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Boarding</p>
-                                  <p className="text-lg font-black italic text-white">{pickupStop}</p>
+                                  <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Boarding At</p>
+                                  <p className="text-lg font-black italic text-white">{boardingPoint}</p>
                                </div>
                                <div>
-                                  <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Drop-off</p>
-                                  <p className="text-lg font-black italic text-white">{dropStop}</p>
+                                  <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Dropping At</p>
+                                  <p className="text-lg font-black italic text-white">{droppingPoint}</p>
                                </div>
                             </div>
                             <div className="grid grid-cols-2 gap-6 pt-4 border-t border-white/5">
@@ -410,13 +410,13 @@ export default function CustomerDashboard() {
                          <div className="space-y-4">
                             <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Discount Code</Label>
                             <div className="flex gap-3">
-                               <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="ENTER CODE" className="flex-1 h-16 bg-white/5 border border-white/10 rounded-2xl px-6 font-black italic text-lg outline-none uppercase" />
+                               <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="COUPON" className="flex-1 h-16 bg-white/5 border border-white/10 rounded-2xl px-6 font-black italic text-lg outline-none uppercase" />
                                <Button onClick={applyDiscount} variant="outline" className="h-16 px-8 rounded-2xl border-primary text-primary font-black uppercase">Apply</Button>
                             </div>
                          </div>
 
                          <Button onClick={startPayment} disabled={isPaying} className="w-full h-20 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-xl shadow-3xl transition-all active:scale-95">
-                           {isPaying ? <Loader2 className="animate-spin h-8 w-8" /> : "Pay with Phone"}
+                           {isPaying ? <Loader2 className="animate-spin h-8 w-8" /> : "Pay Online"}
                          </Button>
                       </div>
                     )}
@@ -424,12 +424,12 @@ export default function CustomerDashboard() {
                       <div className="flex flex-col items-center justify-center text-center space-y-8 py-10 animate-in fade-in">
                          <div className="h-24 w-24 bg-primary text-black rounded-full flex items-center justify-center shadow-3xl"><CheckCircle2 className="h-12 w-12" /></div>
                          <div className="space-y-4">
-                           <h3 className="text-4xl font-black italic uppercase text-primary leading-none">Your ride is scheduled!</h3>
+                           <h3 className="text-4xl font-black italic uppercase text-primary leading-none">Ticket Booked!</h3>
                            <p className="text-[11px] font-bold text-white/70 uppercase leading-relaxed px-6 mt-4 italic">
-                             Ride details and the check-in code will be shared 3 hours before start.
+                             Vehicle details and Ride Code (OTP) will show here 3 hours before start.
                            </p>
                          </div>
-                         <Button onClick={() => { setBookingStep(1); setActiveTab('home'); }} className="w-full h-16 bg-white/5 rounded-2xl font-black uppercase border border-white/10 italic">Go to Home</Button>
+                         <Button onClick={() => { setBookingStep(1); setActiveTab('home'); }} className="w-full h-16 bg-white/5 rounded-2xl font-black uppercase border border-white/10 italic">Back to Home</Button>
                       </div>
                     )}
                   </div>
@@ -439,9 +439,9 @@ export default function CustomerDashboard() {
           </div>
         )}
 
-        {activeTab === 'radar' && (
+        {activeTab === 'status' && (
           <div className="flex-1 flex flex-col space-y-8 animate-in fade-in py-10">
-            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">Ride Status</h2>
+            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">Ride Info</h2>
             {currentRide ? (
               <div className="space-y-8">
                  <Card className="p-10 bg-white/5 border-primary/20 rounded-[3.5rem] space-y-8 text-center">
@@ -451,17 +451,17 @@ export default function CustomerDashboard() {
                     <div className="space-y-2">
                        <h3 className="text-3xl font-black italic uppercase text-primary leading-none">{currentRide.routeName}</h3>
                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-4">
-                         {currentRide.status === 'on-trip' ? 'Driver is on the way' : 'Waiting to start'}
+                         {currentRide.status === 'on-trip' ? 'Van is on the way' : 'Waiting for start time'}
                        </p>
                     </div>
                     <div className="p-6 bg-black/40 rounded-3xl border border-white/5">
                        <p className="text-[11px] font-bold text-white/60 uppercase leading-relaxed italic">
-                         Live location and check-in details open 3 hours before start.
+                         Van details and Ride Code (OTP) unlock 3 hours before start.
                        </p>
                     </div>
                  </Card>
                  <div className="space-y-4">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-4">Route Landmarks</Label>
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-4">Route Stops</Label>
                     <div className="space-y-3">
                        {allActiveRoutes?.find(r => r.routeName === currentRide.routeName)?.stops.map((s: any, i: number) => (
                          <div key={i} className="flex items-center gap-4 px-6 py-4 bg-white/5 rounded-2xl border border-white/5">
@@ -475,7 +475,7 @@ export default function CustomerDashboard() {
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-10 space-y-6">
                  <div className="h-24 w-24 bg-white/5 rounded-full flex items-center justify-center text-muted-foreground opacity-20"><MapPin className="h-10 w-10" /></div>
-                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic">No rides to track</p>
+                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic">No active rides</p>
               </div>
             )}
           </div>
@@ -483,7 +483,7 @@ export default function CustomerDashboard() {
 
         {activeTab === 'history' && (
           <div className="space-y-8 animate-in slide-in-from-right-8 py-6">
-            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">My Rides</h2>
+            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">My Travels</h2>
             <div className="space-y-4">
                {allTrips?.filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid)).map((trip: any) => (
                  <Card key={trip.id} className="p-8 bg-white/5 border border-white/10 rounded-[2.5rem] flex justify-between items-center group hover:border-primary/20 transition-all">
@@ -497,7 +497,7 @@ export default function CustomerDashboard() {
                  </Card>
                ))}
                {(!allTrips || allTrips.filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid)).length === 0) && (
-                 <p className="text-[10px] font-bold text-muted-foreground uppercase text-center py-20 italic">No rides found</p>
+                 <p className="text-[10px] font-bold text-muted-foreground uppercase text-center py-20 italic">No ride history found</p>
                )}
             </div>
           </div>
@@ -525,8 +525,8 @@ export default function CustomerDashboard() {
         <Button variant="ghost" onClick={() => setActiveTab('home')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl ${activeTab === 'home' ? 'text-primary bg-primary/10 shadow-lg' : 'text-muted-foreground opacity-50'}`}>
           <LayoutGrid className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Home</span>
         </Button>
-        <Button variant="ghost" onClick={() => setActiveTab('radar')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl ${activeTab === 'radar' ? 'text-primary bg-primary/10 shadow-lg' : 'text-muted-foreground opacity-50'}`}>
-          <Navigation className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Radar</span>
+        <Button variant="ghost" onClick={() => setActiveTab('status')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl ${activeTab === 'status' ? 'text-primary bg-primary/10 shadow-lg' : 'text-muted-foreground opacity-50'}`}>
+          <Navigation className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Info</span>
         </Button>
         <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl ${activeTab === 'history' ? 'text-primary bg-primary/10 shadow-lg' : 'text-muted-foreground opacity-50'}`}>
           <History className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">History</span>

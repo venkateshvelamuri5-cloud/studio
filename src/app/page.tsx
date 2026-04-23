@@ -78,7 +78,7 @@ export default function LandingPage() {
         
         <nav className="hidden lg:flex items-center gap-10">
           <Link href="#how-it-works" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors italic">How it works</Link>
-          <Link href="#features" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors italic">Features</Link>
+          <Link href="#features" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors italic">Benefits</Link>
           {authLoading ? (
             <Loader2 className="animate-spin h-6 w-6 text-primary" />
           ) : user ? (
@@ -104,13 +104,13 @@ export default function LandingPage() {
       {isMenuOpen && (
         <div className="fixed inset-0 z-40 bg-background pt-36 px-12 flex flex-col gap-10 animate-in fade-in slide-in-from-top-6 duration-500 backdrop-blur-3xl">
           <Link href="#how-it-works" onClick={() => setIsMenuOpen(false)} className="text-4xl font-black italic uppercase text-foreground">How it works</Link>
-          <Link href="#features" onClick={() => setIsMenuOpen(false)} className="text-4xl font-black italic uppercase text-foreground">Features</Link>
+          <Link href="#features" onClick={() => setIsMenuOpen(false)} className="text-4xl font-black italic uppercase text-foreground">Benefits</Link>
           {user ? (
              <Link href={profile?.role === 'driver' ? '/driver' : '/student'} onClick={() => setIsMenuOpen(false)} className="text-5xl font-black italic uppercase text-primary tracking-tighter">My Account</Link>
           ) : (
             <>
               <Link href="/auth/login" onClick={() => setIsMenuOpen(false)} className="text-5xl font-black italic uppercase text-foreground tracking-tighter">Login</Link>
-              <Link href="/auth/signup" onClick={() => setIsMenuOpen(false)} className="text-5xl font-black italic uppercase text-primary tracking-tighter">Join Now</Link>
+              <Link href="/auth/signup" onClick={() => setIsMenuOpen(false)} className="text-5xl font-black italic uppercase text-primary tracking-tighter">Join AAGO</Link>
               <Link href="/driver/signup" onClick={() => setIsMenuOpen(false)} className="text-5xl font-black italic uppercase text-muted-foreground tracking-tighter">Apply to Drive</Link>
             </>
           )}
@@ -127,10 +127,10 @@ export default function LandingPage() {
                   <Sparkles className="h-3 w-3 mr-2 inline" /> Community Mobility Hub
                 </Badge>
                 <h1 className="text-6xl lg:text-9xl font-black text-foreground italic uppercase tracking-tighter leading-[0.85] animate-pulse-slow">
-                  Reliable <br /> <span className="text-primary">Travel.</span>
+                  Pakka <br /> <span className="text-primary">Travel.</span>
                 </h1>
                 <p className="text-xl text-muted-foreground leading-relaxed max-w-xl mx-auto lg:mx-0 italic font-medium opacity-80">
-                  Fixed prices, no bargaining. Simple, secure, and scheduled city transit for everyone.
+                  Fixed fares, no bargaining. Simple, secure, and timed city transit for your community.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-6 pt-6 justify-center lg:justify-start">
                   {user ? (
@@ -169,7 +169,7 @@ export default function LandingPage() {
                             <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse"></div>
                             <span className="text-[10px] font-black uppercase italic text-white tracking-widest">Active Hub</span>
                          </div>
-                         <h4 className="text-2xl font-black italic text-white uppercase leading-none">Smart Fleet Active</h4>
+                         <h4 className="text-2xl font-black italic text-white uppercase leading-none">Smart Fleet Online</h4>
                       </div>
                    </div>
                 </div>
@@ -183,29 +183,29 @@ export default function LandingPage() {
            <div className="container mx-auto px-6 lg:px-24">
               <div className="text-center space-y-4 mb-24 animate-in fade-in duration-700">
                  <h2 className="text-4xl lg:text-7xl font-black italic uppercase tracking-tighter leading-none">How AAGO Works</h2>
-                 <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.4em] italic mt-4">The 3-Step Hub Experience</p>
+                 <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.4em] italic mt-4">Simple 3-Step Process</p>
               </div>
 
               <div className="grid lg:grid-cols-3 gap-12">
                  {[
                    { 
                      step: "01", 
-                     title: "Book Early", 
-                     desc: "Select your route and time. Pay fixed fare via phone. No more haggling.",
+                     title: "Book Ticket", 
+                     desc: "Choose your route and time. Pay the fixed fare online. No more bargaining.",
                      icon: Navigation,
                      img: images.map
                    },
                    { 
                      step: "02", 
-                     title: "Get Code", 
-                     desc: "3 hours before start, we reveal your ride details and unique check-in code.",
+                     title: "Get Ride Info", 
+                     desc: "3 hours before departure, we share ride details and your pakka Ride Code (OTP).",
                      icon: Clock,
                      img: images.commute
                    },
                    { 
                      step: "03", 
                      title: "Travel Safe", 
-                     desc: "Share your code with the driver. Relax in a 7-seater community vehicle.",
+                     desc: "Share your code with the driver. Enjoy your ride in a clean community van.",
                      icon: CheckCircle2,
                      img: images.safety
                    }
@@ -248,40 +248,40 @@ export default function LandingPage() {
                   <div className="grid grid-cols-2 gap-8">
                     <Card className="p-10 border-none bg-white/5 rounded-[3rem] shadow-2xl hover:-translate-y-4 transition-transform duration-500 animate-slow-float">
                        <IndianRupee className="h-12 w-12 text-primary mb-8" />
-                       <h4 className="text-2xl font-black italic uppercase mb-3 text-primary">Fixed Fare</h4>
-                       <p className="text-sm text-muted-foreground italic leading-relaxed">Always know your price. No surprises, no bargaining.</p>
+                       <h4 className="text-2xl font-black italic uppercase mb-3 text-primary">No Bargaining</h4>
+                       <p className="text-sm text-muted-foreground italic leading-relaxed">Always know your price. Fixed fares for every corridor.</p>
                     </Card>
                     <Card className="p-10 border-none bg-white/5 rounded-[3rem] shadow-2xl hover:-translate-y-4 transition-transform duration-500 mt-16">
                        <Navigation className="h-12 w-12 text-primary mb-8" />
-                       <h4 className="text-2xl font-black italic uppercase mb-3 text-primary">Trip Info</h4>
-                       <p className="text-sm text-muted-foreground italic leading-relaxed">Access ride details 3 hours before start. Know your vehicle.</p>
+                       <h4 className="text-2xl font-black italic uppercase mb-3 text-primary">Boarding Info</h4>
+                       <p className="text-sm text-muted-foreground italic leading-relaxed">Know your boarding point and vehicle details 3 hours early.</p>
                     </Card>
                     <Card className="p-10 border-none bg-white/5 rounded-[3rem] shadow-2xl hover:-translate-y-4 transition-transform duration-500 -mt-16 animate-slow-float" style={{ animationDelay: '1s' }}>
                        <ShieldCheck className="h-12 w-12 text-primary mb-8" />
                        <h4 className="text-2xl font-black italic uppercase mb-3 text-primary">Verified</h4>
-                       <p className="text-sm text-muted-foreground italic leading-relaxed">Every driver is identity-checked and verified by AAGO admins.</p>
+                       <p className="text-sm text-muted-foreground italic leading-relaxed">Every driver is identity-checked and pakka verified by us.</p>
                     </Card>
                     <Card className="p-10 border-none bg-white/5 rounded-[3rem] shadow-2xl hover:-translate-y-4 transition-transform duration-500">
                        <Users className="h-12 w-12 text-primary mb-8" />
                        <h4 className="text-2xl font-black italic uppercase mb-3 text-primary">Community</h4>
-                       <p className="text-sm text-muted-foreground italic leading-relaxed">Travel with verified members of your own community hub.</p>
+                       <p className="text-sm text-muted-foreground italic leading-relaxed">Travel with verified members from your own local hub.</p>
                     </Card>
                   </div>
                </div>
 
                <div className="space-y-12 order-1 lg:order-2 animate-in fade-in slide-in-from-right-12 duration-1000">
                   <h2 className="text-5xl lg:text-8xl font-black italic uppercase tracking-tighter leading-none">
-                    Simple Hub. <br /> <span className="text-primary">Safe Rides.</span>
+                    Smart Hub. <br /> <span className="text-primary">Safe Journey.</span>
                   </h2>
                   <p className="text-2xl text-muted-foreground leading-relaxed italic opacity-80">
-                    We've removed the chaos from city travel. AAGO hubs provide structured routes, professional drivers, and a secure booking process that respects your time.
+                    We have stopped the daily struggle of city travel. AAGO hub gives you timed routes, verified drivers, and a simple booking experience.
                   </p>
                   <div className="space-y-8 pt-8">
                     {[
-                      "Fixed 7-seater vehicle assignments",
-                      "Pre-departure check-in codes",
-                      "Cashless digital payments",
-                      "Dedicated corridor-based routes"
+                      "Fixed 7-seater vehicle assigned for you",
+                      "Ride Code (OTP) for secure boarding",
+                      "Cashless digital payments via phone",
+                      "Direct corridor-based travel"
                     ].map((feature, i) => (
                       <div key={i} className="flex items-center gap-6 group">
                         <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary transition-colors duration-300">
@@ -311,10 +311,10 @@ export default function LandingPage() {
             <p className="text-3xl text-black font-black italic uppercase opacity-60 tracking-widest">Join the smart mobility revolution.</p>
             <div className="flex flex-col sm:flex-row gap-8 justify-center pt-12">
               <Link href="/auth/signup" className="group">
-                <Button size="lg" className="h-24 px-20 bg-black text-white rounded-[3rem] font-black uppercase italic text-3xl shadow-3xl hover:scale-105 transition-all active:scale-95">Join as Rider</Button>
+                <Button size="lg" className="h-24 px-20 bg-black text-white rounded-[3rem] font-black uppercase italic text-3xl shadow-3xl hover:scale-105 transition-all active:scale-95">Join as Passenger</Button>
               </Link>
               <Link href="/driver/signup" className="group">
-                <Button variant="outline" size="lg" className="h-24 px-20 bg-transparent border-4 border-black text-black rounded-[3rem] font-black uppercase italic text-3xl hover:bg-black/5 transition-all active:scale-95">Drive with Us</Button>
+                <Button variant="outline" size="lg" className="h-24 px-20 bg-transparent border-4 border-black text-black rounded-[3rem] font-black uppercase italic text-3xl hover:bg-black/5 transition-all active:scale-95">Apply to Drive</Button>
               </Link>
             </div>
           </div>
@@ -329,12 +329,12 @@ export default function LandingPage() {
               <Logo className="h-10 w-10 text-primary" />
               <span className="text-3xl font-black italic tracking-tighter text-foreground uppercase">AAGO</span>
             </div>
-            <p className="text-[11px] font-black uppercase tracking-[0.5em] text-muted-foreground opacity-50">© 2024 AAGO Mobility. Pure Transit.</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.5em] text-muted-foreground opacity-50">© 2024 AAGO Mobility. Pakka Transit.</p>
           </div>
           <div className="flex gap-12">
              <Link href="/admin/login" className="text-[10px] font-black uppercase text-muted-foreground hover:text-primary italic transition-colors">Admin Portal</Link>
              <Link href="/driver/login" className="text-[10px] font-black uppercase text-muted-foreground hover:text-primary italic transition-colors">Driver Login</Link>
-             <Link href="/auth/login" className="text-[10px] font-black uppercase text-muted-foreground hover:text-primary italic transition-colors">Rider Login</Link>
+             <Link href="/auth/login" className="text-[10px] font-black uppercase text-muted-foreground hover:text-primary italic transition-colors">Member Login</Link>
           </div>
         </div>
       </footer>
