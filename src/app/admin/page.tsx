@@ -13,7 +13,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter
+  DialogFooter,
+  DialogDescription
 } from "@/components/ui/dialog";
 import { 
   Table,
@@ -41,7 +42,10 @@ import {
   AlertCircle,
   UserCheck,
   MapPin,
-  CalendarDays
+  CalendarDays,
+  Edit,
+  ShieldAlert,
+  ShieldCheck
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useAuth } from '@/firebase';
 import { collection, query, doc, orderBy, addDoc, deleteDoc, getDocs, updateDoc, where } from 'firebase/firestore';
@@ -83,6 +87,12 @@ export default function AdminDashboard() {
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
   const [isCleaning, setIsCleaning] = useState(false);
+
+  // Edit/Delete User State
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState({ fullName: '', phoneNumber: '', identityNumber: '', role: '' });
 
   // Route Creation State
   const [newRoute, setNewRoute] = useState({ name: '', fare: '', schedule: '', stops: [] as any[] });
@@ -160,6 +170,52 @@ export default function AdminDashboard() {
       toast({ title: "Driver Approved", description: "This driver can now pick rides and earn." });
     } catch (e) {
       toast({ variant: 'destructive', title: "Error", description: "Could not approve driver." });
+    }
+  };
+
+  const handleToggleBlock = async (user: any) => {
+    if (!db) return;
+    try {
+      await updateDoc(doc(db, 'users', user.uid), { isBlocked: !user.isBlocked });
+      toast({ 
+        title: user.isBlocked ? "Access Restored" : "Person Blocked", 
+        description: user.isBlocked ? `${user.fullName} can use the hub again.` : `${user.fullName} is now restricted from the service.` 
+      });
+    } catch (e) {
+      toast({ variant: 'destructive', title: "Error", description: "Could not change status." });
+    }
+  };
+
+  const handleOpenEdit = (user: any) => {
+    setSelectedUser(user);
+    setEditFormData({
+      fullName: user.fullName || '',
+      phoneNumber: user.phoneNumber || '',
+      identityNumber: user.identityNumber || '',
+      role: user.role || ''
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!db || !selectedUser) return;
+    try {
+      await updateDoc(doc(db, 'users', selectedUser.uid), editFormData);
+      toast({ title: "Profile Updated", description: "The changes have been saved." });
+      setIsEditDialogOpen(false);
+    } catch (e) {
+      toast({ variant: 'destructive', title: "Error", description: "Could not update profile." });
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!db || !selectedUser) return;
+    try {
+      await deleteDoc(doc(db, 'users', selectedUser.uid));
+      toast({ title: "Person Removed", description: "User has been deleted from the database." });
+      setIsDeleteDialogOpen(false);
+    } catch (e) {
+      toast({ variant: 'destructive', title: "Error", description: "Could not remove user." });
     }
   };
 
@@ -338,20 +394,33 @@ export default function AdminDashboard() {
                     <TableRow className="border-white/5 hover:bg-transparent">
                       <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic h-16">Full Name</TableHead>
                       <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic h-16">Contact</TableHead>
-                      <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic h-16">ID Number</TableHead>
-                      <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic h-16">Points</TableHead>
-                      <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic h-16">Last Login</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic h-16">Status</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic h-16 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {customers.map((c: any) => (
                       <TableRow key={c.id} className="border-white/5 hover:bg-white/5">
-                        <TableCell className="font-black italic py-6">{c.fullName}</TableCell>
+                        <TableCell className="font-black italic py-6">
+                          <div className="flex flex-col">
+                            <span>{c.fullName}</span>
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase">{c.identityNumber || 'No ID'}</span>
+                          </div>
+                        </TableCell>
                         <TableCell className="text-muted-foreground text-xs">{c.phoneNumber}</TableCell>
-                        <TableCell className="text-muted-foreground text-xs font-mono">{c.identityNumber || 'N/A'}</TableCell>
-                        <TableCell><Badge className="bg-primary/10 text-primary border-none font-black italic">{c.loyaltyPoints || 0}</Badge></TableCell>
-                        <TableCell className="text-[10px] text-muted-foreground uppercase">
-                          {c.lastLogin ? format(parseISO(c.lastLogin), 'MMM dd, HH:mm') : 'Never'}
+                        <TableCell>
+                          <Badge className={`border-none text-[8px] font-black px-2.5 py-1 ${c.isBlocked ? 'bg-destructive/20 text-destructive' : 'bg-green-500/20 text-green-500'}`}>
+                            {c.isBlocked ? 'BLOCKED' : 'ACTIVE'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(c)} className="h-9 w-9 text-primary hover:bg-primary/10"><Edit className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleToggleBlock(c)} className={`h-9 w-9 ${c.isBlocked ? 'text-green-500' : 'text-orange-500'} hover:bg-white/5`}>
+                              {c.isBlocked ? <ShieldCheck className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => { setSelectedUser(c); setIsDeleteDialogOpen(true); }} className="h-9 w-9 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -412,9 +481,8 @@ export default function AdminDashboard() {
                         <TableRow className="border-white/5">
                           <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic">Name</TableHead>
                           <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic">Vehicle</TableHead>
-                          <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic">Preferred Route</TableHead>
                           <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic">Status</TableHead>
-                          <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic">Earnings</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -422,13 +490,20 @@ export default function AdminDashboard() {
                           <TableRow key={d.id} className="border-white/5 hover:bg-white/5 transition-colors">
                             <TableCell className="font-black italic py-6">{d.fullName}</TableCell>
                             <TableCell className="text-xs font-bold uppercase italic">{d.vehicleNumber}</TableCell>
-                            <TableCell className="text-xs italic text-primary">{d.preferredRoute || 'None'}</TableCell>
                             <TableCell>
-                              <Badge className={`border-none text-[8px] font-black px-2.5 py-1 ${d.status === 'on-trip' ? 'bg-primary text-black' : d.status === 'available' ? 'bg-green-500/20 text-green-500' : 'bg-white/10 text-muted-foreground'}`}>
-                                {d.status?.toUpperCase() || 'OFFLINE'}
+                              <Badge className={`border-none text-[8px] font-black px-2.5 py-1 ${d.isBlocked ? 'bg-destructive/20 text-destructive' : 'bg-green-500/20 text-green-500'}`}>
+                                {d.isBlocked ? 'BLOCKED' : d.status?.toUpperCase() || 'OFFLINE'}
                               </Badge>
                             </TableCell>
-                            <TableCell className="font-black italic text-sm">₹{d.totalEarnings?.toFixed(0) || 0}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(d)} className="h-9 w-9 text-primary hover:bg-primary/10"><Edit className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleToggleBlock(d)} className={`h-9 w-9 ${d.isBlocked ? 'text-green-500' : 'text-orange-500'} hover:bg-white/5`}>
+                                  {d.isBlocked ? <ShieldCheck className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => { setSelectedUser(d); setIsDeleteDialogOpen(true); }} className="h-9 w-9 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
+                              </div>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -519,8 +594,8 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 gap-10">
                 <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10">
                    <div className="flex items-center justify-between mb-10">
-                      <h3 className="text-2xl font-black italic uppercase text-primary">Route Performance Pivot</h3>
-                      <Badge className="bg-primary/10 text-primary border-none font-black italic uppercase">Trip Density</Badge>
+                      <h3 className="text-2xl font-black italic uppercase text-primary">Route Performance</h3>
+                      <Badge className="bg-primary/10 text-primary border-none font-black italic uppercase">Stats</Badge>
                    </div>
                    <Table>
                       <TableHeader>
@@ -528,7 +603,7 @@ export default function AdminDashboard() {
                           <TableHead className="text-[10px] font-black uppercase italic">Route Name</TableHead>
                           <TableHead className="text-[10px] font-black uppercase italic">Total Trips</TableHead>
                           <TableHead className="text-[10px] font-black uppercase italic">Total Riders</TableHead>
-                          <TableHead className="text-[10px] font-black uppercase italic">Revenue Share (est)</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase italic">Revenue (est)</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -558,7 +633,7 @@ export default function AdminDashboard() {
                 <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-8 h-fit">
                    <div className="space-y-4">
                       <h3 className="text-2xl font-black italic uppercase text-primary">Discount Codes</h3>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Create one-time or limited-use codes.</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Create codes for your marketing.</p>
                    </div>
                    <div className="space-y-6">
                       <div className="space-y-2">
@@ -602,8 +677,51 @@ export default function AdminDashboard() {
         </div>
       </main>
 
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="bg-background border-white/10 rounded-3xl p-8 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black uppercase italic text-primary">Edit Profile</DialogTitle>
+            <DialogDescription className="text-[10px] font-bold uppercase text-muted-foreground">Update information for {selectedUser?.fullName}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 py-6">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase text-muted-foreground">Full Name</Label>
+              <Input value={editFormData.fullName} onChange={e => setEditFormData({...editFormData, fullName: e.target.value})} className="h-14 bg-white/5 border-white/10 font-black italic" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase text-muted-foreground">Phone Number</Label>
+              <Input value={editFormData.phoneNumber} onChange={e => setEditFormData({...editFormData, phoneNumber: e.target.value})} className="h-14 bg-white/5 border-white/10 font-black italic" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase text-muted-foreground">Identity Number (Aadhaar/ID)</Label>
+              <Input value={editFormData.identityNumber} onChange={e => setEditFormData({...editFormData, identityNumber: e.target.value})} className="h-14 bg-white/5 border-white/10 font-black italic" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleSaveEdit} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl shadow-primary/10">Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="bg-background border-white/10 rounded-3xl p-8 max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-black uppercase italic text-destructive">Remove Person?</DialogTitle>
+          </DialogHeader>
+          <div className="py-6 text-center">
+            <p className="text-muted-foreground text-sm font-bold uppercase italic">This will permanently delete {selectedUser?.fullName} from the database. This action cannot be undone.</p>
+          </div>
+          <DialogFooter className="flex gap-4">
+            <Button variant="ghost" onClick={() => setIsDeleteDialogOpen(false)} className="flex-1 rounded-xl font-black uppercase">Cancel</Button>
+            <Button onClick={handleDeleteUser} className="flex-1 bg-destructive text-white rounded-xl font-black uppercase">Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isCleaning} onOpenChange={setIsCleaning}>
-        <DialogContent className="bg-background border-white/5 rounded-3xl p-8 max-w-sm">
+        <DialogContent className="bg-background border-white/10 rounded-3xl p-8 max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black uppercase italic text-primary">Clear System?</DialogTitle>
           </DialogHeader>
@@ -612,7 +730,7 @@ export default function AdminDashboard() {
           </div>
           <DialogFooter className="flex gap-4">
             <Button variant="ghost" onClick={() => setIsCleaning(false)} className="flex-1 rounded-xl font-black uppercase">Cancel</Button>
-            <Button onClick={handleClearData} className="flex-1 bg-destructive text-white rounded-xl font-black uppercase hover:bg-destructive/90">Confirm</Button>
+            <Button onClick={handleClearData} className="flex-1 bg-destructive text-white rounded-xl font-black uppercase">Confirm</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
