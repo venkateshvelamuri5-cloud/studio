@@ -14,7 +14,7 @@ import {
   CheckCircle2,
   Wallet,
   LayoutGrid,
-  Settings,
+  User as UserIcon,
   Trophy,
   ShieldAlert,
   Clock,
@@ -46,7 +46,7 @@ export default function DriverApp() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<'open-routes' | 'my-work' | 'money' | 'me'>('open-routes');
+  const [activeTab, setActiveTab] = useState<'open-routes' | 'my-work' | 'money' | 'profile'>('open-routes');
   const [activeTrip, setActiveTrip] = useState<any>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [otpCode, setOtpCode] = useState("");
@@ -133,7 +133,6 @@ export default function DriverApp() {
     try {
       const tripTime = parse(`${dateStr} ${timeStr}`, 'yyyy-MM-dd hh:mm a', new Date());
       const now = new Date();
-      // Only allowed 3 hours before start
       return isBefore(subHours(tripTime, 3), now) && isBefore(now, addHours(tripTime, 2));
     } catch (e) { return false; }
   };
@@ -244,11 +243,11 @@ export default function DriverApp() {
                </div>
              )}
 
-             {activeTab === 'me' && (
+             {activeTab === 'profile' && (
                <div className="space-y-12 text-center pb-24 pt-10">
                   <div className="flex flex-col items-center gap-6">
                      <div className="h-40 w-40 rounded-full border-[8px] border-white/5 bg-primary/5 flex items-center justify-center overflow-hidden shadow-2xl relative">
-                       {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : <div className="h-full w-full bg-primary/5 flex items-center justify-center text-primary/20"><LayoutGrid className="h-12 w-12" /></div>}
+                       {profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : <div className="h-full w-full bg-primary/5 flex items-center justify-center text-primary/20"><UserIcon className="h-12 w-12" /></div>}
                      </div>
                      <div className="space-y-2">
                         <h2 className="text-5xl font-black italic uppercase text-foreground leading-none">{profile?.fullName}</h2>
@@ -272,8 +271,8 @@ export default function DriverApp() {
         <Button variant="ghost" onClick={() => setActiveTab('money')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl ${activeTab === 'money' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
           <Wallet className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">Money</span>
         </Button>
-        <Button variant="ghost" onClick={() => setActiveTab('me')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl ${activeTab === 'me' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
-          <Settings className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">Me</span>
+        <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-3 px-6 gap-1 rounded-2xl ${activeTab === 'profile' ? 'text-primary bg-primary/5' : 'text-muted-foreground'}`}>
+          <UserIcon className="h-6 w-6" /><span className="text-[8px] font-black uppercase tracking-widest">Profile</span>
         </Button>
       </nav>
     </div>

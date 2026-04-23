@@ -52,7 +52,7 @@ export default function CustomerDashboard() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [activeTab, setActiveTab] = useState<'home' | 'radar' | 'history' | 'me'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'radar' | 'history' | 'profile'>('home');
   const [bookingStep, setBookingStep] = useState(1); 
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [pickupStop, setPickupStop] = useState("");
@@ -503,7 +503,7 @@ export default function CustomerDashboard() {
           </div>
         )}
 
-        {activeTab === 'me' && (
+        {activeTab === 'profile' && (
           <div className="space-y-12 text-center py-12 animate-in slide-in-from-bottom-8">
              <div className="flex flex-col items-center gap-6">
                 <div className="h-40 w-40 rounded-full border-[8px] border-white/5 bg-primary/5 flex items-center justify-center text-primary/20 shadow-3xl">
@@ -530,6 +530,9 @@ export default function CustomerDashboard() {
         </Button>
         <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl ${activeTab === 'history' ? 'text-primary bg-primary/10 shadow-lg' : 'text-muted-foreground opacity-50'}`}>
           <History className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">History</span>
+        </Button>
+        <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl ${activeTab === 'profile' ? 'text-primary bg-primary/10 shadow-lg' : 'text-muted-foreground opacity-50'}`}>
+          <UserIcon className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Profile</span>
         </Button>
       </nav>
     </div>
