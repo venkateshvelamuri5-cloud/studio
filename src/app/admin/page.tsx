@@ -16,6 +16,14 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { 
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { 
   LayoutDashboard, 
   LogOut,
   Loader2,
@@ -28,10 +36,15 @@ import {
   Plus,
   Trash2,
   ChevronRight,
-  Ticket
+  Ticket,
+  CheckCircle2,
+  AlertCircle,
+  UserCheck,
+  MapPin,
+  CalendarDays
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useAuth } from '@/firebase';
-import { collection, query, doc, orderBy, addDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { collection, query, doc, orderBy, addDoc, deleteDoc, getDocs, updateDoc, where } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -58,6 +71,8 @@ const Logo = ({ className = "h-8 w-8" }: { className?: string }) => (
   </svg>
 );
 
+type AdminTab = 'dashboard' | 'customers' | 'drivers' | 'routes' | 'analytics' | 'vouchers';
+
 export default function AdminDashboard() {
   const db = useFirestore();
   const auth = useAuth();
@@ -66,7 +81,7 @@ export default function AdminDashboard() {
   const { user, loading: authLoading } = useUser();
   
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'routes' | 'analytics' | 'vouchers'>('dashboard');
+  const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
   const [isCleaning, setIsCleaning] = useState(false);
 
   // Route Creation State
@@ -89,10 +104,11 @@ export default function AdminDashboard() {
   const { data: trips } = useCollection(useMemo(() => db ? query(collection(db, 'trips')) : null, [db]));
   const { data: vouchers } = useCollection(useMemo(() => db ? query(collection(db, 'vouchers')) : null, [db]));
 
+  const drivers = useMemo(() => allUsers?.filter(u => u.role === 'driver') || [], [allUsers]);
+  const customers = useMemo(() => allUsers?.filter(u => u.role === 'rider' || u.role === 'customer') || [], [allUsers]);
+
   const stats = useMemo(() => {
     if (!allUsers) return { totalCustomers: 0, totalDrivers: 0, activeDrivers: 0, avgNps: 8.8, repeatRate: 0 };
-    const drivers = allUsers.filter(u => u.role === 'driver');
-    const customers = allUsers.filter(u => u.role === 'rider' || u.role === 'customer');
     
     const completedTrips = (trips || []).filter(t => t.status === 'completed');
     const riderVisits: Record<string, number> = {};
@@ -101,8 +117,8 @@ export default function AdminDashboard() {
         if (m.uid) riderVisits[m.uid] = (riderVisits[m.uid] || 0) + 1;
       });
     });
-    const repeatCustomers = Object.values(riderVisits).filter(count => count > 1).length;
-    const repeatRate = customers.length > 0 ? Math.round((repeatCustomers / customers.length) * 100) : 0;
+    const repeatCustomersCount = Object.values(riderVisits).filter(count => count > 1).length;
+    const repeatRate = customers.length > 0 ? Math.round((repeatCustomersCount / customers.length) * 100) : 0;
 
     return {
       totalCustomers: customers.length,
@@ -111,7 +127,7 @@ export default function AdminDashboard() {
       avgNps: 8.8,
       repeatRate
     };
-  }, [allUsers, trips]);
+  }, [allUsers, trips, drivers, customers]);
 
   const chartData = useMemo(() => {
     if (!mounted || !allUsers || !trips) return { growth: [], repeatData: [] };
@@ -135,7 +151,17 @@ export default function AdminDashboard() {
     ];
 
     return { growth, repeatData };
-  }, [mounted, allUsers, trips, stats]);
+  }, [mounted, allUsers, trips, stats.repeatRate]);
+
+  const handleApproveDriver = async (driverId: string) => {
+    if (!db) return;
+    try {
+      await updateDoc(doc(db, 'users', driverId), { isVerified: true });
+      toast({ title: "Driver Approved", description: "This driver can now pick rides and earn." });
+    } catch (e) {
+      toast({ variant: 'destructive', title: "Error", description: "Could not approve driver." });
+    }
+  };
 
   const handleAddStop = () => {
     if (!tempStopName) return;
@@ -213,14 +239,16 @@ export default function AdminDashboard() {
             <span className="text-2xl font-black italic tracking-tighter uppercase text-primary">AAGO</span>
           </div>
         </div>
-        <nav className="flex-1 p-6 space-y-2 overflow-y-auto">
+        <nav className="flex-1 p-6 space-y-2 overflow-y-auto custom-scrollbar">
           {[
-            { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
-            { id: 'analytics', label: 'Data', icon: BarChart3 },
+            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+            { id: 'customers', label: 'Customers', icon: Users },
+            { id: 'drivers', label: 'Drivers', icon: Car },
             { id: 'routes', label: 'Routes', icon: RouteIcon },
+            { id: 'analytics', label: 'Analytics', icon: BarChart3 },
             { id: 'vouchers', label: 'Discounts', icon: Ticket },
           ].map((item) => (
-            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`w-full flex items-center justify-start rounded-xl font-black uppercase italic h-14 px-5 transition-all ${activeTab === item.id ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'text-muted-foreground hover:bg-white/5'}`}>
+            <button key={item.id} onClick={() => setActiveTab(item.id as AdminTab)} className={`w-full flex items-center justify-start rounded-xl font-black uppercase italic h-14 px-5 transition-all ${activeTab === item.id ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'text-muted-foreground hover:bg-white/5'}`}>
               <item.icon className="mr-4 h-5 w-5" /> {item.label}
             </button>
           ))}
@@ -233,9 +261,9 @@ export default function AdminDashboard() {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-28 border-b border-white/5 px-10 flex items-center justify-between shrink-0">
+        <header className="h-28 border-b border-white/5 px-10 flex items-center justify-between shrink-0 bg-background/50 backdrop-blur-md">
           <h2 className="text-3xl font-black text-foreground italic uppercase tracking-tighter">{activeTab}</h2>
-          <Button onClick={() => setIsCleaning(true)} variant="outline" className="border-destructive/20 text-destructive h-12 rounded-xl font-black uppercase italic">Clear Data</Button>
+          <Button onClick={() => setIsCleaning(true)} variant="outline" className="border-destructive/20 text-destructive h-12 rounded-xl font-black uppercase italic">Clear System</Button>
         </header>
 
         <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar">
@@ -244,11 +272,11 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {[
                   { label: 'Drivers Ready', value: stats.activeDrivers, icon: Car },
-                  { label: 'Customers', value: stats.totalCustomers, icon: Users },
-                  { label: 'Happiness', value: stats.avgNps, icon: Smile },
-                  { label: 'Loyalty', value: `${stats.repeatRate}%`, icon: Target },
+                  { label: 'Total Customers', value: stats.totalCustomers, icon: Users },
+                  { label: 'User Happiness', value: stats.avgNps, icon: Smile },
+                  { label: 'Repeat Rate', value: `${stats.repeatRate}%`, icon: Target },
                 ].map((metric, i) => (
-                  <Card key={i} className="bg-white/5 border-white/10 rounded-2xl">
+                  <Card key={i} className="bg-white/5 border-white/10 rounded-2xl border-b-4 border-b-primary/20">
                     <CardContent className="p-6">
                       <div className="p-3 bg-primary/10 rounded-xl w-fit mb-4"><metric.icon className="h-5 w-5 text-primary" /></div>
                       <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">{metric.label}</p>
@@ -256,6 +284,156 @@ export default function AdminDashboard() {
                     </CardContent>
                   </Card>
                 ))}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-8">
+                  <div className="flex items-center justify-between mb-8">
+                    <h3 className="text-xl font-black italic uppercase text-primary">New Users</h3>
+                    <Badge variant="outline" className="text-[10px] font-black italic uppercase">Last 7 Days</Badge>
+                  </div>
+                  <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData.growth}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                        <XAxis dataKey="name" stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
+                        <Tooltip contentStyle={{ backgroundColor: '#020617', border: 'none', borderRadius: '1rem', color: '#fff' }} />
+                        <Bar dataKey="users" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+
+                <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-8">
+                   <div className="flex items-center justify-between mb-8">
+                    <h3 className="text-xl font-black italic uppercase text-primary">Customer Loyalty</h3>
+                    <Badge variant="outline" className="text-[10px] font-black italic uppercase">Total Share</Badge>
+                  </div>
+                  <div className="h-[300px] w-full flex items-center justify-center relative">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={chartData.repeatData} innerRadius={80} outerRadius={100} paddingAngle={5} dataKey="value">
+                          {chartData.repeatData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
+                        </Pie>
+                        <Tooltip />
+                        <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', textTransform: 'uppercase' }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-3xl font-black italic text-primary">{stats.repeatRate}%</span>
+                      <span className="text-[8px] font-bold text-muted-foreground uppercase">Repeat</span>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'customers' && (
+            <div className="animate-in fade-in space-y-6">
+              <Card className="bg-white/5 border-white/10 rounded-[2.5rem] overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-white/5">
+                    <TableRow className="border-white/5 hover:bg-transparent">
+                      <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic h-16">Full Name</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic h-16">Contact</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic h-16">ID Number</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic h-16">Points</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic h-16">Last Login</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {customers.map((c: any) => (
+                      <TableRow key={c.id} className="border-white/5 hover:bg-white/5">
+                        <TableCell className="font-black italic py-6">{c.fullName}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs">{c.phoneNumber}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs font-mono">{c.identityNumber || 'N/A'}</TableCell>
+                        <TableCell><Badge className="bg-primary/10 text-primary border-none font-black italic">{c.loyaltyPoints || 0}</Badge></TableCell>
+                        <TableCell className="text-[10px] text-muted-foreground uppercase">
+                          {c.lastLogin ? format(parseISO(c.lastLogin), 'MMM dd, HH:mm') : 'Never'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {customers.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-20 text-muted-foreground uppercase font-bold italic opacity-40">No customers registered yet</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </Card>
+            </div>
+          )}
+
+          {activeTab === 'drivers' && (
+            <div className="animate-in fade-in space-y-10">
+              <div className="grid grid-cols-1 gap-6">
+                <h3 className="text-xl font-black italic uppercase text-primary">Pending Verification</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {drivers.filter(d => !d.isVerified).map((d: any) => (
+                    <Card key={d.id} className="bg-white/5 border-primary/20 rounded-[2.5rem] p-8 space-y-6">
+                       <div className="flex justify-between items-start">
+                          <div className="flex items-center gap-4">
+                             <div className="h-14 w-14 rounded-full bg-white/10 flex items-center justify-center overflow-hidden">
+                                {d.photoUrl ? <img src={d.photoUrl} className="h-full w-full object-cover" /> : <Car className="h-6 w-6 text-muted-foreground" />}
+                             </div>
+                             <div>
+                                <h4 className="text-xl font-black italic uppercase leading-none">{d.fullName}</h4>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase mt-2">{d.phoneNumber}</p>
+                             </div>
+                          </div>
+                          <Badge className="bg-destructive/10 text-destructive border-none text-[8px] font-black px-3 py-1">UNVERIFIED</Badge>
+                       </div>
+                       <div className="grid grid-cols-2 gap-4 py-4 border-y border-white/5">
+                          <div className="space-y-1">
+                             <p className="text-[8px] font-black uppercase text-muted-foreground">Vehicle</p>
+                             <p className="text-xs font-bold uppercase italic">{d.vehicleNumber} ({d.vehicleType})</p>
+                          </div>
+                          <div className="space-y-1">
+                             <p className="text-[8px] font-black uppercase text-muted-foreground">License</p>
+                             <p className="text-xs font-bold uppercase italic">{d.licenseNumber}</p>
+                          </div>
+                       </div>
+                       <Button onClick={() => handleApproveDriver(d.id)} className="w-full h-14 bg-primary text-black font-black uppercase italic rounded-xl shadow-lg shadow-primary/10">Approve Driver</Button>
+                    </Card>
+                  ))}
+                  {drivers.filter(d => !d.isVerified).length === 0 && (
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase py-10 italic">No pending applications</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <h3 className="text-xl font-black italic uppercase text-foreground">Verified Drivers</h3>
+                <Card className="bg-white/5 border-white/10 rounded-[2.5rem] overflow-hidden">
+                   <Table>
+                      <TableHeader className="bg-white/5">
+                        <TableRow className="border-white/5">
+                          <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic">Name</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic">Vehicle</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic">Preferred Route</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic">Status</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-muted-foreground italic">Earnings</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {drivers.filter(d => d.isVerified).map((d: any) => (
+                          <TableRow key={d.id} className="border-white/5 hover:bg-white/5 transition-colors">
+                            <TableCell className="font-black italic py-6">{d.fullName}</TableCell>
+                            <TableCell className="text-xs font-bold uppercase italic">{d.vehicleNumber}</TableCell>
+                            <TableCell className="text-xs italic text-primary">{d.preferredRoute || 'None'}</TableCell>
+                            <TableCell>
+                              <Badge className={`border-none text-[8px] font-black px-2.5 py-1 ${d.status === 'on-trip' ? 'bg-primary text-black' : d.status === 'available' ? 'bg-green-500/20 text-green-500' : 'bg-white/10 text-muted-foreground'}`}>
+                                {d.status?.toUpperCase() || 'OFFLINE'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-black italic text-sm">₹{d.totalEarnings?.toFixed(0) || 0}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                   </Table>
+                </Card>
               </div>
             </div>
           )}
@@ -336,6 +514,44 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {activeTab === 'analytics' && (
+            <div className="space-y-10 animate-in fade-in pb-20">
+              <div className="grid grid-cols-1 gap-10">
+                <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10">
+                   <div className="flex items-center justify-between mb-10">
+                      <h3 className="text-2xl font-black italic uppercase text-primary">Route Performance Pivot</h3>
+                      <Badge className="bg-primary/10 text-primary border-none font-black italic uppercase">Trip Density</Badge>
+                   </div>
+                   <Table>
+                      <TableHeader>
+                        <TableRow className="border-white/5 hover:bg-transparent">
+                          <TableHead className="text-[10px] font-black uppercase italic">Route Name</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase italic">Total Trips</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase italic">Total Riders</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase italic">Revenue Share (est)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {allRoutes?.map((r: any) => {
+                          const routeTrips = trips?.filter(t => t.routeName === r.routeName) || [];
+                          const riderCount = routeTrips.reduce((acc, curr) => acc + (curr.riderCount || 0), 0);
+                          const revenue = riderCount * r.baseFare;
+                          return (
+                            <TableRow key={r.id} className="border-white/5">
+                              <TableCell className="font-black italic py-6">{r.routeName}</TableCell>
+                              <TableCell className="font-bold italic">{routeTrips.length}</TableCell>
+                              <TableCell className="font-bold italic text-primary">{riderCount}</TableCell>
+                              <TableCell className="font-black italic text-lg">₹{revenue.toFixed(0)}</TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                   </Table>
+                </Card>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'vouchers' && (
             <div className="space-y-10 animate-in fade-in">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -380,46 +596,6 @@ export default function AdminDashboard() {
                       ))}
                    </div>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'analytics' && (
-            <div className="space-y-10 animate-in fade-in">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-8">
-                  <CardHeader className="px-0 pt-0 pb-8"><CardTitle className="text-xl font-black italic uppercase text-primary">Daily New People</CardTitle></CardHeader>
-                  <div className="h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={chartData.growth}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                        <XAxis dataKey="name" stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
-                        <Tooltip contentStyle={{ backgroundColor: '#020617', border: 'none', borderRadius: '1rem' }} />
-                        <Bar dataKey="users" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </Card>
-
-                <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-8">
-                  <CardHeader className="px-0 pt-0 pb-8"><CardTitle className="text-xl font-black italic uppercase text-primary">Customer Loyalty</CardTitle></CardHeader>
-                  <div className="h-[300px] w-full flex items-center justify-center relative">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={chartData.repeatData} innerRadius={80} outerRadius={100} paddingAngle={5} dataKey="value">
-                          {chartData.repeatData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
-                        </Pie>
-                        <Tooltip />
-                        <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', textTransform: 'uppercase' }} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-3xl font-black italic text-primary">{stats.repeatRate}%</span>
-                      <span className="text-[8px] font-bold text-muted-foreground uppercase">Repeat</span>
-                    </div>
-                  </div>
-                </Card>
               </div>
             </div>
           )}
