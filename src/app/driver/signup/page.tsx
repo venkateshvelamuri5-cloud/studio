@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Camera, RefreshCcw, CheckCircle2, Upload } from 'lucide-react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
@@ -41,6 +42,8 @@ export default function DriverSignupPage() {
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
@@ -64,6 +67,7 @@ export default function DriverSignupPage() {
     }
   }, [user, authLoading, router, db, success]);
 
+  // Handle reCAPTCHA cleanup
   useEffect(() => {
     return () => {
       if (recaptchaVerifier.current) {
@@ -87,33 +91,49 @@ export default function DriverSignupPage() {
     }
   };
 
-  const getCameraPermission = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-      if (videoRef.current) videoRef.current.srcObject = stream;
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Camera Error', description: 'Enable camera to take photo.' });
-    }
-  };
-
+  // Camera permission logic
   useEffect(() => {
-    if (step === 2 && !photoUrl) getCameraPermission();
+    if (step === 2 && !photoUrl) {
+      const getCameraPermission = async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+          setHasCameraPermission(true);
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
+          toast({
+            variant: 'destructive',
+            title: 'Camera Access Denied',
+            description: 'Please enable camera permissions in your browser settings to take your ID photo.',
+          });
+        }
+      };
+
+      getCameraPermission();
+    }
+
     return () => {
       if (videoRef.current && videoRef.current.srcObject) {
         (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
       }
     };
-  }, [step, photoUrl]);
+  }, [step, photoUrl, toast]);
 
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
-      canvas.width = 400; // Small size to avoid doc limit
+      canvas.width = 400; // Efficient size for Firestore
       canvas.height = 300;
       canvas.getContext('2d')?.drawImage(video, 0, 0, 400, 300);
-      setPhotoUrl(canvas.toDataURL('image/jpeg', 0.7));
-      if (video.srcObject) (video.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+      const dataUri = canvas.toDataURL('image/jpeg', 0.6); // Higher compression
+      setPhotoUrl(dataUri);
+      if (video.srcObject) {
+        (video.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+      }
     }
   };
 
@@ -122,6 +142,12 @@ export default function DriverSignupPage() {
     if (!file) return;
     const reader = new FileReader();
     reader.onloadend = () => {
+      // Basic compression by using a temporary canvas if needed could go here
+      // For now, we'll just store the string but warn the user if it's too big
+      if (file.size > 800000) {
+        toast({ variant: "destructive", title: "File too big", description: "Please upload a smaller image (under 800KB)." });
+        return;
+      }
       if (target === 'dl') setDlPhotoUrl(reader.result as string);
       else setAadhaarPhotoUrl(reader.result as string);
     };
@@ -140,7 +166,7 @@ export default function DriverSignupPage() {
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(3);
-      toast({ title: "Code Sent" });
+      toast({ title: "OTP sent successfully." });
     } catch (error: any) {
       console.error("Auth Error:", error);
       toast({ 
@@ -148,7 +174,7 @@ export default function DriverSignupPage() {
         title: "Code Failed", 
         description: error.code === 'auth/captcha-check-failed' 
           ? "Please add this domain to Firebase Authorized Domains."
-          : "Could not send code. Check number." 
+          : "Could not send code. Check your number." 
       });
       if (recaptchaVerifier.current) {
         recaptchaVerifier.current.clear();
@@ -166,7 +192,7 @@ export default function DriverSignupPage() {
     try {
       const result = await confirmationResult.confirm(otp);
       
-      // Save profile - Using smaller image representations if possible
+      // Save profile with explicit flags for admin verification
       await setDoc(doc(db, 'users', result.user.uid), {
         uid: result.user.uid,
         phoneNumber: result.user.phoneNumber,
@@ -187,15 +213,15 @@ export default function DriverSignupPage() {
       });
       
       setSuccess(true);
-      toast({ title: "Profile Submitted", description: "Admin will review your docs." });
+      toast({ title: "Profile Submitted", description: "Admin will review your documents shortly." });
     } catch (error: any) {
       console.error("Verify Error:", error);
       toast({ 
         variant: "destructive", 
         title: "Signup Failed", 
         description: error.code === 'permission-denied' 
-          ? "Database error. Contact support." 
-          : "Invalid OTP code. Try again." 
+          ? "Database error. Please try again." 
+          : "Invalid OTP code. Please check and try again." 
       });
     } finally {
       setLoading(false);
@@ -256,10 +282,28 @@ export default function DriverSignupPage() {
               <div className="space-y-4 text-center">
                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Selfie for ID Card</Label>
                  <div className="relative aspect-square w-48 mx-auto bg-black rounded-3xl overflow-hidden border-2 border-white/10 shadow-2xl">
-                    {!photoUrl ? <><video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline /><canvas ref={canvasRef} className="hidden" /></> : <img src={photoUrl} className="h-full w-full object-cover" />}
+                    <video ref={videoRef} className={`h-full w-full object-cover ${photoUrl ? 'hidden' : 'block'}`} autoPlay muted playsInline />
+                    <canvas ref={canvasRef} className="hidden" />
+                    {photoUrl && <img src={photoUrl} className="h-full w-full object-cover" />}
+                    
+                    {hasCameraPermission === false && (
+                      <div className="absolute inset-0 flex items-center justify-center p-4 bg-black/60">
+                        <p className="text-[10px] font-black uppercase text-destructive italic">Camera access required</p>
+                      </div>
+                    )}
                  </div>
-                 {!photoUrl ? <Button onClick={capturePhoto} className="w-full h-12 bg-primary text-black rounded-xl font-black uppercase italic text-xs">Take Photo</Button> : <Button onClick={() => setPhotoUrl(null)} variant="ghost" className="w-full text-primary font-black uppercase italic text-[10px] border border-primary/20 rounded-xl h-10">Re-take Photo</Button>}
+                 
+                 {!photoUrl ? (
+                   <Button onClick={capturePhoto} disabled={hasCameraPermission !== true} className="w-full h-12 bg-primary text-black rounded-xl font-black uppercase italic text-xs">
+                     Capture Selfie
+                   </Button>
+                 ) : (
+                   <Button onClick={() => setPhotoUrl(null)} variant="ghost" className="w-full text-primary font-black uppercase italic text-[10px] border border-primary/20 rounded-xl h-10">
+                     Re-take Photo
+                   </Button>
+                 )}
               </div>
+              
               <div className="grid grid-cols-2 gap-4">
                  <div className="space-y-2">
                     <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">License Photo</Label>

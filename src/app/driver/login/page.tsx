@@ -59,7 +59,8 @@ export default function DriverLoginPage() {
   }, []);
 
   const setupRecaptcha = () => {
-    if (!auth || recaptchaVerifier.current) return;
+    if (!auth) return;
+    if (recaptchaVerifier.current) return;
     try {
       recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container-driver', {
         size: 'invisible',
@@ -86,15 +87,13 @@ export default function DriverLoginPage() {
       toast({ title: "Code Sent", description: "Identity check code sent to phone." });
     } catch (error: any) {
       console.error("Auth Error:", error);
-      if (error.code === 'auth/too-many-requests') {
-        toast({ 
-          variant: "destructive", 
-          title: "Limit Reached", 
-          description: "Please wait some time and try again." 
-        });
-      } else {
-        toast({ variant: "destructive", title: "OTP Error", description: "Failed to send code. Try again." });
-      }
+      toast({ 
+        variant: "destructive", 
+        title: "OTP Failed", 
+        description: error.code === 'auth/captcha-check-failed' 
+          ? "Please add this domain to Firebase Authorized Domains."
+          : "Could not send code. Check your number." 
+      });
       if (recaptchaVerifier.current) {
         recaptchaVerifier.current.clear();
         recaptchaVerifier.current = null;
