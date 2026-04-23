@@ -49,12 +49,18 @@ export default function LoginPage() {
     }
   }, [user, authLoading, db, router]);
 
-  const setupRecaptcha = () => {
-    if (!auth) return;
-    try {
+  useEffect(() => {
+    return () => {
       if (recaptchaVerifier.current) {
         recaptchaVerifier.current.clear();
+        recaptchaVerifier.current = null;
       }
+    };
+  }, []);
+
+  const setupRecaptcha = () => {
+    if (!auth || recaptchaVerifier.current) return;
+    try {
       recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'invisible',
         callback: () => {}
@@ -71,20 +77,29 @@ export default function LoginPage() {
 
     try {
       setupRecaptcha();
-      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+      // Clean phone number: remove non-digits
+      const numericPart = phoneNumber.replace(/\D/g, '');
+      const formattedPhone = `+91${numericPart}`;
+      
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(2);
       toast({ title: "Code Sent", description: "Check your phone messages." });
     } catch (error: any) {
+      console.error("Auth Error:", error);
       if (error.code === 'auth/too-many-requests') {
         toast({ 
           variant: "destructive", 
-          title: "Wait a bit", 
-          description: "Too many tries. Please wait 15 minutes before trying again." 
+          title: "Limit Reached", 
+          description: "Too many attempts. Please try again after some time." 
         });
       } else {
-        toast({ variant: "destructive", title: "Error", description: "Could not send code. Try again." });
+        toast({ variant: "destructive", title: "OTP Failed", description: "Could not send code. Please check the number." });
+      }
+      // Reset recaptcha on error to allow retry
+      if (recaptchaVerifier.current) {
+        recaptchaVerifier.current.clear();
+        recaptchaVerifier.current = null;
       }
     } finally {
       setLoading(false);
@@ -116,6 +131,7 @@ export default function LoginPage() {
         router.push('/student');
       }
     } catch (error: any) {
+      console.error("Verify Error:", error);
       toast({ variant: "destructive", title: "Wrong Code", description: "Check the OTP and try again." });
     } finally {
       setLoading(false);
@@ -160,7 +176,7 @@ export default function LoginPage() {
                   />
                 </div>
               </div>
-              <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all active:scale-95">
+              <Button type="submit" disabled={loading || phoneNumber.replace(/\D/g, '').length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl transition-all active:scale-95">
                 {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Send Code"}
               </Button>
             </form>

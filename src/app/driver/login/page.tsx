@@ -49,12 +49,18 @@ export default function DriverLoginPage() {
     }
   }, [user, authLoading, db, router]);
 
-  const setupRecaptcha = () => {
-    if (!auth) return;
-    try {
+  useEffect(() => {
+    return () => {
       if (recaptchaVerifier.current) {
         recaptchaVerifier.current.clear();
+        recaptchaVerifier.current = null;
       }
+    };
+  }, []);
+
+  const setupRecaptcha = () => {
+    if (!auth || recaptchaVerifier.current) return;
+    try {
       recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container-driver', {
         size: 'invisible',
         callback: () => {}
@@ -71,20 +77,27 @@ export default function DriverLoginPage() {
 
     try {
       setupRecaptcha();
-      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+      const numericPart = phoneNumber.replace(/\D/g, '');
+      const formattedPhone = `+91${numericPart}`;
+      
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(2);
       toast({ title: "Code Sent", description: "Identity check code sent to phone." });
     } catch (error: any) {
+      console.error("Auth Error:", error);
       if (error.code === 'auth/too-many-requests') {
         toast({ 
           variant: "destructive", 
           title: "Limit Reached", 
-          description: "Please wait 15 minutes and try again." 
+          description: "Please wait some time and try again." 
         });
       } else {
-        toast({ variant: "destructive", title: "Error", description: "Failed to send code. Try again." });
+        toast({ variant: "destructive", title: "OTP Error", description: "Failed to send code. Try again." });
+      }
+      if (recaptchaVerifier.current) {
+        recaptchaVerifier.current.clear();
+        recaptchaVerifier.current = null;
       }
     } finally {
       setLoading(false);
@@ -116,6 +129,7 @@ export default function DriverLoginPage() {
         router.push('/driver');
       }
     } catch (error: any) {
+      console.error("Verify Error:", error);
       toast({ variant: "destructive", title: "Wrong Code", description: "Check the OTP and try again." });
     } finally {
       setLoading(false);
@@ -160,7 +174,7 @@ export default function DriverLoginPage() {
                   />
                 </div>
               </div>
-              <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
+              <Button type="submit" disabled={loading || phoneNumber.replace(/\D/g, '').length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
                 {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Send Code"}
               </Button>
             </form>

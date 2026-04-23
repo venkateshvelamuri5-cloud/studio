@@ -54,12 +54,18 @@ export default function SignupPage() {
     }
   }, [user, authLoading, router, db]);
 
-  const setupRecaptcha = () => {
-    if (!auth) return;
-    try {
+  useEffect(() => {
+    return () => {
       if (recaptchaVerifier.current) {
         recaptchaVerifier.current.clear();
+        recaptchaVerifier.current = null;
       }
+    };
+  }, []);
+
+  const setupRecaptcha = () => {
+    if (!auth || recaptchaVerifier.current) return;
+    try {
       recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup', {
         size: 'invisible',
         callback: () => {}
@@ -76,14 +82,20 @@ export default function SignupPage() {
 
     try {
       setupRecaptcha();
-      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+      const numericPart = phoneNumber.replace(/\D/g, '');
+      const formattedPhone = `+91${numericPart}`;
+      
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(2);
       toast({ title: "OTP sent successfully." });
     } catch (error: any) {
       console.error("Auth Error:", error);
-      toast({ variant: "destructive", title: "Error", description: "Failed to send OTP. Try again." });
+      toast({ variant: "destructive", title: "OTP Error", description: "Failed to send OTP. Try again." });
+      if (recaptchaVerifier.current) {
+        recaptchaVerifier.current.clear();
+        recaptchaVerifier.current = null;
+      }
     } finally {
       setLoading(false);
     }
@@ -113,6 +125,7 @@ export default function SignupPage() {
 
       router.push('/student');
     } catch (error: any) {
+      console.error("Verify Error:", error);
       toast({ variant: "destructive", title: "Invalid OTP", description: "Please check and try again." });
     } finally {
       setLoading(false);
@@ -169,7 +182,7 @@ export default function SignupPage() {
                   <Input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="0000000000" className="h-16 pl-20 rounded-xl bg-white/5 border-white/10 font-black italic text-xl" required />
                 </div>
               </div>
-              <Button type="submit" disabled={loading || !fullName || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
+              <Button type="submit" disabled={loading || !fullName || phoneNumber.replace(/\D/g, '').length < 10} className="w-full bg-primary text-black h-16 rounded-2xl text-lg font-black uppercase italic shadow-2xl">
                 {loading ? <Loader2 className="animate-spin h-6 w-6" /> : "Verify via OTP"}
               </Button>
             </form>

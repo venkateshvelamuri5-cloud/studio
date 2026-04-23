@@ -64,12 +64,18 @@ export default function DriverSignupPage() {
     }
   }, [user, authLoading, router, db, success]);
 
-  const setupRecaptcha = () => {
-    if (!auth) return;
-    try {
+  useEffect(() => {
+    return () => {
       if (recaptchaVerifier.current) {
         recaptchaVerifier.current.clear();
+        recaptchaVerifier.current = null;
       }
+    };
+  }, []);
+
+  const setupRecaptcha = () => {
+    if (!auth || recaptchaVerifier.current) return;
+    try {
       recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup-driver', {
         size: 'invisible',
         callback: () => {}
@@ -126,13 +132,20 @@ export default function DriverSignupPage() {
     setLoading(true);
     try {
       setupRecaptcha();
-      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
+      const numericPart = phoneNumber.replace(/\D/g, '');
+      const formattedPhone = `+91${numericPart}`;
+      
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(3);
       toast({ title: "Code Sent" });
     } catch (error: any) {
+      console.error("Auth Error:", error);
       toast({ variant: "destructive", title: "Error", description: "Could not send code." });
+      if (recaptchaVerifier.current) {
+        recaptchaVerifier.current.clear();
+        recaptchaVerifier.current = null;
+      }
     } finally {
       setLoading(false);
     }
@@ -152,6 +165,7 @@ export default function DriverSignupPage() {
       });
       setSuccess(true);
     } catch (error: any) {
+      console.error("Verify Error:", error);
       toast({ variant: "destructive", title: "Wrong Code" });
     } finally {
       setLoading(false);
@@ -243,7 +257,7 @@ export default function DriverSignupPage() {
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number</Label>
                   <div className="relative"><span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary text-lg z-20">+91</span><Input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="0000000000" className="h-16 pl-20 rounded-xl bg-white/5 border-white/10 font-black italic text-xl" required /></div>
                 </div>
-                {!confirmationResult ? <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl">Send Code</Button> : <div className="space-y-6"><Input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" className="h-20 text-center text-4xl tracking-[0.4em] rounded-2xl bg-white/5 border-white/10 font-black text-primary" maxLength={6} required /><Button onClick={handleVerifyOtp} disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-18 rounded-2xl font-black uppercase italic shadow-2xl">Verify & Join Hub</Button></div>}
+                {!confirmationResult ? <Button type="submit" disabled={loading || phoneNumber.replace(/\D/g, '').length < 10} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl">Send Code</Button> : <div className="space-y-6"><Input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" className="h-20 text-center text-4xl tracking-[0.4em] rounded-2xl bg-white/5 border-white/10 font-black text-primary" maxLength={6} required /><Button onClick={handleVerifyOtp} disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-18 rounded-2xl font-black uppercase italic shadow-2xl">Verify & Join Hub</Button></div>}
               </form>
             </div>
           )}
