@@ -70,7 +70,6 @@ export default function CustomerDashboard() {
   const { data: allActiveRoutes } = useCollection(useMemo(() => (db) ? query(collection(db, 'routes'), where('status', '==', 'active')) : null, [db]));
   const { data: allTrips } = useCollection(useMemo(() => (db) ? query(collection(db, 'trips')) : null, [db]));
   
-  // Group routes by name to avoid duplicate options
   const uniqueRoutes = useMemo(() => {
     if (!allActiveRoutes) return [];
     const grouped: Record<string, any> = {};
@@ -78,7 +77,6 @@ export default function CustomerDashboard() {
       if (!grouped[r.routeName]) {
         grouped[r.routeName] = r;
       } else {
-        // Merge schedules if they are different documents
         const existingSchedules = grouped[r.routeName].schedule?.split(',').map((s: string) => s.trim()) || [];
         const newSchedules = r.schedule?.split(',').map((s: string) => s.trim()) || [];
         const combined = Array.from(new Set([...existingSchedules, ...newSchedules])).join(', ');
@@ -112,7 +110,6 @@ export default function CustomerDashboard() {
   const calculatedFare = useMemo(() => selectedRoute?.baseFare || 0, [selectedRoute]);
   const availableTimes = useMemo(() => selectedRoute?.schedule?.split(',').map((s: string) => s.trim()) || [], [selectedRoute]);
 
-  // Only filter landmarks from the selected route's stops
   const filteredLandmarks = useMemo(() => {
     if (!selectedRoute?.stops) return [];
     return selectedRoute.stops.filter((s: any) => 
@@ -337,9 +334,9 @@ export default function CustomerDashboard() {
                            <div className="space-y-6">
                               <div className="space-y-3">
                                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Pickup Point</Label>
-                                <div className="grid grid-cols-1 gap-2 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
+                                <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
                                    {filteredLandmarks.map((stop: any, idx: number) => (
-                                     <Button key={idx} variant="outline" onClick={() => setPickupStop(stop.name)} className={`h-14 justify-start px-6 rounded-xl font-black italic text-sm border-2 ${pickupStop === stop.name ? 'bg-primary border-primary text-black' : 'bg-white border-white text-black'}`}>
+                                     <Button key={idx} variant="outline" onClick={() => setPickupStop(stop.name)} className={`h-16 justify-center text-center px-4 rounded-xl font-black italic text-[11px] leading-tight border-2 ${pickupStop === stop.name ? 'bg-primary border-primary text-black' : 'bg-white border-white text-black'}`}>
                                        {stop.name}
                                      </Button>
                                    ))}
@@ -348,9 +345,9 @@ export default function CustomerDashboard() {
 
                               <div className="space-y-3">
                                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Drop Point</Label>
-                                <div className="grid grid-cols-1 gap-2 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
+                                <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
                                    {filteredLandmarks.map((stop: any, idx: number) => (
-                                     <Button key={idx} variant="outline" onClick={() => setDropStop(stop.name)} className={`h-14 justify-start px-6 rounded-xl font-black italic text-sm border-2 ${dropStop === stop.name ? 'bg-primary border-primary text-black' : 'bg-white border-white text-black'}`}>
+                                     <Button key={idx} variant="outline" onClick={() => setDropStop(stop.name)} className={`h-16 justify-center text-center px-4 rounded-xl font-black italic text-[11px] leading-tight border-2 ${dropStop === stop.name ? 'bg-primary border-primary text-black' : 'bg-white border-white text-black'}`}>
                                        {stop.name}
                                      </Button>
                                    ))}
