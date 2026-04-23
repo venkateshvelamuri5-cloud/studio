@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { 
   Dialog,
   DialogContent,
@@ -26,7 +27,7 @@ import {
   Loader2,
   LogOut,
   MapPin,
-  Route as RouteIcon
+  Search
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc } from 'firebase/firestore';
@@ -56,6 +57,7 @@ export default function CustomerDashboard() {
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [pickupStop, setPickupStop] = useState("");
   const [dropStop, setDropStop] = useState("");
+  const [landmarkSearch, setLandmarkSearch] = useState("");
   const [bookingDate, setBookingDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [bookingTime, setBookingTime] = useState<string>("");
   const [voucherCode, setVoucherCode] = useState("");
@@ -92,22 +94,45 @@ export default function CustomerDashboard() {
   const calculatedFare = useMemo(() => selectedRoute?.baseFare || 0, [selectedRoute]);
   const availableTimes = useMemo(() => selectedRoute?.schedule?.split(',').map((s: string) => s.trim()) || [], [selectedRoute]);
 
+  const filteredLandmarks = useMemo(() => {
+    if (!selectedRoute?.stops) return [];
+    return selectedRoute.stops.filter((s: any) => 
+      s.name.toLowerCase().includes(landmarkSearch.toLowerCase())
+    );
+  }, [selectedRoute, landmarkSearch]);
+
   const handleShare = async () => {
     const text = isShowOtpAllowed 
-      ? `I'm on my way with AAGO! Track my ride code: ${profile?.activeOtp}`
+      ? `I'm on my way with AAGO! My check-in code: ${profile?.activeOtp}`
       : `I've booked a ride with AAGO! Trip at ${currentRide?.scheduledTime}`;
     if (navigator.share) navigator.share({ title: 'AAGO - Trip Status', text, url: window.location.href });
     else { navigator.clipboard.writeText(text); toast({ title: "Copied to clipboard" }); }
   };
 
   const applyDiscount = async () => {
-    if (!db || !voucherCode) return;
+    if (!db || !voucherCode || !user?.uid) return;
     const q = query(collection(db, 'vouchers'), where('code', '==', voucherCode.toUpperCase()));
     const snap = await getDocs(q);
+    
     if (!snap.empty) {
-      setAppliedDiscount(snap.docs[0].data().discount || 0);
+      const voucherData = snap.docs[0].data();
+      const usedBy = voucherData.usedBy || [];
+      
+      if (usedBy.includes(user.uid)) {
+        toast({ variant: "destructive", title: "Already Used", description: "You have already used this code once." });
+        return;
+      }
+
+      if (voucherData.usageLimit && usedBy.length >= voucherData.usageLimit) {
+        toast({ variant: "destructive", title: "Expired", description: "This discount code has reached its limit." });
+        return;
+      }
+
+      setAppliedDiscount(voucherData.discount || 0);
       toast({ title: `Discount applied!` });
-    } else toast({ variant: "destructive", title: "Invalid code" });
+    } else {
+      toast({ variant: "destructive", title: "Invalid code", description: "Please check the code and try again." });
+    }
   };
 
   const processPayment = async (response: any) => {
@@ -143,6 +168,17 @@ export default function CustomerDashboard() {
         });
       }
       
+      // Update user and voucher usage if applied
+      if (appliedDiscount > 0 && voucherCode) {
+        const vQuery = query(collection(db, 'vouchers'), where('code', '==', voucherCode.toUpperCase()));
+        const vSnap = await getDocs(vQuery);
+        if (!vSnap.empty) {
+          await updateDoc(doc(db, 'vouchers', vSnap.docs[0].id), {
+            usedBy: arrayUnion(user!.uid)
+          });
+        }
+      }
+
       await updateDoc(userRef, { activeOtp: code, loyaltyPoints: increment(10) });
       setBookingStep(4);
     } catch (e) {
@@ -155,7 +191,7 @@ export default function CustomerDashboard() {
     setIsPaying(true);
     try {
       const finalAmountInRupees = Math.max(1, calculatedFare - appliedDiscount);
-      const amountInPaise = finalAmountInRupees * 100;
+      const amountInPaise = Math.round(finalAmountInRupees * 100);
 
       const res = await fetch('/api/create-order', { 
         method: 'POST', 
@@ -211,7 +247,7 @@ export default function CustomerDashboard() {
             {currentRide ? (
               <Card className="rounded-[3.5rem] p-10 shadow-2xl border-primary/30 bg-card/60 backdrop-blur-md relative overflow-hidden">
                  <div className="flex flex-col items-center gap-4 mb-8 text-center">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Upcoming Trip</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Upcoming Ride</p>
                     <h3 className="text-4xl font-black tracking-tighter italic text-primary leading-tight">Scheduled</h3>
                     <div className="mt-4 p-6 bg-black/40 rounded-2xl border border-white/5 w-full">
                       <p className="text-[10px] font-bold text-white/60 uppercase">{currentRide.routeName}</p>
@@ -230,7 +266,7 @@ export default function CustomerDashboard() {
                         Ride details and check-in code will be shared 3 hours before start.
                       </p>
                     )}
-                    <Button onClick={() => setActiveTab('radar')} className="w-full h-14 bg-primary text-black rounded-2xl font-black uppercase italic shadow-xl">Trip Status</Button>
+                    <Button onClick={() => setActiveTab('radar')} className="w-full h-14 bg-primary text-black rounded-2xl font-black uppercase italic shadow-xl">Ride Status</Button>
                  </div>
               </Card>
             ) : (
@@ -266,21 +302,42 @@ export default function CustomerDashboard() {
                     )}
                     {bookingStep === 2 && (
                       <div className="space-y-10">
-                        <div className="space-y-4">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Pickup Point</Label>
-                           <div className="grid grid-cols-2 gap-3">
-                              {selectedRoute?.stops?.map((stop: any, idx: number) => (
-                                <Button key={idx} onClick={() => setPickupStop(stop.name)} className={`h-16 rounded-2xl font-black italic text-[11px] transition-all border-none ${pickupStop === stop.name ? 'bg-primary text-black shadow-lg' : 'bg-white text-black'}`}>{stop.name}</Button>
-                              ))}
+                        <div className="space-y-6">
+                           <div className="space-y-2">
+                             <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Find Landmark</Label>
+                             <div className="relative">
+                               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                               <Input 
+                                 value={landmarkSearch} 
+                                 onChange={e => setLandmarkSearch(e.target.value)} 
+                                 placeholder="Search landmarks..." 
+                                 className="h-12 pl-12 bg-white/5 rounded-xl font-black italic"
+                               />
+                             </div>
                            </div>
-                        </div>
 
-                        <div className="space-y-4">
-                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Drop Point</Label>
-                           <div className="grid grid-cols-2 gap-3">
-                              {selectedRoute?.stops?.map((stop: any, idx: number) => (
-                                <Button key={idx} onClick={() => setDropStop(stop.name)} className={`h-16 rounded-2xl font-black italic text-[11px] transition-all border-none ${dropStop === stop.name ? 'bg-primary text-black shadow-lg' : 'bg-white text-black'}`}>{stop.name}</Button>
-                              ))}
+                           <div className="space-y-6">
+                              <div className="space-y-3">
+                                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Pickup Point</Label>
+                                <div className="grid grid-cols-1 gap-2 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
+                                   {filteredLandmarks.map((stop: any, idx: number) => (
+                                     <Button key={idx} variant="outline" onClick={() => setPickupStop(stop.name)} className={`h-14 justify-start px-6 rounded-xl font-black italic text-sm border-2 ${pickupStop === stop.name ? 'bg-primary border-primary text-black' : 'bg-white border-white text-black'}`}>
+                                       {stop.name}
+                                     </Button>
+                                   ))}
+                                </div>
+                              </div>
+
+                              <div className="space-y-3">
+                                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Drop Point</Label>
+                                <div className="grid grid-cols-1 gap-2 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
+                                   {filteredLandmarks.map((stop: any, idx: number) => (
+                                     <Button key={idx} variant="outline" onClick={() => setDropStop(stop.name)} className={`h-14 justify-start px-6 rounded-xl font-black italic text-sm border-2 ${dropStop === stop.name ? 'bg-primary border-primary text-black' : 'bg-white border-white text-black'}`}>
+                                       {stop.name}
+                                     </Button>
+                                   ))}
+                                </div>
+                              </div>
                            </div>
                         </div>
 
@@ -299,7 +356,7 @@ export default function CustomerDashboard() {
                               </select>
                            </div>
                         </div>
-                        <Button onClick={() => setBookingStep(3)} disabled={!bookingTime || !pickupStop || !dropStop} className="w-full h-18 bg-primary text-black rounded-3xl font-black uppercase italic text-lg shadow-2xl">Check Review</Button>
+                        <Button onClick={() => setBookingStep(3)} disabled={!bookingTime || !pickupStop || !dropStop} className="w-full h-18 bg-primary text-black rounded-3xl font-black uppercase italic text-lg shadow-2xl">Confirm Details</Button>
                       </div>
                     )}
                     {bookingStep === 3 && (
@@ -369,7 +426,7 @@ export default function CustomerDashboard() {
 
         {activeTab === 'radar' && (
           <div className="flex-1 flex flex-col space-y-8 animate-in fade-in py-10">
-            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">Trip Status</h2>
+            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">Ride Status</h2>
             {currentRide ? (
               <div className="space-y-8">
                  <Card className="p-10 bg-white/5 border-primary/20 rounded-[3.5rem] space-y-8 text-center">
@@ -389,7 +446,7 @@ export default function CustomerDashboard() {
                     </div>
                  </Card>
                  <div className="space-y-4">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-4">Route Points</Label>
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-4">Route Landmarks</Label>
                     <div className="space-y-3">
                        {activeRoutes?.find(r => r.routeName === currentRide.routeName)?.stops.map((s: any, i: number) => (
                          <div key={i} className="flex items-center gap-4 px-6 py-4 bg-white/5 rounded-2xl border border-white/5">
@@ -403,7 +460,7 @@ export default function CustomerDashboard() {
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-10 space-y-6">
                  <div className="h-24 w-24 bg-white/5 rounded-full flex items-center justify-center text-muted-foreground opacity-20"><MapPin className="h-10 w-10" /></div>
-                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic">No trips to track</p>
+                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic">No rides to track</p>
               </div>
             )}
           </div>

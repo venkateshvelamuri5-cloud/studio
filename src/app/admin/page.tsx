@@ -28,7 +28,7 @@ import {
   Plus,
   Trash2,
   ChevronRight,
-  ListOrdered
+  Ticket
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useAuth } from '@/firebase';
 import { collection, query, doc, orderBy, addDoc, deleteDoc, getDocs } from 'firebase/firestore';
@@ -66,12 +66,15 @@ export default function AdminDashboard() {
   const { user, loading: authLoading } = useUser();
   
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'routes' | 'analytics'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'routes' | 'analytics' | 'vouchers'>('dashboard');
   const [isCleaning, setIsCleaning] = useState(false);
 
   // Route Creation State
   const [newRoute, setNewRoute] = useState({ name: '', fare: '', schedule: '', stops: [] as any[] });
   const [tempStopName, setTempStopName] = useState("");
+
+  // Voucher Creation State
+  const [newVoucher, setNewVoucher] = useState({ code: '', discount: '', limit: '' });
 
   useEffect(() => {
     setMounted(true);
@@ -84,6 +87,7 @@ export default function AdminDashboard() {
   const { data: allUsers } = useCollection(useMemo(() => db ? query(collection(db, 'users')) : null, [db]));
   const { data: allRoutes } = useCollection(useMemo(() => db ? query(collection(db, 'routes'), orderBy('createdAt', 'desc')) : null, [db]));
   const { data: trips } = useCollection(useMemo(() => db ? query(collection(db, 'trips')) : null, [db]));
+  const { data: vouchers } = useCollection(useMemo(() => db ? query(collection(db, 'vouchers')) : null, [db]));
 
   const stats = useMemo(() => {
     if (!allUsers) return { totalCustomers: 0, totalDrivers: 0, activeDrivers: 0, avgNps: 8.8, repeatRate: 0 };
@@ -141,7 +145,7 @@ export default function AdminDashboard() {
 
   const handleAddRoute = async () => {
     if (!db || !newRoute.name || newRoute.stops.length < 2) {
-      toast({ variant: 'destructive', title: "Missing Info", description: "Route needs a name and at least 2 points." });
+      toast({ variant: 'destructive', title: "Missing Info", description: "Route needs a name and at least 2 landmarks." });
       return;
     }
 
@@ -154,10 +158,27 @@ export default function AdminDashboard() {
         status: 'active',
         createdAt: new Date().toISOString()
       });
-      toast({ title: "Route Created", description: "The new route is now live." });
+      toast({ title: "Route Live", description: "Customers can now book this route." });
       setNewRoute({ name: '', fare: '', schedule: '', stops: [] });
     } catch (e) {
-      toast({ variant: 'destructive', title: "Error", description: "Could not save the route." });
+      toast({ variant: 'destructive', title: "Error", description: "Could not save route." });
+    }
+  };
+
+  const handleAddVoucher = async () => {
+    if (!db || !newVoucher.code || !newVoucher.discount) return;
+    try {
+      await addDoc(collection(db, 'vouchers'), {
+        code: newVoucher.code.toUpperCase(),
+        discount: Number(newVoucher.discount),
+        usageLimit: Number(newVoucher.limit) || null,
+        usedBy: [],
+        createdAt: new Date().toISOString()
+      });
+      toast({ title: "Discount Created", description: "Code is now active." });
+      setNewVoucher({ code: '', discount: '', limit: '' });
+    } catch (e) {
+      toast({ variant: 'destructive', title: "Error", description: "Could not create code." });
     }
   };
 
@@ -173,7 +194,7 @@ export default function AdminDashboard() {
         const deletions = snap.docs.map(d => deleteDoc(doc(db, colName, d.id)));
         await Promise.all(deletions);
       }
-      toast({ title: "System Cleaned", description: "All test data has been removed." });
+      toast({ title: "Cleared", description: "Test data has been removed." });
       setIsCleaning(false);
     } catch (e) {
       toast({ variant: "destructive", title: "Error", description: "Could not clear data." });
@@ -197,6 +218,7 @@ export default function AdminDashboard() {
             { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
             { id: 'analytics', label: 'Data', icon: BarChart3 },
             { id: 'routes', label: 'Routes', icon: RouteIcon },
+            { id: 'vouchers', label: 'Discounts', icon: Ticket },
           ].map((item) => (
             <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`w-full flex items-center justify-start rounded-xl font-black uppercase italic h-14 px-5 transition-all ${activeTab === item.id ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'text-muted-foreground hover:bg-white/5'}`}>
               <item.icon className="mr-4 h-5 w-5" /> {item.label}
@@ -222,7 +244,7 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {[
                   { label: 'Drivers Ready', value: stats.activeDrivers, icon: Car },
-                  { label: 'Total Customers', value: stats.totalCustomers, icon: Users },
+                  { label: 'Customers', value: stats.totalCustomers, icon: Users },
                   { label: 'Happiness', value: stats.avgNps, icon: Smile },
                   { label: 'Loyalty', value: `${stats.repeatRate}%`, icon: Target },
                 ].map((metric, i) => (
@@ -244,7 +266,7 @@ export default function AdminDashboard() {
                 <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-8 h-fit">
                    <div className="space-y-4">
                       <h3 className="text-2xl font-black italic uppercase text-primary">Route Builder</h3>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Add points in order. First point is Pickup, Last is Drop-off.</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Add landmarks in order. First is Pickup, Last is Drop-off.</p>
                    </div>
 
                    <div className="space-y-6">
@@ -266,15 +288,15 @@ export default function AdminDashboard() {
                       </div>
 
                       <div className="space-y-4 pt-4 border-t border-white/5">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Add Point</Label>
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Add Landmark</Label>
                         <div className="flex gap-4">
-                           <Input value={tempStopName} onChange={e => setTempStopName(e.target.value)} placeholder="Point name (e.g. City Mall)" className="h-14 bg-white/5 rounded-xl font-black italic flex-1" />
+                           <Input value={tempStopName} onChange={e => setTempStopName(e.target.value)} placeholder="Name (e.g. City Mall)" className="h-14 bg-white/5 rounded-xl font-black italic flex-1" />
                            <Button onClick={handleAddStop} className="h-14 w-14 rounded-xl bg-primary text-black"><Plus /></Button>
                         </div>
                       </div>
 
                       <div className="space-y-3">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Points ({newRoute.stops.length})</Label>
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Landmarks ({newRoute.stops.length})</Label>
                         <div className="space-y-2">
                            {newRoute.stops.map((s, i) => (
                              <div key={i} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
@@ -285,7 +307,7 @@ export default function AdminDashboard() {
                                 <Button variant="ghost" size="icon" onClick={() => setNewRoute({...newRoute, stops: newRoute.stops.filter((_, idx) => idx !== i)})} className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button>
                              </div>
                            ))}
-                           {newRoute.stops.length === 0 && <p className="text-[10px] font-bold text-muted-foreground uppercase text-center py-4 italic border-2 border-dashed border-white/5 rounded-xl">No points added yet</p>}
+                           {newRoute.stops.length === 0 && <p className="text-[10px] font-bold text-muted-foreground uppercase text-center py-4 italic border-2 border-dashed border-white/5 rounded-xl">No landmarks added</p>}
                         </div>
                       </div>
                    </div>
@@ -302,10 +324,58 @@ export default function AdminDashboard() {
                               <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><RouteIcon className="h-6 w-6" /></div>
                               <div>
                                  <p className="text-xl font-black italic uppercase text-foreground leading-none">{r.routeName}</p>
-                                 <p className="text-[9px] font-bold text-muted-foreground uppercase mt-2">{r.stops?.length || 0} Points • ₹{r.baseFare}</p>
+                                 <p className="text-[9px] font-bold text-muted-foreground uppercase mt-2">{r.stops?.length || 0} Landmarks • ₹{r.baseFare}</p>
                               </div>
                            </div>
                            <Button variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => deleteDoc(doc(db!, 'routes', r.id))}><Trash2 className="h-5 w-5" /></Button>
+                        </Card>
+                      ))}
+                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'vouchers' && (
+            <div className="space-y-10 animate-in fade-in">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-8 h-fit">
+                   <div className="space-y-4">
+                      <h3 className="text-2xl font-black italic uppercase text-primary">Discount Codes</h3>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Create one-time or limited-use codes.</p>
+                   </div>
+                   <div className="space-y-6">
+                      <div className="space-y-2">
+                         <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Code</Label>
+                         <Input value={newVoucher.code} onChange={e => setNewVoucher({...newVoucher, code: e.target.value})} placeholder="e.g. WELCOME10" className="h-14 bg-white/5 rounded-xl font-black italic uppercase" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Discount (₹)</Label>
+                           <Input type="number" value={newVoucher.discount} onChange={e => setNewVoucher({...newVoucher, discount: e.target.value})} placeholder="50" className="h-14 bg-white/5 rounded-xl font-black italic" />
+                        </div>
+                        <div className="space-y-2">
+                           <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Max Uses</Label>
+                           <Input type="number" value={newVoucher.limit} onChange={e => setNewVoucher({...newVoucher, limit: e.target.value})} placeholder="100" className="h-14 bg-white/5 rounded-xl font-black italic" />
+                        </div>
+                      </div>
+                      <Button onClick={handleAddVoucher} disabled={!newVoucher.code || !newVoucher.discount} className="w-full h-18 bg-primary text-black font-black uppercase italic rounded-2xl shadow-xl text-lg">Create Code</Button>
+                   </div>
+                </Card>
+
+                <div className="space-y-6">
+                   <h3 className="text-2xl font-black italic uppercase text-foreground">Active Codes</h3>
+                   <div className="grid gap-4">
+                      {vouchers?.map((v: any) => (
+                        <Card key={v.id} className="p-6 bg-white/5 border-white/10 rounded-3xl flex justify-between items-center group">
+                           <div className="flex items-center gap-4">
+                              <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary"><Ticket className="h-6 w-6" /></div>
+                              <div>
+                                 <p className="text-xl font-black italic uppercase text-foreground leading-none">{v.code}</p>
+                                 <p className="text-[9px] font-bold text-muted-foreground uppercase mt-2">₹{v.discount} OFF • Used: {v.usedBy?.length || 0} / {v.usageLimit || '∞'}</p>
+                              </div>
+                           </div>
+                           <Button variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => deleteDoc(doc(db!, 'vouchers', v.id))}><Trash2 className="h-5 w-5" /></Button>
                         </Card>
                       ))}
                    </div>
