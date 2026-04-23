@@ -7,11 +7,11 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { 
   ArrowRight, 
   ShieldCheck,
-  Radar,
+  Navigation,
   IndianRupee,
   MapPin,
   CheckCircle2,
@@ -19,7 +19,6 @@ import {
   X,
   Loader2,
   Users,
-  Navigation,
   Clock,
   Sparkles
 } from 'lucide-react';
@@ -120,14 +119,14 @@ export default function LandingPage() {
 
       <main>
         {/* Hero Section */}
-        <section className="relative pt-48 pb-24 lg:pt-64 lg:pb-48 overflow-hidden min-h-screen flex items-center">
+        <section className="relative pt-48 pb-24 lg:pt-64 lg:pb-48 overflow-hidden min-h-[90vh] flex items-center">
           <div className="container mx-auto px-6 lg:px-24 relative z-10">
             <div className="grid lg:grid-cols-2 gap-16 items-center">
               <div className="space-y-10 text-center lg:text-left animate-in fade-in slide-in-from-left-12 duration-1000">
                 <Badge className="px-6 py-2.5 text-primary border-primary/30 bg-primary/5 font-black uppercase tracking-[0.4em] text-[10px] italic rounded-full shadow-lg">
                   <Sparkles className="h-3 w-3 mr-2 inline" /> Community Mobility Hub
                 </Badge>
-                <h1 className="text-6xl lg:text-9xl font-black text-foreground italic uppercase tracking-tighter leading-[0.85] text-glow animate-pulse-slow">
+                <h1 className="text-6xl lg:text-9xl font-black text-foreground italic uppercase tracking-tighter leading-[0.85] animate-pulse-slow">
                   Reliable <br /> <span className="text-primary">Travel.</span>
                 </h1>
                 <p className="text-xl text-muted-foreground leading-relaxed max-w-xl mx-auto lg:mx-0 italic font-medium opacity-80">
@@ -151,9 +150,9 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <div className="relative aspect-square animate-in zoom-in duration-1000 animate-slow-float">
+              <div className="relative aspect-square animate-in zoom-in duration-1000">
                 <div className="absolute inset-0 bg-primary/20 rounded-[4rem] blur-[120px] animate-pulse"></div>
-                <div className="relative h-full w-full rounded-[4rem] overflow-hidden border-4 border-white/5 shadow-3xl bg-slate-950 flex items-center justify-center">
+                <div className="relative h-full w-full rounded-[4rem] overflow-hidden border-4 border-white/5 shadow-3xl bg-slate-950 flex items-center justify-center animate-slow-float">
                    {images.hero && (
                      <Image 
                        src={images.hero.imageUrl} 
@@ -168,7 +167,7 @@ export default function LandingPage() {
                       <div className="bg-white/10 backdrop-blur-2xl border border-white/10 p-8 rounded-[3rem] shadow-2xl">
                          <div className="flex items-center gap-4 mb-3">
                             <div className="h-3 w-3 rounded-full bg-green-500 animate-pulse"></div>
-                            <span className="text-[10px] font-black uppercase italic text-white tracking-widest">Live in City</span>
+                            <span className="text-[10px] font-black uppercase italic text-white tracking-widest">Active Hub</span>
                          </div>
                          <h4 className="text-2xl font-black italic text-white uppercase leading-none">Smart Fleet Active</h4>
                       </div>
@@ -253,9 +252,9 @@ export default function LandingPage() {
                        <p className="text-sm text-muted-foreground italic leading-relaxed">Always know your price. No surprises, no bargaining.</p>
                     </Card>
                     <Card className="p-10 border-none bg-white/5 rounded-[3rem] shadow-2xl hover:-translate-y-4 transition-transform duration-500 mt-16">
-                       <Radar className="h-12 w-12 text-primary mb-8" />
-                       <h4 className="text-2xl font-black italic uppercase mb-3 text-primary">Live Radar</h4>
-                       <p className="text-sm text-muted-foreground italic leading-relaxed">Track your ride in real-time. Know exactly when to board.</p>
+                       <Navigation className="h-12 w-12 text-primary mb-8" />
+                       <h4 className="text-2xl font-black italic uppercase mb-3 text-primary">Trip Info</h4>
+                       <p className="text-sm text-muted-foreground italic leading-relaxed">Access ride details 3 hours before start. Know your vehicle.</p>
                     </Card>
                     <Card className="p-10 border-none bg-white/5 rounded-[3rem] shadow-2xl hover:-translate-y-4 transition-transform duration-500 -mt-16 animate-slow-float" style={{ animationDelay: '1s' }}>
                        <ShieldCheck className="h-12 w-12 text-primary mb-8" />
@@ -280,7 +279,7 @@ export default function LandingPage() {
                   <div className="space-y-8 pt-8">
                     {[
                       "Fixed 7-seater vehicle assignments",
-                      "Pre-departure check-in codes (OTP)",
+                      "Pre-departure check-in codes",
                       "Cashless digital payments",
                       "Dedicated corridor-based routes"
                     ].map((feature, i) => (
@@ -342,4 +341,3 @@ export default function LandingPage() {
     </div>
   );
 }
-
