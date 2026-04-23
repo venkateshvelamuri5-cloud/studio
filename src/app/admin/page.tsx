@@ -15,7 +15,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
 import { 
-  LayoutDashboard, LogOut, Loader2, Users, Route as RouteIcon, Car, Target, BarChart3, Smile, Plus, Trash2, Ticket, CheckCircle2, ShieldAlert, ShieldCheck, Edit, Briefcase, Zap
+  LayoutDashboard, LogOut, Loader2, Users, Route as RouteIcon, Car, Target, BarChart3, Smile, Plus, Trash2, Ticket, CheckCircle2, ShieldAlert, ShieldCheck, Edit, Briefcase, Zap, Sparkles
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useAuth } from '@/firebase';
 import { collection, query, doc, orderBy, addDoc, deleteDoc, getDocs, updateDoc, where } from 'firebase/firestore';
@@ -23,6 +23,7 @@ import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { format, subDays, isSameDay, parseISO } from 'date-fns';
+import { analyzeDemandIntelligence, DemandIntelligenceOutput } from '@/ai/flows/admin-demand-intelligence-flow';
 
 const Logo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -46,6 +47,10 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
   const [isCleaning, setIsCleaning] = useState(false);
   const [isAllocatingBatch, setIsAllocatingBatch] = useState(false);
+  
+  // AI Insights State
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiReport, setAiReport] = useState<DemandIntelligenceOutput | null>(null);
 
   // Edit/Delete User State
   const [selectedUser, setSelectedUser] = useState<any>(null);
@@ -75,6 +80,17 @@ export default function AdminDashboard() {
   const drivers = useMemo(() => allUsers?.filter(u => u.role === 'driver') || [], [allUsers]);
   const customers = useMemo(() => allUsers?.filter(u => u.role === 'rider' || u.role === 'customer') || [], [allUsers]);
 
+  // Robust date parsing to avoid split() errors
+  const ensureDate = (val: any): Date => {
+    if (!val) return new Date(0);
+    if (val instanceof Date) return val;
+    if (typeof val === 'string') {
+      try { return parseISO(val); } catch (e) { return new Date(val); }
+    }
+    if (val && typeof val.toDate === 'function') return val.toDate();
+    return new Date(val);
+  };
+
   const stats = useMemo(() => {
     if (!allUsers) return { totalCustomers: 0, totalDrivers: 0, activeDrivers: 0, avgNps: 8.8, repeatRate: 0 };
     const completedTrips = (trips || []).filter(t => t.status === 'completed');
@@ -88,12 +104,33 @@ export default function AdminDashboard() {
     if (!mounted || !allUsers || !trips) return { growth: [], repeatData: [] };
     const growth = Array.from({ length: 7 }).map((_, i) => {
       const date = subDays(new Date(), 6 - i);
-      const count = allUsers.filter(u => u.createdAt && isSameDay(parseISO(u.createdAt), date)).length;
+      const count = allUsers.filter(u => {
+        if (!u.createdAt) return false;
+        return isSameDay(ensureDate(u.createdAt), date);
+      }).length;
       return { name: format(date, 'MMM dd'), users: count };
     });
     const repeatData = [{ name: 'Repeat', value: stats.repeatRate, fill: 'hsl(var(--primary))' }, { name: 'New', value: Math.max(0, 100 - stats.repeatRate), fill: 'rgba(255,255,255,0.1)' }];
     return { growth, repeatData };
   }, [mounted, allUsers, trips, stats.repeatRate]);
+
+  const runAiAnalysis = async () => {
+    if (!trips || !allRoutes) return;
+    setIsAnalyzing(true);
+    try {
+      const snapshot = `Active Trips: ${trips.filter(t => t.status === 'active').length}. Average Occupancy: ${stats.repeatRate}%`;
+      const result = await analyzeDemandIntelligence({
+        gridSnapshot: snapshot,
+        unmetRequests: "High demand seen for IT Park corridor during 9 AM slot.",
+        externalContext: "Heavy rain season in the city."
+      });
+      setAiReport(result);
+    } catch (e) {
+      toast({ variant: 'destructive', title: "AI Error", description: "Failed to run grid intelligence." });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const availableDriversForTrip = useMemo(() => {
     if (!selectedTrip || !drivers) return [];
@@ -197,6 +234,11 @@ export default function AdminDashboard() {
         <header className="h-28 border-b border-white/5 px-10 flex items-center justify-between shrink-0 bg-background/50 backdrop-blur-md">
           <h2 className="text-3xl font-black text-foreground italic uppercase tracking-tighter">{activeTab}</h2>
           <div className="flex gap-4">
+            {activeTab === 'dashboard' && (
+              <Button onClick={runAiAnalysis} disabled={isAnalyzing} className="bg-primary text-black h-12 rounded-xl font-black uppercase italic shadow-lg active:scale-95 transition-all">
+                {isAnalyzing ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <Sparkles className="mr-2 h-5 w-5" />} AI Insights
+              </Button>
+            )}
             {activeTab === 'rides' && <Button onClick={handleSmartAllocate} disabled={isAllocatingBatch} className="bg-primary text-black h-12 rounded-xl font-black uppercase italic shadow-lg active:scale-95 transition-all"><Zap className={`mr-2 h-5 w-5 ${isAllocatingBatch ? 'animate-pulse' : ''}`} /> Auto Assign</Button>}
             <Button onClick={() => setIsCleaning(true)} variant="outline" className="border-destructive/20 text-destructive h-12 rounded-xl font-black uppercase italic hover:bg-destructive/10 transition-all">Reset All</Button>
           </div>
@@ -205,6 +247,24 @@ export default function AdminDashboard() {
         <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar animate-in fade-in duration-500">
           {activeTab === 'dashboard' && (
             <div className="space-y-10">
+              {aiReport && (
+                <Card className="bg-primary/5 border-primary/20 rounded-[2.5rem] p-8 space-y-4 border-l-8 border-primary animate-in slide-in-from-top-4">
+                  <div className="flex items-center gap-3 text-primary">
+                    <Sparkles className="h-6 w-6" />
+                    <h3 className="text-xl font-black italic uppercase">Grid Architect Insights</h3>
+                  </div>
+                  <p className="text-sm font-bold italic text-muted-foreground uppercase tracking-wide">{aiReport.strategicSummary}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {aiReport.hotspots.map((h, i) => (
+                      <div key={i} className="bg-black/20 p-4 rounded-xl space-y-1 border border-white/5">
+                        <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black">{h.demandLevel}</Badge>
+                        <p className="font-black italic text-foreground uppercase">{h.locationName}</p>
+                        <p className="text-[10px] text-muted-foreground font-bold italic">{h.justification}</p>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {[ { label: 'Active Drivers', value: stats.activeDrivers, icon: Car }, { label: 'Total Passengers', value: stats.totalCustomers, icon: Users }, { label: 'Happiness Index', value: stats.avgNps, icon: Smile }, { label: 'Repeat Rate', value: `${stats.repeatRate}%`, icon: Target }, ].map((metric, i) => (
                   <Card key={i} className="bg-white/5 border-white/10 rounded-2xl border-b-4 border-primary/20 shadow-xl"><CardContent className="p-6"><div className="p-3 bg-primary/10 rounded-xl w-fit mb-4 shadow-inner"><metric.icon className="h-5 w-5 text-primary" /></div><p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">{metric.label}</p><h3 className="text-3xl font-black text-foreground italic">{metric.value}</h3></CardContent></Card>
