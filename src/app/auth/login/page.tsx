@@ -59,7 +59,9 @@ export default function LoginPage() {
   }, []);
 
   const setupRecaptcha = () => {
-    if (!auth || recaptchaVerifier.current) return;
+    if (!auth) return;
+    if (recaptchaVerifier.current) return;
+    
     try {
       recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'invisible',
@@ -77,26 +79,22 @@ export default function LoginPage() {
 
     try {
       setupRecaptcha();
-      // Clean phone number: remove non-digits
       const numericPart = phoneNumber.replace(/\D/g, '');
       const formattedPhone = `+91${numericPart}`;
       
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
       setStep(2);
-      toast({ title: "Code Sent", description: "Check your phone messages." });
+      toast({ title: "Code Sent", description: "Check your messages." });
     } catch (error: any) {
       console.error("Auth Error:", error);
-      if (error.code === 'auth/too-many-requests') {
-        toast({ 
-          variant: "destructive", 
-          title: "Limit Reached", 
-          description: "Too many attempts. Please try again after some time." 
-        });
-      } else {
-        toast({ variant: "destructive", title: "OTP Failed", description: "Could not send code. Please check the number." });
-      }
-      // Reset recaptcha on error to allow retry
+      toast({ 
+        variant: "destructive", 
+        title: "OTP Failed", 
+        description: error.code === 'auth/captcha-check-failed' 
+          ? "Please add this domain to Firebase Authorized Domains."
+          : "Limit reached or invalid number. Try again later." 
+      });
       if (recaptchaVerifier.current) {
         recaptchaVerifier.current.clear();
         recaptchaVerifier.current = null;

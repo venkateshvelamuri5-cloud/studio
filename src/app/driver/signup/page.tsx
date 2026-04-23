@@ -74,7 +74,9 @@ export default function DriverSignupPage() {
   }, []);
 
   const setupRecaptcha = () => {
-    if (!auth || recaptchaVerifier.current) return;
+    if (!auth) return;
+    if (recaptchaVerifier.current) return;
+    
     try {
       recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup-driver', {
         size: 'invisible',
@@ -107,10 +109,10 @@ export default function DriverSignupPage() {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
-      canvas.width = 640;
-      canvas.height = 480;
-      canvas.getContext('2d')?.drawImage(video, 0, 0, 640, 480);
-      setPhotoUrl(canvas.toDataURL('image/jpeg'));
+      canvas.width = 400; // Small size to avoid doc limit
+      canvas.height = 300;
+      canvas.getContext('2d')?.drawImage(video, 0, 0, 400, 300);
+      setPhotoUrl(canvas.toDataURL('image/jpeg', 0.7));
       if (video.srcObject) (video.srcObject as MediaStream).getTracks().forEach(t => t.stop());
     }
   };
@@ -141,7 +143,13 @@ export default function DriverSignupPage() {
       toast({ title: "Code Sent" });
     } catch (error: any) {
       console.error("Auth Error:", error);
-      toast({ variant: "destructive", title: "Error", description: "Could not send code." });
+      toast({ 
+        variant: "destructive", 
+        title: "Code Failed", 
+        description: error.code === 'auth/captcha-check-failed' 
+          ? "Please add this domain to Firebase Authorized Domains."
+          : "Could not send code. Check number." 
+      });
       if (recaptchaVerifier.current) {
         recaptchaVerifier.current.clear();
         recaptchaVerifier.current = null;
@@ -157,16 +165,38 @@ export default function DriverSignupPage() {
     setLoading(true);
     try {
       const result = await confirmationResult.confirm(otp);
+      
+      // Save profile - Using smaller image representations if possible
       await setDoc(doc(db, 'users', result.user.uid), {
         uid: result.user.uid,
         phoneNumber: result.user.phoneNumber,
-        fullName, licenseNumber, vehicleNumber, vehicleType, aadhaarNumber, photoUrl, dlPhotoUrl, aadhaarPhotoUrl,
-        role: 'driver', isVerified: false, status: 'offline', totalEarnings: 0, createdAt: new Date().toISOString(),
+        fullName,
+        licenseNumber,
+        vehicleNumber,
+        vehicleType,
+        aadhaarNumber,
+        photoUrl: photoUrl || null,
+        dlPhotoUrl: dlPhotoUrl || null,
+        aadhaarPhotoUrl: aadhaarPhotoUrl || null,
+        role: 'driver',
+        isVerified: false,
+        isBlocked: false,
+        status: 'offline',
+        totalEarnings: 0,
+        createdAt: new Date().toISOString(),
       });
+      
       setSuccess(true);
+      toast({ title: "Profile Submitted", description: "Admin will review your docs." });
     } catch (error: any) {
       console.error("Verify Error:", error);
-      toast({ variant: "destructive", title: "Wrong Code" });
+      toast({ 
+        variant: "destructive", 
+        title: "Signup Failed", 
+        description: error.code === 'permission-denied' 
+          ? "Database error. Contact support." 
+          : "Invalid OTP code. Try again." 
+      });
     } finally {
       setLoading(false);
     }
