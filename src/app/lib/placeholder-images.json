@@ -2,40 +2,34 @@
 {
   "placeholderImages": [
     {
-      "id": "modern-transit",
-      "description": "Clean modern transit hub with people walking",
-      "imageUrl": "https://picsum.photos/seed/aago-transit/1200/800",
-      "imageHint": "modern transit"
+      "id": "animated-shuttle",
+      "description": "Abstract vector illustration of a modern shuttle",
+      "imageUrl": "https://picsum.photos/seed/aago-vector-shuttle/1200/800",
+      "imageHint": "shuttle illustration"
     },
     {
-      "id": "office-commute",
-      "description": "Professional person checking phone while commuting",
-      "imageUrl": "https://picsum.photos/seed/aago-commuter/800/600",
-      "imageHint": "commuter person"
+      "id": "commute-abstract",
+      "description": "Abstract illustration of people commuting in a city",
+      "imageUrl": "https://picsum.photos/seed/aago-vector-commute/800/600",
+      "imageHint": "commute illustration"
     },
     {
-      "id": "city-map-light",
-      "description": "Soft colored digital city map with route lines",
-      "imageUrl": "https://picsum.photos/seed/aago-map-light/800/600",
-      "imageHint": "city map"
+      "id": "city-abstract",
+      "description": "Minimalist vector map of a city route",
+      "imageUrl": "https://picsum.photos/seed/aago-vector-map/800/600",
+      "imageHint": "vector map"
     },
     {
-      "id": "modern-shuttle",
-      "description": "Sleek white shuttle van on a city street",
-      "imageUrl": "https://picsum.photos/seed/aago-shuttle-modern/1200/800",
-      "imageHint": "modern shuttle"
+      "id": "safety-abstract",
+      "description": "Abstract shield illustration for safety",
+      "imageUrl": "https://picsum.photos/seed/aago-vector-safety/800/800",
+      "imageHint": "safety illustration"
     },
     {
-      "id": "happy-commuter",
-      "description": "A person smiling while using their phone inside a clean transit vehicle",
-      "imageUrl": "https://picsum.photos/seed/aago-happy/1200/800",
-      "imageHint": "happy commuter"
-    },
-    {
-      "id": "safety-verified",
-      "description": "Abstract shield icon with verified checkmark",
-      "imageUrl": "https://picsum.photos/seed/aago-safety/800/800",
-      "imageHint": "safety verified"
+      "id": "happy-commute-vector",
+      "description": "Abstract illustration of a satisfied commuter",
+      "imageUrl": "https://picsum.photos/seed/aago-vector-happy/1200/800",
+      "imageHint": "person illustration"
     }
   ]
 }
