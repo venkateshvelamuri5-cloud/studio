@@ -9,13 +9,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, Camera, RefreshCcw, CheckCircle2, AlertCircle, Upload, FileText } from 'lucide-react';
+import { Loader2, Camera, RefreshCcw, CheckCircle2, Upload } from 'lucide-react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const Logo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -29,6 +27,7 @@ const Logo = ({ className = "h-8 w-8" }: { className?: string }) => (
 export default function DriverSignupPage() {
   const [step, setStep] = useState(1); 
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
   
   const [fullName, setFullName] = useState('');
   const [licenseNumber, setLicenseNumber] = useState('');
@@ -42,8 +41,6 @@ export default function DriverSignupPage() {
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
@@ -56,7 +53,7 @@ export default function DriverSignupPage() {
   const recaptchaVerifier = useRef<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
-    if (!authLoading && user && db) {
+    if (!authLoading && user && db && !success) {
       getDoc(doc(db, 'users', user.uid)).then((snap) => {
         if (snap.exists()) {
           const profile = snap.data();
@@ -65,7 +62,7 @@ export default function DriverSignupPage() {
         }
       });
     }
-  }, [user, authLoading, router, db]);
+  }, [user, authLoading, router, db, success]);
 
   const setupRecaptcha = () => {
     if (!auth) return;
@@ -83,33 +80,16 @@ export default function DriverSignupPage() {
   };
 
   const getCameraPermission = async () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
-    }
-
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'user' } 
-      });
-      setHasCameraPermission(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      if (videoRef.current) videoRef.current.srcObject = stream;
     } catch (error) {
-      console.error('Camera access error:', error);
-      setHasCameraPermission(false);
-      toast({ 
-        variant: 'destructive', 
-        title: 'Camera Error', 
-        description: 'Please let us use your camera in settings.' 
-      });
+      toast({ variant: 'destructive', title: 'Camera Error', description: 'Enable camera to take photo.' });
     }
   };
 
   useEffect(() => {
-    if (step === 2 && !photoUrl) {
-      getCameraPermission();
-    }
+    if (step === 2 && !photoUrl) getCameraPermission();
     return () => {
       if (videoRef.current && videoRef.current.srcObject) {
         (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
@@ -121,26 +101,17 @@ export default function DriverSignupPage() {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
-      const ratio = video.videoWidth / video.videoHeight;
       canvas.width = 640;
-      canvas.height = 640 / ratio;
-      
-      const ctx = canvas.getContext('2d');
-      ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      
-      setPhotoUrl(dataUrl);
-
-      if (videoRef.current.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
-      }
+      canvas.height = 480;
+      canvas.getContext('2d')?.drawImage(video, 0, 0, 640, 480);
+      setPhotoUrl(canvas.toDataURL('image/jpeg'));
+      if (video.srcObject) (video.srcObject as MediaStream).getTracks().forEach(t => t.stop());
     }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'dl' | 'aadhaar') => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onloadend = () => {
       if (target === 'dl') setDlPhotoUrl(reader.result as string);
@@ -153,16 +124,15 @@ export default function DriverSignupPage() {
     e.preventDefault();
     if (!auth) return;
     setLoading(true);
-
     try {
       setupRecaptcha();
       const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+91${phoneNumber}`;
       const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
       setConfirmationResult(result);
-      setStep(3); 
-      toast({ title: "Code Sent", description: "Check your messages." });
+      setStep(3);
+      toast({ title: "Code Sent" });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Error", description: "Try again in a bit." });
+      toast({ variant: "destructive", title: "Error", description: "Could not send code." });
     } finally {
       setLoading(false);
     }
@@ -172,33 +142,17 @@ export default function DriverSignupPage() {
     e.preventDefault();
     if (!confirmationResult || !db) return;
     setLoading(true);
-
     try {
       const result = await confirmationResult.confirm(otp);
-      const referralCode = `AAGO-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-
       await setDoc(doc(db, 'users', result.user.uid), {
         uid: result.user.uid,
         phoneNumber: result.user.phoneNumber,
-        fullName, 
-        licenseNumber, 
-        vehicleNumber, 
-        vehicleType,
-        seatingCapacity: 7,
-        aadhaarNumber,
-        photoUrl,
-        dlPhotoUrl,
-        aadhaarPhotoUrl,
-        referralCode,
-        role: 'driver', 
-        isVerified: false,
-        status: 'offline', 
-        totalEarnings: 0, 
-        createdAt: new Date().toISOString(),
+        fullName, licenseNumber, vehicleNumber, vehicleType, aadhaarNumber, photoUrl, dlPhotoUrl, aadhaarPhotoUrl,
+        role: 'driver', isVerified: false, status: 'offline', totalEarnings: 0, createdAt: new Date().toISOString(),
       });
-      router.push('/driver');
+      setSuccess(true);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Wrong Code", description: "Try again." });
+      toast({ variant: "destructive", title: "Wrong Code" });
     } finally {
       setLoading(false);
     }
@@ -206,142 +160,95 @@ export default function DriverSignupPage() {
 
   if (authLoading) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin h-12 w-12 text-primary" /></div>;
 
+  if (success) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center space-y-8 animate-in fade-in">
+       <div className="h-24 w-24 bg-primary text-black rounded-full flex items-center justify-center shadow-2xl"><CheckCircle2 className="h-12 w-12" /></div>
+       <div className="space-y-4">
+          <h1 className="text-4xl font-black italic uppercase text-primary leading-none">Registration Done!</h1>
+          <p className="text-[11px] font-bold text-muted-foreground uppercase leading-relaxed px-10">Your account is now under review. Admin will verify your ID before you can start picking trips. This usually takes 2-4 hours.</p>
+       </div>
+       <Link href="/driver/login" className="w-full max-w-xs"><Button className="w-full h-16 bg-white/5 rounded-2xl border border-white/10 font-black uppercase italic">Go to Login</Button></Link>
+    </div>
+  );
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 font-body safe-area-inset">
       <div id="recaptcha-container-signup-driver"></div>
-      
       <div className="mb-6 flex flex-col items-center gap-3">
-        <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/30">
-          <Logo className="h-6 w-6 text-black" />
-        </div>
-        <h1 className="text-xl font-black italic uppercase text-foreground text-center">Driver Registration</h1>
+        <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/30"><Logo className="h-6 w-6 text-black" /></div>
+        <h1 className="text-xl font-black italic uppercase text-foreground text-center tracking-tighter">DRIVER HUB</h1>
       </div>
 
       <Card className="w-full max-w-md bg-white/5 border-none rounded-[2.5rem] overflow-hidden shadow-2xl">
-        <CardHeader className="pt-8 pb-4 text-center">
-          <CardTitle className="text-lg font-black uppercase italic tracking-tighter">Join as a Driver</CardTitle>
-          <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2">ID Check</CardDescription>
+        <CardHeader className="pt-8 pb-4 text-center border-b border-white/5">
+          <CardTitle className="text-lg font-black uppercase italic tracking-tighter leading-none">Join AAGO</CardTitle>
+          <CardDescription className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-2 italic">Professional Identity Check</CardDescription>
         </CardHeader>
         
         <CardContent className="px-6 py-8">
           {step === 1 && (
             <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Name" className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" />
+              <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</Label><Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Name" className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">License No.</Label><Input value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} placeholder="License" className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" /></div>
+                <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Aadhaar No.</Label><Input value={aadhaarNumber} onChange={(e) => setAadhaarNumber(e.target.value)} placeholder="ID" className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">License No.</Label>
-                  <Input value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} placeholder="License" className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">ID No.</Label>
-                  <Input value={aadhaarNumber} onChange={(e) => setAadhaarNumber(e.target.value)} placeholder="ID" className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Plate Number</Label>
-                  <Input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="Number" className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" />
-                </div>
+                <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Plate No.</Label><Input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="Number" className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl" /></div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Car Type</Label>
                   <Select value={vehicleType} onValueChange={setVehicleType}>
                     <SelectTrigger className="h-12 bg-white/5 border-white/10 font-black italic rounded-xl"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-background border-white/10">
-                      <SelectItem value="5 Seater">5 Seater</SelectItem>
-                      <SelectItem value="7 Seater">7 Seater</SelectItem>
-                    </SelectContent>
+                    <SelectContent className="bg-background border-white/10"><SelectItem value="5 Seater">5 Seater</SelectItem><SelectItem value="7 Seater">7 Seater</SelectItem></SelectContent>
                   </Select>
                 </div>
               </div>
-              <Button onClick={() => setStep(2)} disabled={!fullName || !vehicleNumber || !licenseNumber || !aadhaarNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic mt-4">Next: Take Photo</Button>
+              <Button onClick={() => setStep(2)} disabled={!fullName || !vehicleNumber || !licenseNumber || !aadhaarNumber} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic mt-4 shadow-xl active:scale-95 transition-all">Next: Take Photo</Button>
             </div>
           )}
 
           {step === 2 && (
-            <div className="space-y-8">
-              <div className="space-y-4">
-                 <Label className="text-[10px] font-black uppercase text-center block tracking-widest text-muted-foreground">Take a Photo of Yourself</Label>
+            <div className="space-y-8 animate-in fade-in">
+              <div className="space-y-4 text-center">
+                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Selfie for ID Card</Label>
                  <div className="relative aspect-square w-48 mx-auto bg-black rounded-3xl overflow-hidden border-2 border-white/10 shadow-2xl">
-                    {!photoUrl ? (
-                      <>
-                        <video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
-                        <canvas ref={canvasRef} className="hidden" />
-                      </>
-                    ) : (
-                      <img src={photoUrl} className="h-full w-full object-cover" />
-                    )}
+                    {!photoUrl ? <><video ref={videoRef} className="h-full w-full object-cover" autoPlay muted playsInline /><canvas ref={canvasRef} className="hidden" /></> : <img src={photoUrl} className="h-full w-full object-cover" />}
                  </div>
-                 {!photoUrl ? (
-                   <Button onClick={capturePhoto} className="w-full h-12 bg-primary text-black rounded-xl font-black uppercase italic text-xs"><Camera className="mr-2 h-4 w-4" /> Take Photo</Button>
-                 ) : (
-                   <Button onClick={() => setPhotoUrl(null)} variant="ghost" className="w-full text-primary font-black uppercase italic text-[10px] h-10 border border-primary/20 rounded-xl"><RefreshCcw className="mr-2 h-3 w-3" /> Re-take Photo</Button>
-                 )}
+                 {!photoUrl ? <Button onClick={capturePhoto} className="w-full h-12 bg-primary text-black rounded-xl font-black uppercase italic text-xs">Take Photo</Button> : <Button onClick={() => setPhotoUrl(null)} variant="ghost" className="w-full text-primary font-black uppercase italic text-[10px] border border-primary/20 rounded-xl h-10">Re-take Photo</Button>}
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                  <div className="space-y-2">
                     <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">License Photo</Label>
-                    <div className="relative h-32 w-full bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center p-4">
-                       {dlPhotoUrl ? (
-                         <img src={dlPhotoUrl} className="h-full w-full object-cover rounded-xl" />
-                       ) : (
-                         <div className="flex flex-col items-center gap-2">
-                           <Upload className="h-5 w-5 opacity-20" />
-                           <span className="text-[8px] font-black uppercase opacity-40">Choose File</span>
-                         </div>
-                       )}
+                    <div className="relative h-32 w-full bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center p-2">
+                       {dlPhotoUrl ? <img src={dlPhotoUrl} className="h-full w-full object-cover rounded-xl" /> : <div className="opacity-20 flex flex-col items-center gap-2"><Upload className="h-5 w-5" /><span className="text-[8px] font-black uppercase">Upload</span></div>}
                        <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'dl')} className="absolute inset-0 opacity-0 cursor-pointer" />
                     </div>
                  </div>
                  <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">ID Photo</Label>
-                    <div className="relative h-32 w-full bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center p-4">
-                       {aadhaarPhotoUrl ? (
-                         <img src={aadhaarPhotoUrl} className="h-full w-full object-cover rounded-xl" />
-                       ) : (
-                         <div className="flex flex-col items-center gap-2">
-                           <Upload className="h-5 w-5 opacity-20" />
-                           <span className="text-[8px] font-black uppercase opacity-40">Choose File</span>
-                         </div>
-                       )}
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Aadhaar Photo</Label>
+                    <div className="relative h-32 w-full bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center p-2">
+                       {aadhaarPhotoUrl ? <img src={aadhaarPhotoUrl} className="h-full w-full object-cover rounded-xl" /> : <div className="opacity-20 flex flex-col items-center gap-2"><Upload className="h-5 w-5" /><span className="text-[8px] font-black uppercase">Upload</span></div>}
                        <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'aadhaar')} className="absolute inset-0 opacity-0 cursor-pointer" />
                     </div>
                  </div>
               </div>
-
-              <Button onClick={() => setStep(3)} disabled={!photoUrl || !dlPhotoUrl || !aadhaarPhotoUrl} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl">Confirm Photos</Button>
+              <Button onClick={() => setStep(3)} disabled={!photoUrl || !dlPhotoUrl || !aadhaarPhotoUrl} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-2xl">Confirm Identity</Button>
             </div>
           )}
 
           {step === 3 && (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-in fade-in">
               <form onSubmit={handleSendOtp} className="space-y-6">
                 <div className="space-y-3">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number</Label>
-                  <div className="relative">
-                    <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary text-lg z-20">+91</span>
-                    <Input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="0000000000" className="h-16 pl-20 rounded-xl bg-white/5 border-white/10 font-black italic text-xl" required />
-                  </div>
+                  <div className="relative"><span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary text-lg z-20">+91</span><Input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="0000000000" className="h-16 pl-20 rounded-xl bg-white/5 border-white/10 font-black italic text-xl" required /></div>
                 </div>
-                {!confirmationResult ? (
-                  <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic">Send Code</Button>
-                ) : (
-                  <div className="space-y-6">
-                     <Input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="Code" className="h-20 text-center text-4xl tracking-[0.4em] rounded-2xl bg-white/5 border-white/10 font-black text-primary" maxLength={6} required />
-                     <Button onClick={handleVerifyOtp} disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-18 rounded-2xl font-black uppercase italic">Verify & Register</Button>
-                  </div>
-                )}
+                {!confirmationResult ? <Button type="submit" disabled={loading || phoneNumber.length < 10} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl">Send Code</Button> : <div className="space-y-6"><Input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" className="h-20 text-center text-4xl tracking-[0.4em] rounded-2xl bg-white/5 border-white/10 font-black text-primary" maxLength={6} required /><Button onClick={handleVerifyOtp} disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-18 rounded-2xl font-black uppercase italic shadow-2xl">Verify & Join Hub</Button></div>}
               </form>
             </div>
           )}
         </CardContent>
-
-        <CardFooter className="bg-white/5 p-8 border-t border-white/5">
-          <Link href="/driver/login" className="text-[10px] font-black uppercase italic text-primary hover:underline text-center w-full">Already registered? Login</Link>
-        </CardFooter>
+        <CardFooter className="bg-white/5 p-8 border-t border-white/5 text-center"><Link href="/driver/login" className="text-[10px] font-black uppercase italic text-primary hover:underline w-full">Already registered? Login</Link></CardFooter>
       </Card>
     </div>
   );
