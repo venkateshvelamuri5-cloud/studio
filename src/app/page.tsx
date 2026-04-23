@@ -270,7 +270,6 @@ export default function LandingPage() {
                     {[
                       "Standard 7-seater vehicles only",
                       "Ride Code (OTP) for safe boarding",
-                      "Full ticket refund if we are late",
                       "Direct Boarding to Dropping transit"
                     ].map((feature, i) => (
                       <div key={i} className="flex items-center gap-6 group">
