@@ -45,7 +45,9 @@ import {
   CalendarDays,
   Edit,
   ShieldAlert,
-  ShieldCheck
+  ShieldCheck,
+  Clock,
+  Briefcase
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useAuth } from '@/firebase';
 import { collection, query, doc, orderBy, addDoc, deleteDoc, getDocs, updateDoc, where } from 'firebase/firestore';
@@ -75,7 +77,7 @@ const Logo = ({ className = "h-8 w-8" }: { className?: string }) => (
   </svg>
 );
 
-type AdminTab = 'dashboard' | 'customers' | 'drivers' | 'routes' | 'analytics' | 'vouchers';
+type AdminTab = 'dashboard' | 'customers' | 'drivers' | 'routes' | 'trips' | 'analytics' | 'vouchers';
 
 export default function AdminDashboard() {
   const db = useFirestore();
@@ -94,6 +96,10 @@ export default function AdminDashboard() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({ fullName: '', phoneNumber: '', identityNumber: '', role: '' });
 
+  // Allocation State
+  const [selectedTrip, setSelectedTrip] = useState<any>(null);
+  const [isAllocating, setIsAllocating] = useState(false);
+
   // Route Creation State
   const [newRoute, setNewRoute] = useState({ name: '', fare: '', schedule: '', stops: [] as any[] });
   const [tempStopName, setTempStopName] = useState("");
@@ -111,7 +117,7 @@ export default function AdminDashboard() {
 
   const { data: allUsers } = useCollection(useMemo(() => db ? query(collection(db, 'users')) : null, [db]));
   const { data: allRoutes } = useCollection(useMemo(() => db ? query(collection(db, 'routes'), orderBy('createdAt', 'desc')) : null, [db]));
-  const { data: trips } = useCollection(useMemo(() => db ? query(collection(db, 'trips')) : null, [db]));
+  const { data: trips } = useCollection(useMemo(() => db ? query(collection(db, 'trips'), orderBy('scheduledDate', 'desc')) : null, [db]));
   const { data: vouchers } = useCollection(useMemo(() => db ? query(collection(db, 'vouchers')) : null, [db]));
 
   const drivers = useMemo(() => allUsers?.filter(u => u.role === 'driver') || [], [allUsers]);
@@ -162,6 +168,41 @@ export default function AdminDashboard() {
 
     return { growth, repeatData };
   }, [mounted, allUsers, trips, stats.repeatRate]);
+
+  // Logic to find free drivers for a trip (No Overlaps)
+  const availableDriversForTrip = useMemo(() => {
+    if (!selectedTrip || !drivers) return [];
+    return drivers.filter(d => {
+      // Must be verified
+      if (!d.isVerified) return false;
+      // Must not be blocked
+      if (d.isBlocked) return false;
+      // Check for overlaps: Does this driver have a trip at the SAME time/date?
+      const isOverlapping = trips?.some(t => 
+        t.driverId === d.uid && 
+        t.status !== 'completed' && 
+        t.scheduledDate === selectedTrip.scheduledDate && 
+        t.scheduledTime === selectedTrip.scheduledTime
+      );
+      return !isOverlapping;
+    });
+  }, [selectedTrip, drivers, trips]);
+
+  const handleAssignDriver = async (driver: any) => {
+    if (!db || !selectedTrip) return;
+    try {
+      await updateDoc(doc(db, 'trips', selectedTrip.id), {
+        driverId: driver.uid,
+        driverName: driver.fullName,
+        driverPhoto: driver.photoUrl || null,
+        vehicleNumber: driver.vehicleNumber
+      });
+      toast({ title: "Driver Assigned", description: `${driver.fullName} is now on this trip.` });
+      setIsAllocating(false);
+    } catch (e) {
+      toast({ variant: 'destructive', title: "Error", description: "Could not assign driver." });
+    }
+  };
 
   const handleApproveDriver = async (driverId: string) => {
     if (!db) return;
@@ -301,6 +342,7 @@ export default function AdminDashboard() {
             { id: 'customers', label: 'Customers', icon: Users },
             { id: 'drivers', label: 'Drivers', icon: Car },
             { id: 'routes', label: 'Routes', icon: RouteIcon },
+            { id: 'trips', label: 'Trips', icon: Briefcase },
             { id: 'analytics', label: 'Analytics', icon: BarChart3 },
             { id: 'vouchers', label: 'Discounts', icon: Ticket },
           ].map((item) => (
@@ -589,6 +631,70 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {activeTab === 'trips' && (
+            <div className="animate-in fade-in space-y-10">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-black italic uppercase text-primary">Trip Interest & Allocation</h3>
+                <p className="text-[10px] font-black uppercase text-muted-foreground italic">Monitor queues and assign free drivers.</p>
+              </div>
+              <Card className="bg-white/5 border-white/10 rounded-[2.5rem] overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-white/5">
+                    <TableRow className="border-white/5">
+                      <TableHead className="text-[10px] font-black uppercase italic h-16">Trip Details</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase italic h-16">Interest (Queue)</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase italic h-16">Assigned Driver</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase italic h-16 text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {trips?.map((t: any) => (
+                      <TableRow key={t.id} className="border-white/5 hover:bg-white/5">
+                        <TableCell className="py-6">
+                          <div className="space-y-1">
+                            <p className="font-black italic text-lg uppercase leading-none">{t.routeName}</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase">{t.scheduledDate} • {t.scheduledTime}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-24 bg-white/5 rounded-full overflow-hidden relative">
+                              <div 
+                                className="h-full bg-primary" 
+                                style={{ width: `${(t.riderCount / t.maxCapacity) * 100}%` }}
+                              />
+                            </div>
+                            <span className="font-black italic text-sm">{t.riderCount} / {t.maxCapacity}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {t.driverName ? (
+                            <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden">
+                                {t.driverPhoto ? <img src={t.driverPhoto} className="h-full w-full object-cover" /> : <Car className="h-4 w-4 text-primary" />}
+                              </div>
+                              <span className="font-black italic text-sm">{t.driverName}</span>
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className="text-[8px] border-destructive/20 text-destructive font-black uppercase">UNASSIGNED</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button onClick={() => { setSelectedTrip(t); setIsAllocating(true); }} className="h-11 px-6 rounded-xl bg-primary text-black font-black uppercase italic text-xs shadow-lg shadow-primary/10">Assign</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {(!trips || trips.length === 0) && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-20 text-muted-foreground uppercase font-bold italic opacity-40">No active trips found</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </Card>
+            </div>
+          )}
+
           {activeTab === 'analytics' && (
             <div className="space-y-10 animate-in fade-in pb-20">
               <div className="grid grid-cols-1 gap-10">
@@ -650,7 +756,7 @@ export default function AdminDashboard() {
                            <Input type="number" value={newVoucher.limit} onChange={e => setNewVoucher({...newVoucher, limit: e.target.value})} placeholder="100" className="h-14 bg-white/5 rounded-xl font-black italic" />
                         </div>
                       </div>
-                      <Button onClick={handleAddVoucher} disabled={!newVoucher.code || !newVoucher.discount} className="w-full h-18 bg-primary text-black font-black uppercase italic rounded-2xl shadow-xl text-lg">Create Code</Button>
+                      <Button onClick={handleAddVoucher} disabled={!newVoucher.code || !newVoucher.discount} className="w-full h-18 bg-primary text-black rounded-2xl shadow-xl text-lg font-black uppercase italic">Create Code</Button>
                    </div>
                 </Card>
 
@@ -676,6 +782,44 @@ export default function AdminDashboard() {
           )}
         </div>
       </main>
+
+      {/* Driver Allocation Dialog */}
+      <Dialog open={isAllocating} onOpenChange={setIsAllocating}>
+        <DialogContent className="bg-background border-white/10 rounded-[2.5rem] p-10 max-w-2xl h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-3xl font-black uppercase italic text-primary">Assign Driver</DialogTitle>
+            <DialogDescription className="text-[10px] font-bold uppercase text-muted-foreground mt-2">
+              Showing free drivers for {selectedTrip?.routeName} on {selectedTrip?.scheduledDate} at {selectedTrip?.scheduledTime}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-4 py-8 custom-scrollbar">
+            {availableDriversForTrip.length > 0 ? (
+              availableDriversForTrip.map((d: any) => (
+                <div key={d.id} className="p-6 bg-white/5 rounded-2xl border border-white/5 flex items-center justify-between group hover:border-primary/30 transition-all">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-full bg-white/10 overflow-hidden">
+                      {d.photoUrl ? <img src={d.photoUrl} className="h-full w-full object-cover" /> : <Car className="h-6 w-6 text-muted-foreground p-3" />}
+                    </div>
+                    <div>
+                      <p className="font-black italic uppercase text-lg leading-none">{d.fullName}</p>
+                      <p className="text-[9px] font-bold text-muted-foreground uppercase mt-2">{d.vehicleNumber} • {d.vehicleType}</p>
+                    </div>
+                  </div>
+                  <Button onClick={() => handleAssignDriver(d)} className="h-11 px-6 bg-primary text-black font-black uppercase italic rounded-xl text-xs">Assign</Button>
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-center space-y-4 opacity-40">
+                <ShieldAlert className="h-12 w-12 text-destructive" />
+                <p className="text-xs font-black uppercase italic">No free drivers found for this time slot.</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsAllocating(false)} className="w-full h-14 rounded-xl font-black uppercase italic">Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
