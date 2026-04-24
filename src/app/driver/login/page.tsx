@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -34,7 +34,6 @@ export default function DriverLoginPage() {
   const db = useFirestore();
   const { user, loading: authLoading } = useUser();
   const { toast } = useToast();
-  const recaptchaVerifier = useRef<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
     if (!authLoading && user && db) {
@@ -49,25 +48,22 @@ export default function DriverLoginPage() {
     }
   }, [user, authLoading, db, router]);
 
-  useEffect(() => {
-    return () => {
-      if (recaptchaVerifier.current) {
-        recaptchaVerifier.current.clear();
-        recaptchaVerifier.current = null;
-      }
-    };
-  }, []);
-
   const setupRecaptcha = () => {
-    if (!auth) return;
-    if (recaptchaVerifier.current) return;
+    if (typeof window === 'undefined' || !auth) return null;
+    const container = document.getElementById('recaptcha-container-driver');
+    if (!container) return null;
+
     try {
-      recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container-driver', {
-        size: 'invisible',
-        callback: () => {}
-      });
+      if (!(window as any).recaptchaVerifier) {
+        (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container-driver', {
+          size: 'invisible',
+          callback: () => {}
+        });
+      }
+      return (window as any).recaptchaVerifier;
     } catch (error) {
       console.error("Recaptcha error:", error);
+      return null;
     }
   };
 
@@ -77,11 +73,13 @@ export default function DriverLoginPage() {
     setLoading(true);
 
     try {
-      setupRecaptcha();
+      const verifier = setupRecaptcha();
+      if (!verifier) throw new Error("Recaptcha failed to initialize.");
+
       const numericPart = phoneNumber.replace(/\D/g, '');
       const formattedPhone = `+91${numericPart}`;
       
-      const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
+      const result = await signInWithPhoneNumber(auth, formattedPhone, verifier);
       setConfirmationResult(result);
       setStep(2);
       toast({ title: "Code Sent", description: "Identity check code sent to phone." });
@@ -90,14 +88,8 @@ export default function DriverLoginPage() {
       toast({ 
         variant: "destructive", 
         title: "OTP Failed", 
-        description: error.code === 'auth/captcha-check-failed' 
-          ? "Please add this domain to Firebase Authorized Domains."
-          : "Could not send code. Check your number." 
+        description: "Could not send code. Check your connection or number." 
       });
-      if (recaptchaVerifier.current) {
-        recaptchaVerifier.current.clear();
-        recaptchaVerifier.current = null;
-      }
     } finally {
       setLoading(false);
     }
@@ -151,7 +143,7 @@ export default function DriverLoginPage() {
         </div>
       </div>
 
-      <Card className="w-full max-w-md bg-white/5 border-none rounded-[3.5rem] overflow-hidden shadow-2xl">
+      <Card className="w-full max-md bg-white/5 border-none rounded-[3.5rem] overflow-hidden shadow-2xl">
         <CardHeader className="pt-14 pb-8 text-center border-b border-white/5">
           <CardTitle className="text-2xl font-black uppercase italic tracking-tighter">Login</CardTitle>
           <CardDescription className="font-bold text-muted-foreground uppercase text-[9px] tracking-widest italic mt-2">Verify Identity</CardDescription>

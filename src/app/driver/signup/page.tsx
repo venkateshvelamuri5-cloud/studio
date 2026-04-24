@@ -9,8 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Camera, RefreshCcw, CheckCircle2, Upload } from 'lucide-react';
+import { Loader2, Camera, CheckCircle2, Upload } from 'lucide-react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
@@ -53,7 +52,6 @@ export default function DriverSignupPage() {
   const db = useFirestore();
   const { user, loading: authLoading } = useUser();
   const { toast } = useToast();
-  const recaptchaVerifier = useRef<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
     if (!authLoading && user && db && !success) {
@@ -67,31 +65,25 @@ export default function DriverSignupPage() {
     }
   }, [user, authLoading, router, db, success]);
 
-  // Handle reCAPTCHA cleanup
-  useEffect(() => {
-    return () => {
-      if (recaptchaVerifier.current) {
-        recaptchaVerifier.current.clear();
-        recaptchaVerifier.current = null;
-      }
-    };
-  }, []);
-
   const setupRecaptcha = () => {
-    if (!auth) return;
-    if (recaptchaVerifier.current) return;
-    
+    if (typeof window === 'undefined' || !auth) return null;
+    const container = document.getElementById('recaptcha-container-signup-driver');
+    if (!container) return null;
+
     try {
-      recaptchaVerifier.current = new RecaptchaVerifier(auth, 'recaptcha-container-signup-driver', {
-        size: 'invisible',
-        callback: () => {}
-      });
+      if (!(window as any).recaptchaVerifier) {
+        (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container-signup-driver', {
+          size: 'invisible',
+          callback: () => {}
+        });
+      }
+      return (window as any).recaptchaVerifier;
     } catch (error) {
       console.error("Recaptcha error:", error);
+      return null;
     }
   };
 
-  // Camera permission logic
   useEffect(() => {
     if (step === 2 && !photoUrl) {
       const getCameraPermission = async () => {
@@ -107,14 +99,12 @@ export default function DriverSignupPage() {
           toast({
             variant: 'destructive',
             title: 'Camera Access Denied',
-            description: 'Please enable camera permissions in your browser settings to take your ID photo.',
+            description: 'Please enable camera permissions to take your ID photo.',
           });
         }
       };
-
       getCameraPermission();
     }
-
     return () => {
       if (videoRef.current && videoRef.current.srcObject) {
         (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
@@ -126,10 +116,10 @@ export default function DriverSignupPage() {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
-      canvas.width = 400; // Efficient size for Firestore
+      canvas.width = 400; 
       canvas.height = 300;
       canvas.getContext('2d')?.drawImage(video, 0, 0, 400, 300);
-      const dataUri = canvas.toDataURL('image/jpeg', 0.6); // Higher compression
+      const dataUri = canvas.toDataURL('image/jpeg', 0.5); 
       setPhotoUrl(dataUri);
       if (video.srcObject) {
         (video.srcObject as MediaStream).getTracks().forEach(t => t.stop());
@@ -140,14 +130,12 @@ export default function DriverSignupPage() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'dl' | 'aadhaar') => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 800000) {
+      toast({ variant: "destructive", title: "File too big", description: "Upload an image under 800KB." });
+      return;
+    }
     const reader = new FileReader();
     reader.onloadend = () => {
-      // Basic compression by using a temporary canvas if needed could go here
-      // For now, we'll just store the string but warn the user if it's too big
-      if (file.size > 800000) {
-        toast({ variant: "destructive", title: "File too big", description: "Please upload a smaller image (under 800KB)." });
-        return;
-      }
       if (target === 'dl') setDlPhotoUrl(reader.result as string);
       else setAadhaarPhotoUrl(reader.result as string);
     };
@@ -159,11 +147,13 @@ export default function DriverSignupPage() {
     if (!auth) return;
     setLoading(true);
     try {
-      setupRecaptcha();
+      const verifier = setupRecaptcha();
+      if (!verifier) throw new Error("Recaptcha failed to initialize.");
+
       const numericPart = phoneNumber.replace(/\D/g, '');
       const formattedPhone = `+91${numericPart}`;
       
-      const result = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifier.current!);
+      const result = await signInWithPhoneNumber(auth, formattedPhone, verifier);
       setConfirmationResult(result);
       setStep(3);
       toast({ title: "OTP sent successfully." });
@@ -172,14 +162,8 @@ export default function DriverSignupPage() {
       toast({ 
         variant: "destructive", 
         title: "Code Failed", 
-        description: error.code === 'auth/captcha-check-failed' 
-          ? "Please add this domain to Firebase Authorized Domains."
-          : "Could not send code. Check your number." 
+        description: "Could not send code. Check your number and internet." 
       });
-      if (recaptchaVerifier.current) {
-        recaptchaVerifier.current.clear();
-        recaptchaVerifier.current = null;
-      }
     } finally {
       setLoading(false);
     }
@@ -192,7 +176,6 @@ export default function DriverSignupPage() {
     try {
       const result = await confirmationResult.confirm(otp);
       
-      // Save profile with explicit flags for admin verification
       await setDoc(doc(db, 'users', result.user.uid), {
         uid: result.user.uid,
         phoneNumber: result.user.phoneNumber,
@@ -213,16 +196,10 @@ export default function DriverSignupPage() {
       });
       
       setSuccess(true);
-      toast({ title: "Profile Submitted", description: "Admin will review your documents shortly." });
+      toast({ title: "Profile Submitted", description: "Admin will verify your ID shortly." });
     } catch (error: any) {
       console.error("Verify Error:", error);
-      toast({ 
-        variant: "destructive", 
-        title: "Signup Failed", 
-        description: error.code === 'permission-denied' 
-          ? "Database error. Please try again." 
-          : "Invalid OTP code. Please check and try again." 
-      });
+      toast({ variant: "destructive", title: "Signup Failed", description: "Invalid OTP. Please check and try again." });
     } finally {
       setLoading(false);
     }
@@ -234,8 +211,8 @@ export default function DriverSignupPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center space-y-8 animate-in fade-in">
        <div className="h-24 w-24 bg-primary text-black rounded-full flex items-center justify-center shadow-2xl"><CheckCircle2 className="h-12 w-12" /></div>
        <div className="space-y-4">
-          <h1 className="text-4xl font-black italic uppercase text-primary leading-none">Registration Done!</h1>
-          <p className="text-[11px] font-bold text-muted-foreground uppercase leading-relaxed px-10">Your account is now under review. Admin will verify your ID before you can start picking trips. This usually takes 2-4 hours.</p>
+          <h1 className="text-4xl font-black italic uppercase text-primary leading-none">Registered!</h1>
+          <p className="text-[11px] font-bold text-muted-foreground uppercase leading-relaxed px-10 italic">Admin will verify your ID before you can start picking duties. This takes 2-4 hours.</p>
        </div>
        <Link href="/driver/login" className="w-full max-w-xs"><Button className="w-full h-16 bg-white/5 rounded-2xl border border-white/10 font-black uppercase italic">Go to Login</Button></Link>
     </div>
@@ -331,7 +308,14 @@ export default function DriverSignupPage() {
                   <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Phone Number</Label>
                   <div className="relative"><span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-primary text-lg z-20">+91</span><Input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="0000000000" className="h-16 pl-20 rounded-xl bg-white/5 border-white/10 font-black italic text-xl" required /></div>
                 </div>
-                {!confirmationResult ? <Button type="submit" disabled={loading || phoneNumber.replace(/\D/g, '').length < 10} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl">Send Code</Button> : <div className="space-y-6"><Input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" className="h-20 text-center text-4xl tracking-[0.4em] rounded-2xl bg-white/5 border-white/10 font-black text-primary" maxLength={6} required /><Button onClick={handleVerifyOtp} disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-18 rounded-2xl font-black uppercase italic shadow-2xl">Verify & Join Hub</Button></div>}
+                {!confirmationResult ? (
+                  <Button type="submit" disabled={loading || phoneNumber.replace(/\D/g, '').length < 10} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl">Send Code</Button>
+                ) : (
+                  <div className="space-y-6">
+                    <Input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="000000" className="h-20 text-center text-4xl tracking-[0.4em] rounded-2xl bg-white/5 border-white/10 font-black text-primary" maxLength={6} required />
+                    <Button onClick={handleVerifyOtp} disabled={loading || otp.length < 6} className="w-full bg-primary text-black h-18 rounded-2xl font-black uppercase italic shadow-2xl">Verify & Join Hub</Button>
+                  </div>
+                )}
               </form>
             </div>
           )}
