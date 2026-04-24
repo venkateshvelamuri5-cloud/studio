@@ -15,7 +15,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
 import { 
-  LayoutDashboard, LogOut, Loader2, Users, Route as RouteIcon, Car, Target, BarChart3, Smile, Plus, Trash2, Ticket, CheckCircle2, ShieldAlert, ShieldCheck, Edit, Briefcase, Zap, Sparkles
+  LayoutDashboard, LogOut, Loader2, Users, Route as RouteIcon, Car, Target, BarChart3, Smile, Plus, Trash2, Ticket, CheckCircle2, ShieldAlert, ShieldCheck, Edit, Briefcase, Zap, Sparkles, FileText, Image as ImageIcon
 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useAuth } from '@/firebase';
 import { collection, query, doc, orderBy, addDoc, deleteDoc, getDocs, updateDoc, where } from 'firebase/firestore';
@@ -56,6 +56,7 @@ export default function AdminDashboard() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDocViewerOpen, setIsDocViewerOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({ fullName: '', phoneNumber: '', identityNumber: '', role: '' });
 
   // Assignment State
@@ -270,16 +271,6 @@ export default function AdminDashboard() {
                   <Card key={i} className="bg-white/5 border-white/10 rounded-2xl border-b-4 border-primary/20 shadow-xl"><CardContent className="p-6"><div className="p-3 bg-primary/10 rounded-xl w-fit mb-4 shadow-inner"><metric.icon className="h-5 w-5 text-primary" /></div><p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1">{metric.label}</p><h3 className="text-3xl font-black text-foreground italic">{metric.value}</h3></CardContent></Card>
                 ))}
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-8 shadow-2xl">
-                  <div className="flex items-center justify-between mb-8"><h3 className="text-xl font-black italic uppercase text-primary">New Joinees</h3><Badge variant="outline" className="text-[10px] font-black italic uppercase">7 Days</Badge></div>
-                  <div className="h-[300px] w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData.growth}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} /><XAxis dataKey="name" stroke="#666" fontSize={10} tickLine={false} axisLine={false} /><YAxis stroke="#666" fontSize={10} tickLine={false} axisLine={false} /><Tooltip contentStyle={{ backgroundColor: '#020617', border: 'none', borderRadius: '1rem', color: '#fff', fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }} /><Bar dataKey="users" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div>
-                </Card>
-                <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-8 shadow-2xl">
-                   <div className="flex items-center justify-between mb-8"><h3 className="text-xl font-black italic uppercase text-primary">Reward Usage</h3><Badge variant="outline" className="text-[10px] font-black italic uppercase">Stats</Badge></div>
-                   <div className="h-[300px] w-full flex items-center justify-center relative"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={chartData.repeatData} innerRadius={80} outerRadius={100} paddingAngle={5} dataKey="value">{chartData.repeatData.map((e, i) => <Cell key={`cell-${i}`} fill={e.fill} />)}</Pie><Tooltip /><Legend iconType="circle" wrapperStyle={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' }} /></PieChart></ResponsiveContainer><div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"><span className="text-3xl font-black italic text-primary">{stats.repeatRate}%</span><span className="text-[8px] font-bold text-muted-foreground uppercase">Repeat</span></div></div>
-                </Card>
-              </div>
             </div>
           )}
 
@@ -295,7 +286,30 @@ export default function AdminDashboard() {
                 <h3 className="text-xl font-black italic uppercase text-primary border-l-4 border-primary pl-4">Pending Duty Approval</h3>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {drivers.filter(d => d.isVerified === false).map((d: any) => (
-                    <Card key={d.id} className="bg-white/5 border-primary/20 rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative overflow-hidden"><div className="flex justify-between items-start"><div className="flex items-center gap-4"><div className="h-14 w-14 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border-2 border-primary/20">{d.photoUrl ? <img src={d.photoUrl} className="h-full w-full object-cover" /> : <Car className="h-6 w-6 text-muted-foreground" />}</div><div><h4 className="text-xl font-black italic uppercase leading-none">{d.fullName}</h4><p className="text-[10px] font-bold text-muted-foreground uppercase mt-2">{d.phoneNumber}</p></div></div><Badge className="bg-destructive/10 text-destructive border-none text-[8px] font-black px-3 py-1 uppercase shadow-sm">NEW APPLICANT</Badge></div><div className="grid grid-cols-2 gap-4 py-4 border-y border-white/5"><div className="space-y-1"><p className="text-[8px] font-black uppercase text-muted-foreground">Vehicle</p><p className="text-xs font-bold uppercase italic text-foreground">{d.vehicleNumber} ({d.vehicleType})</p></div><div className="space-y-1"><p className="text-[8px] font-black uppercase text-muted-foreground">License</p><p className="text-xs font-bold uppercase italic text-foreground">{d.licenseNumber}</p></div></div><Button onClick={() => handleApproveDriver(d.id)} className="w-full h-14 bg-primary text-black font-black uppercase italic rounded-xl shadow-xl active:scale-95 transition-all">Approve Driver</Button></Card>
+                    <Card key={d.id} className="bg-white/5 border-primary/20 rounded-[2.5rem] p-8 space-y-6 shadow-2xl relative overflow-hidden">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-4">
+                          <div className="h-14 w-14 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border-2 border-primary/20">
+                            {d.photoUrl ? <img src={d.photoUrl} className="h-full w-full object-cover" /> : <Car className="h-6 w-6 text-muted-foreground" />}
+                          </div>
+                          <div>
+                            <h4 className="text-xl font-black italic uppercase leading-none">{d.fullName}</h4>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase mt-2">{d.phoneNumber}</p>
+                          </div>
+                        </div>
+                        <Badge className="bg-destructive/10 text-destructive border-none text-[8px] font-black px-3 py-1 uppercase shadow-sm">NEW APPLICANT</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 py-4 border-y border-white/5">
+                        <div className="space-y-1"><p className="text-[8px] font-black uppercase text-muted-foreground">Vehicle</p><p className="text-xs font-bold uppercase italic text-foreground">{d.vehicleNumber} ({d.vehicleType})</p></div>
+                        <div className="space-y-1"><p className="text-[8px] font-black uppercase text-muted-foreground">License</p><p className="text-xs font-bold uppercase italic text-foreground">{d.licenseNumber}</p></div>
+                      </div>
+                      <div className="flex gap-4">
+                        <Button variant="outline" onClick={() => { setSelectedUser(d); setIsDocViewerOpen(true); }} className="flex-1 h-14 border-white/10 text-primary font-black uppercase italic rounded-xl">
+                          <ImageIcon className="mr-2 h-4 w-4" /> View Docs
+                        </Button>
+                        <Button onClick={() => handleApproveDriver(d.id)} className="flex-1 h-14 bg-primary text-black font-black uppercase italic rounded-xl shadow-xl active:scale-95 transition-all">Approve</Button>
+                      </div>
+                    </Card>
                   ))}
                   {drivers.filter(d => d.isVerified === false).length === 0 && <p className="text-[10px] font-bold text-muted-foreground uppercase py-10 italic opacity-40 pl-4">No new applications</p>}
                 </div>
@@ -303,7 +317,7 @@ export default function AdminDashboard() {
               <div className="space-y-6">
                 <h3 className="text-xl font-black italic uppercase text-foreground border-l-4 border-white/20 pl-4">Verified Drivers</h3>
                 <Card className="bg-white/5 border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl"><Table><TableHeader className="bg-white/5"><TableRow className="border-white/5"><TableHead className="text-[10px] font-black uppercase text-muted-foreground italic">Name</TableHead><TableHead className="text-[10px] font-black uppercase text-muted-foreground italic">Vehicle</TableHead><TableHead className="text-[10px] font-black uppercase text-muted-foreground italic">Status</TableHead><TableHead className="text-[10px] font-black uppercase text-muted-foreground italic text-right">Actions</TableHead></TableRow></TableHeader><TableBody>{drivers.filter(d => d.isVerified === true).map((d: any) => (
-                      <TableRow key={d.id} className="border-white/5 hover:bg-white/5 transition-colors"><TableCell className="font-black italic py-6">{d.fullName}</TableCell><TableCell className="text-xs font-bold uppercase italic">{d.vehicleNumber}</TableCell><TableCell><Badge className={`border-none text-[8px] font-black px-2.5 py-1 ${d.isBlocked ? 'bg-destructive/20 text-destructive' : 'bg-green-500/20 text-green-500'}`}>{d.isBlocked ? 'BLOCKED' : d.status?.toUpperCase() || 'OFFLINE'}</Badge></TableCell><TableCell className="text-right"><div className="flex justify-end gap-2"><Button variant="ghost" size="icon" onClick={() => { setSelectedUser(d); setEditFormData({ fullName: d.fullName || '', phoneNumber: d.phoneNumber || '', identityNumber: d.identityNumber || '', role: d.role || '' }); setIsEditDialogOpen(true); }} className="h-9 w-9 text-primary hover:bg-primary/10"><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={() => handleToggleBlock(d)} className={`h-9 w-9 ${d.isBlocked ? 'text-green-500' : 'text-orange-500'} hover:bg-white/5`}>{d.isBlocked ? <ShieldCheck className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}</Button><Button variant="ghost" size="icon" onClick={() => { setSelectedUser(d); setIsDeleteDialogOpen(true); }} className="h-9 w-9 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button></div></TableCell></TableRow>
+                      <TableRow key={d.id} className="border-white/5 hover:bg-white/5 transition-colors"><TableCell className="font-black italic py-6">{d.fullName}</TableCell><TableCell className="text-xs font-bold uppercase italic">{d.vehicleNumber}</TableCell><TableCell><Badge className={`border-none text-[8px] font-black px-2.5 py-1 ${d.isBlocked ? 'bg-destructive/20 text-destructive' : 'bg-green-500/20 text-green-500'}`}>{d.isBlocked ? 'BLOCKED' : d.status?.toUpperCase() || 'OFFLINE'}</Badge></TableCell><TableCell className="text-right"><div className="flex justify-end gap-2"><Button variant="ghost" size="icon" onClick={() => { setSelectedUser(d); setIsDocViewerOpen(true); }} className="h-9 w-9 text-primary hover:bg-primary/10"><ImageIcon className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={() => { setSelectedUser(d); setEditFormData({ fullName: d.fullName || '', phoneNumber: d.phoneNumber || '', identityNumber: d.identityNumber || '', role: d.role || '' }); setIsEditDialogOpen(true); }} className="h-9 w-9 text-primary hover:bg-primary/10"><Edit className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={() => handleToggleBlock(d)} className={`h-9 w-9 ${d.isBlocked ? 'text-green-500' : 'text-orange-500'} hover:bg-white/5`}>{d.isBlocked ? <ShieldCheck className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}</Button><Button variant="ghost" size="icon" onClick={() => { setSelectedUser(d); setIsDeleteDialogOpen(true); }} className="h-9 w-9 text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button></div></TableCell></TableRow>
                     ))}</TableBody></Table></Card>
               </div>
             </div>
@@ -337,6 +351,47 @@ export default function AdminDashboard() {
           )}
         </div>
       </main>
+
+      {/* Driver Document Viewer Dialog */}
+      <Dialog open={isDocViewerOpen} onOpenChange={setIsDocViewerOpen}>
+        <DialogContent className="bg-background border-white/10 rounded-[2.5rem] p-10 max-w-4xl h-[85vh] flex flex-col shadow-2xl">
+          <DialogHeader><DialogTitle className="text-3xl font-black uppercase italic text-primary">Identity Check</DialogTitle><DialogDescription className="text-xs font-bold uppercase text-muted-foreground italic">Review professional documents for {selectedUser?.fullName}.</DialogDescription></DialogHeader>
+          <div className="flex-1 overflow-y-auto py-8 custom-scrollbar">
+            <div className="grid grid-cols-2 gap-8">
+               <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Selfie Photo</Label>
+                  <div className="aspect-video bg-white/5 rounded-3xl overflow-hidden border border-white/10 flex items-center justify-center">
+                    {selectedUser?.photoUrl ? <img src={selectedUser.photoUrl} className="h-full w-full object-cover" /> : <Loader2 className="animate-spin" />}
+                  </div>
+               </div>
+               <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">License (DL)</Label>
+                  <div className="aspect-video bg-white/5 rounded-3xl overflow-hidden border border-white/10 flex items-center justify-center">
+                    {selectedUser?.dlPhotoUrl ? <img src={selectedUser.dlPhotoUrl} className="h-full w-full object-cover" /> : <p className="text-[10px] opacity-40">Not Uploaded</p>}
+                  </div>
+               </div>
+               <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Aadhaar Card</Label>
+                  <div className="aspect-video bg-white/5 rounded-3xl overflow-hidden border border-white/10 flex items-center justify-center">
+                    {selectedUser?.aadhaarPhotoUrl ? <img src={selectedUser.aadhaarPhotoUrl} className="h-full w-full object-cover" /> : <p className="text-[10px] opacity-40">Not Uploaded</p>}
+                  </div>
+               </div>
+               <div className="space-y-3">
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Vehicle RC</Label>
+                  <div className="aspect-video bg-white/5 rounded-3xl overflow-hidden border border-white/10 flex items-center justify-center">
+                    {selectedUser?.rcPhotoUrl ? <img src={selectedUser.rcPhotoUrl} className="h-full w-full object-cover" /> : <p className="text-[10px] opacity-40">Not Uploaded</p>}
+                  </div>
+               </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-4">
+             <Button variant="ghost" onClick={() => setIsDocViewerOpen(false)} className="h-14 flex-1 rounded-xl font-black uppercase italic">Close</Button>
+             {!selectedUser?.isVerified && (
+               <Button onClick={() => { handleApproveDriver(selectedUser.id); setIsDocViewerOpen(false); }} className="h-14 flex-1 bg-primary text-black font-black uppercase italic rounded-xl shadow-xl">Approve Identity</Button>
+             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Driver Duty Assignment Dialog */}
       <Dialog open={isAllocating} onOpenChange={setIsAllocating}>

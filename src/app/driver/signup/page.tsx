@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Camera, CheckCircle2, Upload } from 'lucide-react';
+import { Loader2, Camera, CheckCircle2, Upload, FileText } from 'lucide-react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
@@ -38,6 +38,7 @@ export default function DriverSignupPage() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [dlPhotoUrl, setDlPhotoUrl] = useState<string | null>(null);
   const [aadhaarPhotoUrl, setAadhaarPhotoUrl] = useState<string | null>(null);
+  const [rcPhotoUrl, setRcPhotoUrl] = useState<string | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -127,17 +128,19 @@ export default function DriverSignupPage() {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'dl' | 'aadhaar') => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'dl' | 'aadhaar' | 'rc') => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 800000) {
-      toast({ variant: "destructive", title: "File too big", description: "Upload an image under 800KB." });
+    if (file.size > 500000) {
+      toast({ variant: "destructive", title: "File too big", description: "Upload an image under 500KB." });
       return;
     }
     const reader = new FileReader();
     reader.onloadend = () => {
-      if (target === 'dl') setDlPhotoUrl(reader.result as string);
-      else setAadhaarPhotoUrl(reader.result as string);
+      const dataUri = reader.result as string;
+      if (target === 'dl') setDlPhotoUrl(dataUri);
+      else if (target === 'aadhaar') setAadhaarPhotoUrl(dataUri);
+      else if (target === 'rc') setRcPhotoUrl(dataUri);
     };
     reader.readAsDataURL(file);
   };
@@ -187,6 +190,7 @@ export default function DriverSignupPage() {
         photoUrl: photoUrl || null,
         dlPhotoUrl: dlPhotoUrl || null,
         aadhaarPhotoUrl: aadhaarPhotoUrl || null,
+        rcPhotoUrl: rcPhotoUrl || null,
         role: 'driver',
         isVerified: false,
         isBlocked: false,
@@ -255,10 +259,10 @@ export default function DriverSignupPage() {
           )}
 
           {step === 2 && (
-            <div className="space-y-8 animate-in fade-in">
+            <div className="space-y-6 animate-in fade-in">
               <div className="space-y-4 text-center">
                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Selfie for ID Card</Label>
-                 <div className="relative aspect-square w-48 mx-auto bg-black rounded-3xl overflow-hidden border-2 border-white/10 shadow-2xl">
+                 <div className="relative aspect-square w-40 mx-auto bg-black rounded-3xl overflow-hidden border-2 border-white/10 shadow-2xl">
                     <video ref={videoRef} className={`h-full w-full object-cover ${photoUrl ? 'hidden' : 'block'}`} autoPlay muted playsInline />
                     <canvas ref={canvasRef} className="hidden" />
                     {photoUrl && <img src={photoUrl} className="h-full w-full object-cover" />}
@@ -271,33 +275,40 @@ export default function DriverSignupPage() {
                  </div>
                  
                  {!photoUrl ? (
-                   <Button onClick={capturePhoto} disabled={hasCameraPermission !== true} className="w-full h-12 bg-primary text-black rounded-xl font-black uppercase italic text-xs">
+                   <Button onClick={capturePhoto} disabled={hasCameraPermission !== true} className="w-full h-10 bg-primary text-black rounded-xl font-black uppercase italic text-xs">
                      Capture Selfie
                    </Button>
                  ) : (
-                   <Button onClick={() => setPhotoUrl(null)} variant="ghost" className="w-full text-primary font-black uppercase italic text-[10px] border border-primary/20 rounded-xl h-10">
+                   <Button onClick={() => setPhotoUrl(null)} variant="ghost" className="w-full text-primary font-black uppercase italic text-[10px] h-8">
                      Re-take Photo
                    </Button>
                  )}
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-2">
                  <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">License Photo</Label>
-                    <div className="relative h-32 w-full bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center p-2">
-                       {dlPhotoUrl ? <img src={dlPhotoUrl} className="h-full w-full object-cover rounded-xl" /> : <div className="opacity-20 flex flex-col items-center gap-2"><Upload className="h-5 w-5" /><span className="text-[8px] font-black uppercase">Upload</span></div>}
+                    <Label className="text-[8px] font-black uppercase text-muted-foreground text-center block">License</Label>
+                    <div className="relative h-20 w-full bg-white/5 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center p-1">
+                       {dlPhotoUrl ? <img src={dlPhotoUrl} className="h-full w-full object-cover rounded-md" /> : <Upload className="h-4 w-4 opacity-20" />}
                        <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'dl')} className="absolute inset-0 opacity-0 cursor-pointer" />
                     </div>
                  </div>
                  <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Aadhaar Photo</Label>
-                    <div className="relative h-32 w-full bg-white/5 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center p-2">
-                       {aadhaarPhotoUrl ? <img src={aadhaarPhotoUrl} className="h-full w-full object-cover rounded-xl" /> : <div className="opacity-20 flex flex-col items-center gap-2"><Upload className="h-5 w-5" /><span className="text-[8px] font-black uppercase">Upload</span></div>}
+                    <Label className="text-[8px] font-black uppercase text-muted-foreground text-center block">Aadhaar</Label>
+                    <div className="relative h-20 w-full bg-white/5 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center p-1">
+                       {aadhaarPhotoUrl ? <img src={aadhaarPhotoUrl} className="h-full w-full object-cover rounded-md" /> : <Upload className="h-4 w-4 opacity-20" />}
                        <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'aadhaar')} className="absolute inset-0 opacity-0 cursor-pointer" />
                     </div>
                  </div>
+                 <div className="space-y-2">
+                    <Label className="text-[8px] font-black uppercase text-muted-foreground text-center block">Vehicle RC</Label>
+                    <div className="relative h-20 w-full bg-white/5 border-2 border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center p-1">
+                       {rcPhotoUrl ? <img src={rcPhotoUrl} className="h-full w-full object-cover rounded-md" /> : <FileText className="h-4 w-4 opacity-20" />}
+                       <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'rc')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                    </div>
+                 </div>
               </div>
-              <Button onClick={() => setStep(3)} disabled={!photoUrl || !dlPhotoUrl || !aadhaarPhotoUrl} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-2xl">Confirm Identity</Button>
+              <Button onClick={() => setStep(3)} disabled={!photoUrl || !dlPhotoUrl || !aadhaarPhotoUrl || !rcPhotoUrl} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-2xl">Confirm Identity</Button>
             </div>
           )}
 

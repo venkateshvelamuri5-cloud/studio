@@ -34,7 +34,7 @@ import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDoc
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { format, addDays, parse, isBefore, subHours } from 'date-fns';
+import { format, addDays, parse, isBefore, isAfter, subHours } from 'date-fns';
 
 const Logo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -114,7 +114,24 @@ export default function CustomerDashboard() {
   }, [user, authLoading, router]);
 
   const calculatedFare = useMemo(() => selectedRoute?.baseFare || 0, [selectedRoute]);
-  const availableTimes = useMemo(() => selectedRoute?.schedule?.split(',').map((s: string) => s.trim()) || [], [selectedRoute]);
+  
+  const filteredAvailableTimes = useMemo(() => {
+    const times = selectedRoute?.schedule?.split(',').map((s: string) => s.trim()) || [];
+    if (!bookingDate) return times;
+    
+    const today = format(new Date(), 'yyyy-MM-dd');
+    if (bookingDate !== today) return times;
+
+    const now = new Date();
+    return times.filter(t => {
+      try {
+        const scheduledTime = parse(`${bookingDate} ${t}`, 'yyyy-MM-dd hh:mm a', new Date());
+        return isAfter(scheduledTime, now);
+      } catch (e) {
+        return true;
+      }
+    });
+  }, [selectedRoute, bookingDate]);
 
   const filteredLandmarks = useMemo(() => {
     if (!selectedRoute?.stops) return [];
@@ -373,7 +390,7 @@ export default function CustomerDashboard() {
                               <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Time</Label>
                               <select value={bookingTime} onChange={e => setBookingTime(e.target.value)} className="w-full h-16 bg-white rounded-2xl px-4 font-black text-black outline-none border-none">
                                  <option value="">Select Time</option>
-                                 {availableTimes.map(t => <option key={t} value={t}>{t}</option>)}
+                                 {filteredAvailableTimes.map(t => <option key={t} value={t}>{t}</option>)}
                               </select>
                            </div>
                         </div>
