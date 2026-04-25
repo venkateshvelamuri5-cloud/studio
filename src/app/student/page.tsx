@@ -228,7 +228,14 @@ export default function CustomerDashboard() {
     if (typeof window === 'undefined' || !selectedRoute) return;
     setIsPaying(true);
     try {
-      const finalAmountInRupees = Math.max(1, calculatedFare - appliedDiscount);
+      // Calculate exact amount in paisa for Razorpay
+      const finalAmountInRupees = Math.max(0, calculatedFare - appliedDiscount);
+      if (finalAmountInRupees <= 0) {
+        // Handle free rides (if any)
+        processPayment({ status: 'free' });
+        return;
+      }
+      
       const amountInPaise = Math.round(finalAmountInRupees * 100);
 
       const res = await fetch('/api/create-order', { 
@@ -237,21 +244,25 @@ export default function CustomerDashboard() {
         body: JSON.stringify({ amount: amountInPaise, receipt: `ride_${Date.now()}` }) 
       });
       const order = await res.json();
+      
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SeqhV0hEn1PXnz',
         amount: order.amount,
         currency: order.currency,
         name: "AAGO",
+        description: `Booking for ${selectedRoute.routeName}`,
         order_id: order.id,
         handler: (res: any) => processPayment(res),
         prefill: { name: profile?.fullName || "", contact: profile?.phoneNumber || "" },
         theme: { color: "#EAB308" },
         modal: { ondismiss: () => setIsPaying(false) }
       };
+      
       const rzp = new (window as any).Razorpay(options);
       rzp.open();
     } catch (e) { 
-      toast({ variant: "destructive", title: "Payment Failed", description: "Could not start payment." });
+      console.error("Payment Start Error:", e);
+      toast({ variant: "destructive", title: "Payment Failed", description: "Could not start payment. Check your internet." });
       setIsPaying(false); 
     }
   };
