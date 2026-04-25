@@ -27,7 +27,8 @@ import {
   Loader2,
   LogOut,
   MapPin,
-  Search
+  Search,
+  MessageSquare
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc } from 'firebase/firestore';
@@ -145,10 +146,15 @@ export default function CustomerDashboard() {
 
   const handleShare = async () => {
     const text = isShowOtpAllowed 
-      ? `I'm on my way with AAGO! My Ride Code (OTP): ${profile?.activeOtp}`
-      : `I've booked a ride with AAGO! Ride at ${currentRide?.scheduledTime}`;
-    if (navigator.share) navigator.share({ title: 'AAGO - Ride Status', text, url: window.location.href });
-    else { navigator.clipboard.writeText(text); toast({ title: "Copied to clipboard" }); }
+      ? `My AAGO Ride is Pakka! Route: ${currentRide?.routeName}. Ride Code (OTP): ${profile?.activeOtp}. Boarding at ${currentRide?.scheduledTime}.`
+      : `I have booked a ticket with AAGO! Route: ${currentRide?.routeName} at ${currentRide?.scheduledTime}. All details will unlock 3 hours before trip starts.`;
+    
+    if (navigator.share) {
+      navigator.share({ title: 'AAGO - My Trip', text, url: window.location.href });
+    } else {
+      navigator.clipboard.writeText(text);
+      toast({ title: "Copied to clipboard", description: "You can now paste and send it to your family." });
+    }
   };
 
   const applyDiscount = async () => {
@@ -161,19 +167,19 @@ export default function CustomerDashboard() {
       const usedBy = voucherData.usedBy || [];
       
       if (usedBy.includes(user.uid)) {
-        toast({ variant: "destructive", title: "Already Used", description: "You have used this code once before." });
+        toast({ variant: "destructive", title: "Already Used", description: "You have used this coupon once before." });
         return;
       }
 
       if (voucherData.usageLimit && usedBy.length >= voucherData.usageLimit) {
-        toast({ variant: "destructive", title: "Limit Reached", description: "This discount code is now full." });
+        toast({ variant: "destructive", title: "Limit Reached", description: "This coupon code is now full." });
         return;
       }
 
       setAppliedDiscount(voucherData.discount || 0);
       toast({ title: `Discount applied!` });
     } else {
-      toast({ variant: "destructive", title: "Invalid code", description: "Check the code again." });
+      toast({ variant: "destructive", title: "Invalid code", description: "Please check the coupon code again." });
     }
   };
 
@@ -280,10 +286,10 @@ export default function CustomerDashboard() {
     <div className="min-h-screen bg-background text-foreground flex flex-col font-body pb-24 safe-area-inset">
       <header className="px-6 py-6 flex items-center justify-between border-b border-white/5 bg-background/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center text-black"><Logo className="h-6 w-6" /></div>
+          <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center text-black shadow-lg shadow-primary/20"><Logo className="h-6 w-6" /></div>
           <h1 className="text-xl font-black italic uppercase text-primary tracking-tighter">AAGO Hub</h1>
         </div>
-        <Button variant="ghost" size="icon" onClick={handleShare} className="text-primary bg-primary/10 h-11 w-11 rounded-2xl"><Share2 className="h-5 w-5" /></Button>
+        <Button variant="ghost" size="icon" onClick={handleShare} className="text-primary bg-primary/10 h-11 w-11 rounded-2xl border border-primary/20 hover:bg-primary/20"><Share2 className="h-5 w-5" /></Button>
       </header>
 
       <main className="flex-1 p-5 space-y-6 max-w-lg mx-auto w-full overflow-y-auto">
@@ -303,8 +309,8 @@ export default function CustomerDashboard() {
             {currentRide ? (
               <Card className="rounded-[3.5rem] p-10 shadow-2xl border-primary/30 bg-card/60 backdrop-blur-md relative overflow-hidden">
                  <div className="flex flex-col items-center gap-4 mb-8 text-center">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Next Ride</p>
-                    <h3 className="text-4xl font-black tracking-tighter italic text-primary leading-tight">Confirmed</h3>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">My Next Trip</p>
+                    <h3 className="text-4xl font-black tracking-tighter italic text-primary leading-tight">Pakka Booked</h3>
                     <div className="mt-4 p-6 bg-black/40 rounded-2xl border border-white/5 w-full">
                       <p className="text-[10px] font-bold text-white/60 uppercase">{currentRide.routeName}</p>
                       <p className="text-xl font-black text-white mt-1">{currentRide.scheduledDate} • {currentRide.scheduledTime}</p>
@@ -319,19 +325,24 @@ export default function CustomerDashboard() {
                       </div>
                     ) : (
                       <p className="text-[11px] font-bold text-white/60 uppercase leading-relaxed italic text-center">
-                        Ride details and OTP will show here 3 hours before start.
+                        Vehicle details and Ride Code (OTP) will show here 3 hours before start.
                       </p>
                     )}
-                    <Button onClick={() => setActiveTab('status')} className="w-full h-14 bg-primary text-black rounded-2xl font-black uppercase italic shadow-xl">Ride Info</Button>
+                    <div className="flex flex-col gap-3">
+                       <Button onClick={() => setActiveTab('status')} className="w-full h-14 bg-primary text-black rounded-2xl font-black uppercase italic shadow-xl">Check Ride Info</Button>
+                       <Button onClick={handleShare} variant="outline" className="w-full h-14 border-white/10 text-white rounded-2xl font-black uppercase italic">
+                         <MessageSquare className="mr-2 h-5 w-5 text-primary" /> Share With Family
+                       </Button>
+                    </div>
                  </div>
               </Card>
             ) : (
               <Dialog onOpenChange={open => !open && setBookingStep(1)}>
                 <DialogTrigger asChild>
-                  <div className="p-14 bg-primary text-black rounded-[3.5rem] shadow-2xl flex flex-col gap-3 cursor-pointer group">
+                  <div className="p-14 bg-primary text-black rounded-[3.5rem] shadow-2xl flex flex-col gap-3 cursor-pointer group active:scale-95 transition-all">
                     <h3 className="text-6xl font-black italic uppercase tracking-tighter leading-none">Book <br/> Ticket</h3>
                     <div className="flex items-center justify-between mt-6">
-                      <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Fixed Fare Service</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Fixed Fare Hub</p>
                       <div className="h-12 w-12 bg-black rounded-full flex items-center justify-center text-primary group-hover:translate-x-3 transition-transform"><ChevronRight className="h-6 w-6" /></div>
                     </div>
                   </div>
@@ -339,45 +350,45 @@ export default function CustomerDashboard() {
                 <DialogContent className="bg-background border-white/5 rounded-[3.5rem] p-10 h-[90vh] flex flex-col shadow-2xl overflow-hidden">
                   <DialogHeader className="shrink-0 mb-6">
                     <DialogTitle className="text-4xl font-black italic uppercase text-primary tracking-tighter">
-                      {bookingStep === 1 ? "Pick Route" : bookingStep === 2 ? "Pick Points" : bookingStep === 3 ? "Review" : "Done!"}
+                      {bookingStep === 1 ? "Pick Route" : bookingStep === 2 ? "Pick Points" : bookingStep === 3 ? "Review Ticket" : "Success!"}
                     </DialogTitle>
                   </DialogHeader>
-                  <div className="flex-1 overflow-y-auto space-y-8 custom-scrollbar">
+                  <div className="flex-1 overflow-y-auto space-y-8 custom-scrollbar pb-10">
                     {bookingStep === 1 && (
                       <div className="space-y-4">
                         {uniqueRoutes?.map((route: any) => (
-                          <div key={route.id} onClick={() => { setSelectedRoute(route); setBookingStep(2); }} className="p-8 bg-white/5 border border-white/10 rounded-[2.5rem] cursor-pointer flex justify-between items-center group">
+                          <div key={route.id} onClick={() => { setSelectedRoute(route); setBookingStep(2); }} className="p-8 bg-white/5 border border-white/10 rounded-[2.5rem] cursor-pointer flex justify-between items-center group hover:border-primary/40 transition-all">
                              <div className="space-y-2">
                                 <h4 className="text-2xl font-black italic uppercase group-hover:text-primary transition-colors leading-none">{route.routeName}</h4>
-                                <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-4 py-1 rounded-full">₹{route.baseFare}</Badge>
+                                <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase px-4 py-1 rounded-full shadow-inner">₹{route.baseFare}</Badge>
                              </div>
-                             <ChevronRight className="h-8 w-8 text-white/10" />
+                             <ChevronRight className="h-8 w-8 text-white/10 group-hover:text-primary group-hover:translate-x-2 transition-all" />
                           </div>
                         ))}
                       </div>
                     )}
                     {bookingStep === 2 && (
-                      <div className="space-y-10">
+                      <div className="space-y-10 animate-in slide-in-from-right-4">
                         <div className="space-y-6">
                            <div className="space-y-2">
-                             <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Find Landmark</Label>
+                             <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Find Nearest Hub/Landmark</Label>
                              <div className="relative">
                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                <Input 
                                  value={landmarkSearch} 
                                  onChange={e => setLandmarkSearch(e.target.value)} 
                                  placeholder="Search stops..." 
-                                 className="h-12 pl-12 bg-white/5 rounded-xl font-black italic"
+                                 className="h-12 pl-12 bg-white/5 rounded-xl font-black italic border-white/10"
                                />
                              </div>
                            </div>
 
                            <div className="space-y-6">
                               <div className="space-y-3">
-                                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Boarding Point</Label>
-                                <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+                                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Boarding Point (Pickup)</Label>
+                                <div className="grid grid-cols-2 gap-3 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
                                    {filteredLandmarks.map((stop: any, idx: number) => (
-                                     <Button key={idx} variant="outline" onClick={() => setBoardingPoint(stop.name)} className={`h-16 justify-center text-center px-4 rounded-xl font-black italic text-[11px] leading-tight border-2 ${boardingPoint === stop.name ? 'bg-primary border-primary text-black' : 'bg-white border-white text-black'}`}>
+                                     <Button key={idx} variant="outline" onClick={() => setBoardingPoint(stop.name)} className={`h-16 justify-center text-center px-4 rounded-xl font-black italic text-[11px] leading-tight border-2 transition-all ${boardingPoint === stop.name ? 'bg-primary border-primary text-black' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}>
                                        {stop.name}
                                      </Button>
                                    ))}
@@ -385,10 +396,10 @@ export default function CustomerDashboard() {
                               </div>
 
                               <div className="space-y-3">
-                                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Dropping Point</Label>
-                                <div className="grid grid-cols-2 gap-3 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
+                                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Dropping Point (Destination)</Label>
+                                <div className="grid grid-cols-2 gap-3 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
                                    {filteredLandmarks.map((stop: any, idx: number) => (
-                                     <Button key={idx} variant="outline" onClick={() => setDroppingPoint(stop.name)} className={`h-16 justify-center text-center px-4 rounded-xl font-black italic text-[11px] leading-tight border-2 ${droppingPoint === stop.name ? 'bg-primary border-primary text-black' : 'bg-white border-white text-black'}`}>
+                                     <Button key={idx} variant="outline" onClick={() => setDroppingPoint(stop.name)} className={`h-16 justify-center text-center px-4 rounded-xl font-black italic text-[11px] leading-tight border-2 transition-all ${droppingPoint === stop.name ? 'bg-primary border-primary text-black' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}>
                                        {stop.name}
                                      </Button>
                                    ))}
@@ -400,33 +411,33 @@ export default function CustomerDashboard() {
                         <div className="grid grid-cols-2 gap-4 pt-6 border-t border-white/5">
                            <div className="space-y-3">
                               <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Date</Label>
-                              <select value={bookingDate} onChange={e => setBookingDate(e.target.value)} className="w-full h-16 bg-white rounded-2xl px-4 font-black text-black outline-none border-none">
-                                 {[0, 1, 2, 3].map(d => { const date = addDays(new Date(), d); return <option key={d} value={format(date, 'yyyy-MM-dd')}>{format(date, 'EEE, dd MMM')}</option>; })}
+                              <select value={bookingDate} onChange={e => setBookingDate(e.target.value)} className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-4 font-black text-white outline-none">
+                                 {[0, 1, 2, 3].map(d => { const date = addDays(new Date(), d); return <option key={d} value={format(date, 'yyyy-MM-dd')} className="bg-background">{format(date, 'EEE, dd MMM')}</option>; })}
                               </select>
                            </div>
                            <div className="space-y-3">
                               <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Time</Label>
-                              <select value={bookingTime} onChange={e => setBookingTime(e.target.value)} className="w-full h-16 bg-white rounded-2xl px-4 font-black text-black outline-none border-none">
-                                 <option value="">Select Time</option>
-                                 {filteredAvailableTimes.map(t => <option key={t} value={t}>{t}</option>)}
+                              <select value={bookingTime} onChange={e => setBookingTime(e.target.value)} className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-4 font-black text-white outline-none">
+                                 <option value="" className="bg-background">Select Time</option>
+                                 {filteredAvailableTimes.map(t => <option key={t} value={t} className="bg-background">{t}</option>)}
                               </select>
                            </div>
                         </div>
-                        <Button onClick={() => setBookingStep(3)} disabled={!bookingTime || !boardingPoint || !droppingPoint} className="w-full h-18 bg-primary text-black rounded-3xl font-black uppercase italic text-lg shadow-2xl">Check Details</Button>
+                        <Button onClick={() => setBookingStep(3)} disabled={!bookingTime || !boardingPoint || !droppingPoint} className="w-full h-18 bg-primary text-black rounded-3xl font-black uppercase italic text-lg shadow-2xl active:scale-95 transition-all">Review Details</Button>
                       </div>
                     )}
                     {bookingStep === 3 && (
                       <div className="space-y-8 animate-in slide-in-from-bottom-4">
-                         <div className="p-8 bg-white/5 border border-white/10 rounded-[2.5rem] space-y-6">
+                         <div className="p-8 bg-white/5 border border-white/10 rounded-[2.5rem] space-y-6 shadow-inner">
                             <div className="space-y-1">
-                               <p className="text-[10px] font-black uppercase text-muted-foreground">Route</p>
-                               <p className="text-2xl font-black italic uppercase text-primary">{selectedRoute?.routeName}</p>
+                               <p className="text-[10px] font-black uppercase text-muted-foreground">Chosen Route</p>
+                               <p className="text-2xl font-black italic uppercase text-primary leading-none">{selectedRoute?.routeName}</p>
                             </div>
                             <div className="space-y-4 pt-4 border-t border-white/5">
                                <div>
                                   <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Boarding At</p>
                                   <p className="text-lg font-black italic text-white">{boardingPoint}</p>
-                               </div>
+                                </div>
                                <div>
                                   <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Dropping At</p>
                                   <p className="text-lg font-black italic text-white">{droppingPoint}</p>
@@ -434,43 +445,48 @@ export default function CustomerDashboard() {
                             </div>
                             <div className="grid grid-cols-2 gap-6 pt-4 border-t border-white/5">
                                <div className="space-y-1">
-                                  <p className="text-[10px] font-black uppercase text-muted-foreground">Date</p>
+                                  <p className="text-[10px] font-black uppercase text-muted-foreground">Travel Date</p>
                                   <p className="text-lg font-black italic">{bookingDate}</p>
                                </div>
                                <div className="space-y-1">
-                                  <p className="text-[10px] font-black uppercase text-muted-foreground">Time</p>
+                                  <p className="text-[10px] font-black uppercase text-muted-foreground">Boarding Time</p>
                                   <p className="text-lg font-black italic">{bookingTime}</p>
                                </div>
                             </div>
-                            <div className="pt-6 border-t border-white/5 flex justify-between items-center">
-                               <p className="text-[10px] font-black uppercase text-muted-foreground">To Pay</p>
+                            <div className="pt-6 border-t border-white/10 flex justify-between items-center">
+                               <p className="text-[10px] font-black uppercase text-muted-foreground">Final Price</p>
                                <p className="text-4xl font-black italic text-primary">₹{Math.max(0, calculatedFare - appliedDiscount)}</p>
                             </div>
                          </div>
                          
                          <div className="space-y-4">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Discount Code</Label>
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Have a Coupon?</Label>
                             <div className="flex gap-3">
-                               <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="COUPON" className="flex-1 h-16 bg-white/5 border border-white/10 rounded-2xl px-6 font-black italic text-lg outline-none uppercase" />
-                               <Button onClick={applyDiscount} variant="outline" className="h-16 px-8 rounded-2xl border-primary text-primary font-black uppercase">Apply</Button>
+                               <input value={voucherCode} onChange={e => setVoucherCode(e.target.value)} placeholder="COUPON" className="flex-1 h-16 bg-white/5 border border-white/10 rounded-2xl px-6 font-black italic text-lg outline-none uppercase placeholder:text-muted-foreground/30" />
+                               <Button onClick={applyDiscount} variant="outline" className="h-16 px-8 rounded-2xl border-primary text-primary font-black uppercase hover:bg-primary hover:text-black">Apply</Button>
                             </div>
                          </div>
 
-                         <Button onClick={startPayment} disabled={isPaying} className="w-full h-20 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-xl shadow-3xl transition-all active:scale-95">
+                         <Button onClick={startPayment} disabled={isPaying} className="w-full h-20 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-xl shadow-3xl shadow-primary/20 transition-all active:scale-95">
                            {isPaying ? <Loader2 className="animate-spin h-8 w-8" /> : `Pay ₹${Math.max(0, calculatedFare - appliedDiscount)} Now`}
                          </Button>
                       </div>
                     )}
                     {bookingStep === 4 && (
                       <div className="flex flex-col items-center justify-center text-center space-y-8 py-10 animate-in fade-in">
-                         <div className="h-24 w-24 bg-primary text-black rounded-full flex items-center justify-center shadow-3xl"><CheckCircle2 className="h-12 w-12" /></div>
-                         <div className="space-y-4">
-                           <h3 className="text-4xl font-black italic uppercase text-primary leading-none">Ticket Booked!</h3>
-                           <p className="text-[11px] font-bold text-white/70 uppercase leading-relaxed px-6 mt-4 italic">
-                             Vehicle details and Ride Code (OTP) will show here 3 hours before start.
+                         <div className="h-24 w-24 bg-primary text-black rounded-full flex items-center justify-center shadow-3xl shadow-primary/20"><CheckCircle2 className="h-12 w-12" /></div>
+                         <div className="space-y-4 px-4">
+                           <h3 className="text-4xl font-black italic uppercase text-primary leading-none">Pakka Booked!</h3>
+                           <p className="text-[11px] font-bold text-white/70 uppercase leading-relaxed mt-4 italic">
+                             Congratulations! Your ticket is confirmed. Van details and Ride Code (OTP) will unlock 3 hours before start time.
                            </p>
                          </div>
-                         <Button onClick={() => { setBookingStep(1); setActiveTab('home'); }} className="w-full h-16 bg-white/5 rounded-2xl font-black uppercase border border-white/10 italic">Back to Home</Button>
+                         <div className="w-full flex flex-col gap-4">
+                            <Button onClick={handleShare} className="w-full h-18 bg-white/10 border border-primary/30 text-primary rounded-3xl font-black uppercase italic text-lg shadow-xl hover:bg-white/20">
+                               <MessageSquare className="mr-3 h-6 w-6" /> Share With Family
+                            </Button>
+                            <Button onClick={() => { setBookingStep(1); setActiveTab('home'); }} variant="ghost" className="w-full h-16 font-black uppercase italic text-muted-foreground">Back to Home</Button>
+                         </div>
                       </div>
                     )}
                   </div>
@@ -482,41 +498,44 @@ export default function CustomerDashboard() {
 
         {activeTab === 'status' && (
           <div className="flex-1 flex flex-col space-y-8 animate-in fade-in py-10">
-            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">Ride Info</h2>
+            <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">My Trip Info</h2>
             {currentRide ? (
               <div className="space-y-8">
-                 <Card className="p-10 bg-white/5 border-primary/20 rounded-[3.5rem] space-y-8 text-center">
-                    <div className="h-24 w-24 bg-primary/10 rounded-full flex items-center justify-center text-primary mx-auto animate-pulse">
+                 <Card className="p-10 bg-white/5 border-primary/20 rounded-[3.5rem] space-y-8 text-center shadow-2xl">
+                    <div className="h-24 w-24 bg-primary/10 rounded-full flex items-center justify-center text-primary mx-auto shadow-inner animate-pulse">
                        <Navigation className="h-10 w-10" />
                     </div>
                     <div className="space-y-2">
                        <h3 className="text-3xl font-black italic uppercase text-primary leading-none">{currentRide.routeName}</h3>
-                       <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-4">
-                         {currentRide.status === 'on-trip' ? 'Van is on the way' : 'Waiting for start time'}
+                       <Badge className="bg-primary/20 text-primary border-none uppercase text-[9px] font-black px-4 py-1.5 rounded-full mt-4">
+                         {currentRide.status === 'on-trip' ? 'VAN IS ON THE WAY' : 'PAKKA CONFIRMED'}
+                       </Badge>
+                       <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-6 opacity-60">
+                         {currentRide.status === 'on-trip' ? 'Driver has started the trip.' : 'Wait for boarding time.'}
                        </p>
                     </div>
-                    <div className="p-6 bg-black/40 rounded-3xl border border-white/5">
+                    <div className="p-8 bg-black/60 rounded-[2.5rem] border border-white/5">
                        <p className="text-[11px] font-bold text-white/60 uppercase leading-relaxed italic">
-                         Van details and Ride Code (OTP) unlock 3 hours before start.
+                         Vehicle number and Ride Code (OTP) unlock 3 hours before start for your safety.
                        </p>
                     </div>
                  </Card>
                  <div className="space-y-4">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-4">Route Stops</Label>
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-4">Corridor Stops</Label>
                     <div className="space-y-3">
                        {allActiveRoutes?.find(r => r.routeName === currentRide.routeName)?.stops.map((s: any, i: number) => (
-                         <div key={i} className="flex items-center gap-4 px-6 py-4 bg-white/5 rounded-2xl border border-white/5">
-                            <Badge className="bg-primary/20 text-primary border-none font-black h-6 w-6 p-0 flex items-center justify-center rounded-full">{i + 1}</Badge>
-                            <span className="font-black italic text-sm">{s.name}</span>
+                         <div key={i} className="flex items-center gap-4 px-6 py-5 bg-white/5 rounded-2xl border border-white/5 group hover:border-primary/20 transition-all">
+                            <Badge className="bg-primary/20 text-primary border-none font-black h-7 w-7 p-0 flex items-center justify-center rounded-full shadow-inner">{i + 1}</Badge>
+                            <span className="font-black italic text-sm group-hover:text-primary transition-colors">{s.name}</span>
                          </div>
                        ))}
                     </div>
                  </div>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-10 space-y-6">
-                 <div className="h-24 w-24 bg-white/5 rounded-full flex items-center justify-center text-muted-foreground opacity-20"><MapPin className="h-10 w-10" /></div>
-                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic">No active rides</p>
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-10 space-y-6 opacity-40">
+                 <div className="h-24 w-24 bg-white/5 rounded-full flex items-center justify-center text-muted-foreground shadow-inner"><MapPin className="h-10 w-10" /></div>
+                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest italic">No Pakka rides scheduled</p>
               </div>
             )}
           </div>
@@ -527,18 +546,18 @@ export default function CustomerDashboard() {
             <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">My Travels</h2>
             <div className="space-y-4">
                {allTrips?.filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid)).map((trip: any) => (
-                 <Card key={trip.id} className="p-8 bg-white/5 border border-white/10 rounded-[2.5rem] flex justify-between items-center group hover:border-primary/20 transition-all">
+                 <Card key={trip.id} className="p-8 bg-white/5 border border-white/10 rounded-[2.5rem] flex justify-between items-center group hover:border-primary/20 transition-all shadow-xl">
                     <div className="space-y-2">
-                       <h4 className="text-xl font-black italic uppercase leading-none">{trip.routeName}</h4>
+                       <h4 className="text-xl font-black italic uppercase leading-none group-hover:text-primary transition-colors">{trip.routeName}</h4>
                        <p className="text-[9px] font-bold text-muted-foreground uppercase">{trip.scheduledDate} • {trip.scheduledTime}</p>
                     </div>
-                    <Badge className={`${trip.status === 'completed' ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary'} border-none uppercase text-[8px] font-black px-5 py-2 rounded-full`}>
-                       {trip.status === 'completed' ? 'DONE' : 'ACTIVE'}
+                    <Badge className={`${trip.status === 'completed' ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary'} border-none uppercase text-[8px] font-black px-5 py-2 rounded-full shadow-inner`}>
+                       {trip.status === 'completed' ? 'DONE' : 'PAKKA'}
                     </Badge>
                  </Card>
                ))}
                {(!allTrips || allTrips.filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid)).length === 0) && (
-                 <p className="text-[10px] font-bold text-muted-foreground uppercase text-center py-20 italic">No ride history found</p>
+                 <p className="text-[10px] font-bold text-muted-foreground uppercase text-center py-20 italic opacity-40">No travel history found</p>
                )}
             </div>
           </div>
@@ -552,30 +571,35 @@ export default function CustomerDashboard() {
                 </div>
                 <div className="space-y-2">
                    <h2 className="text-5xl font-black italic uppercase text-foreground leading-none">{profile?.fullName}</h2>
-                   <Badge className="bg-primary/20 text-primary border-none uppercase text-[9px] font-black px-6 py-1.5 rounded-full">{profile?.phoneNumber}</Badge>
+                   <Badge className="bg-primary/20 text-primary border-none uppercase text-[9px] font-black px-6 py-1.5 rounded-full shadow-lg">{profile?.phoneNumber}</Badge>
                 </div>
              </div>
              <div className="space-y-4 w-full max-w-sm mx-auto">
-               <Button onClick={() => auth && signOut(auth)} className="w-full h-20 bg-destructive/10 text-destructive rounded-[2.5rem] font-black uppercase italic border border-destructive/20 text-xl"><LogOut className="mr-3 h-6 w-6" /> Logout</Button>
+               <Card className="p-8 bg-white/5 border-white/10 rounded-[2.5rem] mb-10 flex flex-col items-center gap-2">
+                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">AAGO Reward Points</p>
+                  <p className="text-5xl font-black italic text-primary">{profile?.loyaltyPoints || 0}</p>
+               </Card>
+               <Button onClick={() => auth && signOut(auth)} className="w-full h-20 bg-destructive/10 text-destructive rounded-[2.5rem] font-black uppercase italic border border-destructive/20 text-xl hover:bg-destructive/20 active:scale-95 transition-all"><LogOut className="mr-3 h-6 w-6" /> Logout</Button>
              </div>
           </div>
         )}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 p-6 bg-background/95 backdrop-blur-3xl border-t-2 border-white/5 z-50 flex justify-around items-center safe-area-inset-bottom">
-        <Button variant="ghost" onClick={() => setActiveTab('home')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl ${activeTab === 'home' ? 'text-primary bg-primary/10 shadow-lg' : 'text-muted-foreground opacity-50'}`}>
+      <nav className="fixed bottom-0 left-0 right-0 p-6 bg-background/95 backdrop-blur-3xl border-t-2 border-white/5 z-50 flex justify-around items-center safe-area-inset-bottom shadow-2xl">
+        <Button variant="ghost" onClick={() => setActiveTab('home')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl transition-all ${activeTab === 'home' ? 'text-primary bg-primary/10 shadow-lg' : 'text-muted-foreground opacity-50'}`}>
           <LayoutGrid className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Home</span>
         </Button>
-        <Button variant="ghost" onClick={() => setActiveTab('status')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl ${activeTab === 'status' ? 'text-primary bg-primary/10 shadow-lg' : 'text-muted-foreground opacity-50'}`}>
+        <Button variant="ghost" onClick={() => setActiveTab('status')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl transition-all ${activeTab === 'status' ? 'text-primary bg-primary/10 shadow-lg' : 'text-muted-foreground opacity-50'}`}>
           <Navigation className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Info</span>
         </Button>
-        <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl ${activeTab === 'history' ? 'text-primary bg-primary/10 shadow-lg' : 'text-muted-foreground opacity-50'}`}>
-          <History className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">History</span>
+        <Button variant="ghost" onClick={() => setActiveTab('history')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl transition-all ${activeTab === 'history' ? 'text-primary bg-primary/10 shadow-lg' : 'text-muted-foreground opacity-50'}`}>
+          <History className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Travels</span>
         </Button>
-        <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl ${activeTab === 'profile' ? 'text-primary bg-primary/10 shadow-lg' : 'text-muted-foreground opacity-50'}`}>
+        <Button variant="ghost" onClick={() => setActiveTab('profile')} className={`flex-col h-auto py-4 px-8 gap-2 rounded-3xl transition-all ${activeTab === 'profile' ? 'text-primary bg-primary/10 shadow-lg' : 'text-muted-foreground opacity-50'}`}>
           <UserIcon className="h-7 w-7" /><span className="text-[9px] font-black uppercase tracking-widest">Profile</span>
         </Button>
       </nav>
     </div>
   );
 }
+
