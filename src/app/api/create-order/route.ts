@@ -4,13 +4,13 @@ import Razorpay from 'razorpay';
 
 export async function POST(req: Request) {
   try {
-    // Priority for environment variables to allow switching between Test and Prod
-    const key_id = process.env.RAZORPAY_KEY_ID || 'rzp_live_SeqhV0hEn1PXnz';
+    // Use environment variables, with a fallback only for public key ID if needed
+    const key_id = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SeqhV0hEn1PXnz';
     const key_secret = process.env.RAZORPAY_KEY_SECRET;
 
-    if (!key_id || !key_secret) {
-      console.error('Razorpay keys not fully configured in env');
-      return NextResponse.json({ error: 'Razorpay keys not configured' }, { status: 500 });
+    if (!key_secret) {
+      console.error('Razorpay Secret is missing in environment variables');
+      return NextResponse.json({ error: 'Razorpay secret not configured' }, { status: 500 });
     }
 
     const razorpay = new Razorpay({
@@ -20,18 +20,18 @@ export async function POST(req: Request) {
 
     const { amount, currency = 'INR', receipt } = await req.json();
 
-    // Razorpay amount must be at least 100 paisa (₹1)
-    if (!amount || amount < 100) {
+    // Validating amount: Must be a positive number and at least 100 paise (₹1)
+    if (!amount || typeof amount !== 'number' || amount < 100) {
       return NextResponse.json(
-        { error: 'Amount must be at least ₹1 (100 paise)' },
+        { error: 'Invalid amount. Minimum ₹1 is required.' },
         { status: 400 }
       );
     }
 
     const options = {
-      amount: Math.round(amount),
+      amount: Math.round(amount), // Amount is in paise
       currency,
-      receipt,
+      receipt: receipt || `receipt_${Date.now()}`,
     };
 
     const order = await razorpay.orders.create(options);
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error('Razorpay Order Creation Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to create order' },
+      { error: error.message || 'Failed to create payment order' },
       { status: 500 }
     );
   }

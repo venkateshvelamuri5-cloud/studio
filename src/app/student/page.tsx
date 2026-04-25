@@ -113,7 +113,10 @@ export default function CustomerDashboard() {
     if (!authLoading && !user) router.push('/auth/login');
   }, [user, authLoading, router]);
 
-  const calculatedFare = useMemo(() => selectedRoute?.baseFare || 0, [selectedRoute]);
+  const calculatedFare = useMemo(() => {
+    if (!selectedRoute) return 0;
+    return typeof selectedRoute.baseFare === 'number' ? selectedRoute.baseFare : parseFloat(selectedRoute.baseFare) || 0;
+  }, [selectedRoute]);
   
   const filteredAvailableTimes = useMemo(() => {
     const times = selectedRoute?.schedule?.split(',').map((s: string) => s.trim()) || [];
@@ -228,10 +231,9 @@ export default function CustomerDashboard() {
     if (typeof window === 'undefined' || !selectedRoute) return;
     setIsPaying(true);
     try {
-      // Calculate exact amount in paisa for Razorpay
       const finalAmountInRupees = Math.max(0, calculatedFare - appliedDiscount);
+      
       if (finalAmountInRupees <= 0) {
-        // Handle free rides (if any)
         processPayment({ status: 'free' });
         return;
       }
@@ -241,16 +243,21 @@ export default function CustomerDashboard() {
       const res = await fetch('/api/create-order', { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ amount: amountInPaise, receipt: `ride_${Date.now()}` }) 
+        body: JSON.stringify({ 
+          amount: amountInPaise, 
+          receipt: `ride_${Date.now()}` 
+        }) 
       });
       const order = await res.json();
+
+      if (order.error) throw new Error(order.error);
       
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SeqhV0hEn1PXnz',
         amount: order.amount,
         currency: order.currency,
         name: "AAGO",
-        description: `Booking for ${selectedRoute.routeName}`,
+        description: `Ticket for ${selectedRoute.routeName}`,
         order_id: order.id,
         handler: (res: any) => processPayment(res),
         prefill: { name: profile?.fullName || "", contact: profile?.phoneNumber || "" },
@@ -260,9 +267,9 @@ export default function CustomerDashboard() {
       
       const rzp = new (window as any).Razorpay(options);
       rzp.open();
-    } catch (e) { 
+    } catch (e: any) { 
       console.error("Payment Start Error:", e);
-      toast({ variant: "destructive", title: "Payment Failed", description: "Could not start payment. Check your internet." });
+      toast({ variant: "destructive", title: "Payment Failed", description: e.message || "Could not start payment." });
       setIsPaying(false); 
     }
   };
@@ -450,7 +457,7 @@ export default function CustomerDashboard() {
                          </div>
 
                          <Button onClick={startPayment} disabled={isPaying} className="w-full h-20 bg-primary text-black rounded-[2.5rem] font-black uppercase italic text-xl shadow-3xl transition-all active:scale-95">
-                           {isPaying ? <Loader2 className="animate-spin h-8 w-8" /> : "Pay Online"}
+                           {isPaying ? <Loader2 className="animate-spin h-8 w-8" /> : `Pay ₹${Math.max(0, calculatedFare - appliedDiscount)} Now`}
                          </Button>
                       </div>
                     )}

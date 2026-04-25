@@ -21,9 +21,8 @@ import { useFirestore, useCollection, useUser, useAuth } from '@/firebase';
 import { collection, query, doc, orderBy, addDoc, deleteDoc, getDocs, updateDoc, where } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { format, subDays, isSameDay, parseISO } from 'date-fns';
 import { analyzeDemandIntelligence, DemandIntelligenceOutput } from '@/ai/flows/admin-demand-intelligence-flow';
+import { parseISO, isSameDay, format, subDays } from 'date-fns';
 
 const Logo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -48,26 +47,21 @@ export default function AdminDashboard() {
   const [isCleaning, setIsCleaning] = useState(false);
   const [isAllocatingBatch, setIsAllocatingBatch] = useState(false);
   
-  // AI Insights State
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiReport, setAiReport] = useState<DemandIntelligenceOutput | null>(null);
 
-  // Edit/Delete User State
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDocViewerOpen, setIsDocViewerOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({ fullName: '', phoneNumber: '', identityNumber: '', role: '' });
 
-  // Assignment State
   const [selectedTrip, setSelectedTrip] = useState<any>(null);
   const [isAllocating, setIsAllocating] = useState(false);
 
-  // Route Creation State
   const [newRoute, setNewRoute] = useState({ name: '', fare: '', schedule: '', stops: [] as any[] });
   const [tempStopName, setTempStopName] = useState("");
 
-  // Coupon Creation State
   const [newVoucher, setNewVoucher] = useState({ code: '', discount: '', limit: '' });
 
   useEffect(() => { setMounted(true); }, []);
@@ -81,7 +75,6 @@ export default function AdminDashboard() {
   const drivers = useMemo(() => allUsers?.filter(u => u.role === 'driver') || [], [allUsers]);
   const customers = useMemo(() => allUsers?.filter(u => u.role === 'rider' || u.role === 'customer') || [], [allUsers]);
 
-  // Robust date parsing
   const ensureDate = (val: any): Date => {
     if (!val) return new Date(0);
     if (val instanceof Date) return val;
@@ -100,20 +93,6 @@ export default function AdminDashboard() {
     const repeatRate = customers.length > 0 ? Math.round((Object.values(riderVisits).filter(count => count > 1).length / customers.length) * 100) : 0;
     return { totalCustomers: customers.length, totalDrivers: drivers.length, activeDrivers: drivers.filter(d => d.status === 'available' || d.status === 'on-trip').length, avgNps: 8.8, repeatRate };
   }, [allUsers, trips, drivers, customers]);
-
-  const chartData = useMemo(() => {
-    if (!mounted || !allUsers || !trips) return { growth: [], repeatData: [] };
-    const growth = Array.from({ length: 7 }).map((_, i) => {
-      const date = subDays(new Date(), 6 - i);
-      const count = allUsers.filter(u => {
-        if (!u.createdAt) return false;
-        return isSameDay(ensureDate(u.createdAt), date);
-      }).length;
-      return { name: format(date, 'MMM dd'), users: count };
-    });
-    const repeatData = [{ name: 'Repeat', value: stats.repeatRate, fill: 'hsl(var(--primary))' }, { name: 'New', value: Math.max(0, 100 - stats.repeatRate), fill: 'rgba(255,255,255,0.1)' }];
-    return { growth, repeatData };
-  }, [mounted, allUsers, trips, stats.repeatRate]);
 
   const runAiAnalysis = async () => {
     if (!trips || !allRoutes) return;
@@ -167,7 +146,7 @@ export default function AdminDashboard() {
           assignedCount++;
         }
       }
-      toast({ title: "Auto Assignment Done", description: `Gave duty to ${assignedCount} drivers for high-demand rides.` });
+      toast({ title: "Auto Assignment Done", description: `Gave duty to ${assignedCount} drivers.` });
     } catch (e) {
       toast({ variant: 'destructive', title: "Error", description: "Algorithm failed." });
     } finally { setIsAllocatingBatch(false); }
@@ -199,9 +178,19 @@ export default function AdminDashboard() {
   };
 
   const handleAddRoute = async () => {
-    if (!db || !newRoute.name || newRoute.stops.length < 2) return;
+    if (!db || !newRoute.name || newRoute.stops.length < 2 || !newRoute.fare) {
+      toast({ variant: 'destructive', title: "Validation Error", description: "Fill name, fare and at least 2 stops." });
+      return;
+    }
     try {
-      await addDoc(collection(db, 'routes'), { routeName: newRoute.name, baseFare: Number(newRoute.fare), schedule: newRoute.schedule, stops: newRoute.stops, status: 'active', createdAt: new Date().toISOString() });
+      await addDoc(collection(db, 'routes'), { 
+        routeName: newRoute.name, 
+        baseFare: Number(newRoute.fare), 
+        schedule: newRoute.schedule, 
+        stops: newRoute.stops, 
+        status: 'active', 
+        createdAt: new Date().toISOString() 
+      });
       toast({ title: "Route Created" });
       setNewRoute({ name: '', fare: '', schedule: '', stops: [] });
     } catch (e) { toast({ variant: 'destructive', title: "Error" }); }
@@ -334,7 +323,7 @@ export default function AdminDashboard() {
 
           {activeTab === 'routes' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 animate-in slide-in-from-right-8">
-               <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-8 h-fit shadow-2xl"><div className="space-y-4"><h3 className="text-2xl font-black italic uppercase text-primary border-l-4 border-primary pl-4">Route Builder</h3></div><div className="space-y-6"><div className="grid grid-cols-1 gap-4"><div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Name</Label><Input value={newRoute.name} onChange={e => setNewRoute({...newRoute, name: e.target.value})} placeholder="e.g. Metro Express" className="h-14 bg-white/5 rounded-xl font-black italic" /></div><div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Ticket Price (₹)</Label><Input type="number" value={newRoute.fare} onChange={e => setNewRoute({...newRoute, fare: e.target.value})} placeholder="150" className="h-14 bg-white/5 rounded-xl font-black italic" /></div><div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Schedule</Label><Input value={newRoute.schedule} onChange={e => setNewRoute({...newRoute, schedule: e.target.value})} placeholder="08:00 AM, 05:00 PM" className="h-14 bg-white/5 rounded-xl font-black italic" /></div></div></div><div className="space-y-4 pt-4 border-t border-white/5"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Add Stop</Label><div className="flex gap-4"><Input value={tempStopName} onChange={e => setTempStopName(e.target.value)} placeholder="e.g. City Mall" className="h-14 bg-white/5 rounded-xl font-black italic flex-1" /><Button onClick={() => { if (tempStopName) { setNewRoute({...newRoute, stops: [...newRoute.stops, { name: tempStopName }]}); setTempStopName(""); } }} className="h-14 w-14 rounded-xl bg-primary text-black shadow-xl"><Plus /></Button></div></div><div className="space-y-3"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Route Stops ({newRoute.stops.length})</Label><div className="space-y-2">{newRoute.stops.map((s, i) => (<div key={i} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 shadow-sm"><div className="flex items-center gap-3"><Badge className="bg-primary/20 text-primary border-none h-6 w-6 flex items-center justify-center p-0 rounded-full font-black text-[10px]">{i + 1}</Badge><span className="font-black italic text-sm">{s.name}</span></div><Button variant="ghost" size="icon" onClick={() => setNewRoute({...newRoute, stops: newRoute.stops.filter((_, idx) => idx !== i)})} className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></div>))}{newRoute.stops.length === 0 && <p className="text-[10px] font-bold text-muted-foreground uppercase text-center py-6 italic border-2 border-dashed border-white/5 rounded-xl opacity-40">No stops yet</p>}</div></div></div><Button onClick={handleAddRoute} disabled={newRoute.stops.length < 2 || !newRoute.name} className="w-full h-18 bg-primary text-black font-black uppercase italic rounded-2xl shadow-xl shadow-primary/20 text-lg active:scale-95 transition-all">Create Route</Button></Card>
+               <Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-8 h-fit shadow-2xl"><div className="space-y-4"><h3 className="text-2xl font-black italic uppercase text-primary border-l-4 border-primary pl-4">Route Builder</h3></div><div className="space-y-6"><div className="grid grid-cols-1 gap-4"><div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Name</Label><Input value={newRoute.name} onChange={e => setNewRoute({...newRoute, name: e.target.value})} placeholder="e.g. Metro Express" className="h-14 bg-white/5 rounded-xl font-black italic" /></div><div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Ticket Price (₹)</Label><Input type="number" value={newRoute.fare} onChange={e => setNewRoute({...newRoute, fare: e.target.value})} placeholder="150" className="h-14 bg-white/5 rounded-xl font-black italic" /></div><div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Schedule</Label><Input value={newRoute.schedule} onChange={e => setNewRoute({...newRoute, schedule: e.target.value})} placeholder="08:00 AM, 05:00 PM" className="h-14 bg-white/5 rounded-xl font-black italic" /></div></div></div><div className="space-y-4 pt-4 border-t border-white/5"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Add Stop</Label><div className="flex gap-4"><Input value={tempStopName} onChange={e => setTempStopName(e.target.value)} placeholder="e.g. City Mall" className="h-14 bg-white/5 rounded-xl font-black italic flex-1" /><Button onClick={() => { if (tempStopName) { setNewRoute({...newRoute, stops: [...newRoute.stops, { name: tempStopName }]}); setTempStopName(""); } }} className="h-14 w-14 rounded-xl bg-primary text-black shadow-xl"><Plus /></Button></div></div><div className="space-y-3"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Route Stops ({newRoute.stops.length})</Label><div className="space-y-2">{newRoute.stops.map((s, i) => (<div key={i} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 shadow-sm"><div className="flex items-center gap-3"><Badge className="bg-primary/20 text-primary border-none h-6 w-6 flex items-center justify-center p-0 rounded-full font-black text-[10px]">{i + 1}</Badge><span className="font-black italic text-sm">{s.name}</span></div><Button variant="ghost" size="icon" onClick={() => setNewRoute({...newRoute, stops: newRoute.stops.filter((_, idx) => idx !== i)})} className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button></div>))}{newRoute.stops.length === 0 && <p className="text-[10px] font-bold text-muted-foreground uppercase text-center py-6 italic border-2 border-dashed border-white/5 rounded-xl opacity-40">No stops yet</p>}</div></div></div><Button onClick={handleAddRoute} disabled={newRoute.stops.length < 2 || !newRoute.name || !newRoute.fare} className="w-full h-18 bg-primary text-black font-black uppercase italic rounded-2xl shadow-xl shadow-primary/20 text-lg active:scale-95 transition-all">Create Route</Button></Card>
                <div className="space-y-6"><h3 className="text-2xl font-black italic uppercase text-foreground border-l-4 border-white/20 pl-4">Live Hub Routes</h3><div className="grid gap-4">{allRoutes?.map((r: any) => (<Card key={r.id} className="p-6 bg-white/5 border-white/10 rounded-3xl flex justify-between items-center group hover:border-primary/20 transition-all shadow-xl"><div className="flex items-center gap-4"><div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-inner"><RouteIcon className="h-6 w-6" /></div><div><p className="text-xl font-black italic uppercase text-foreground leading-none">{r.routeName}</p><p className="text-[9px] font-bold text-muted-foreground uppercase mt-2">{r.stops?.length || 0} Stops • ₹{r.baseFare}</p></div></div><Button variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => deleteDoc(doc(db!, 'routes', r.id))}><Trash2 className="h-5 w-5" /></Button></Card>))}</div></div>
             </div>
           )}
@@ -352,7 +341,6 @@ export default function AdminDashboard() {
         </div>
       </main>
 
-      {/* Driver Document Viewer Dialog */}
       <Dialog open={isDocViewerOpen} onOpenChange={setIsDocViewerOpen}>
         <DialogContent className="bg-background border-white/10 rounded-[2.5rem] p-10 max-w-4xl h-[85vh] flex flex-col shadow-2xl">
           <DialogHeader><DialogTitle className="text-3xl font-black uppercase italic text-primary">Identity Check</DialogTitle><DialogDescription className="text-xs font-bold uppercase text-muted-foreground italic">Review professional documents for {selectedUser?.fullName}.</DialogDescription></DialogHeader>
@@ -393,7 +381,6 @@ export default function AdminDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Driver Duty Assignment Dialog */}
       <Dialog open={isAllocating} onOpenChange={setIsAllocating}>
         <DialogContent className="bg-background border-white/10 rounded-[2.5rem] p-10 max-w-2xl h-[80vh] flex flex-col shadow-2xl">
           <DialogHeader><DialogTitle className="text-3xl font-black uppercase italic text-primary">Assign Driver Duty</DialogTitle><DialogDescription className="text-[10px] font-bold uppercase text-muted-foreground mt-2 italic">Showing free verified drivers for this time.</DialogDescription></DialogHeader>
@@ -406,7 +393,6 @@ export default function AdminDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="bg-background border-white/10 rounded-3xl p-8 max-w-md shadow-2xl"><DialogHeader><DialogTitle className="text-2xl font-black uppercase italic text-primary">Edit Profile</DialogTitle></DialogHeader><div className="space-y-5 py-6"><div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground">Full Name</Label><Input value={editFormData.fullName} onChange={e => setEditFormData({...editFormData, fullName: e.target.value})} className="h-14 bg-white/5 border-white/10 font-black italic" /></div><div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground">Phone No.</Label><Input value={editFormData.phoneNumber} onChange={e => setEditFormData({...editFormData, phoneNumber: e.target.value})} className="h-14 bg-white/5 border-white/10 font-black italic" /></div><div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground">ID Number</Label><Input value={editFormData.identityNumber} onChange={e => setEditFormData({...editFormData, identityNumber: e.target.value})} className="h-14 bg-white/5 border-white/10 font-black italic" /></div></div><DialogFooter><Button onClick={handleSaveEdit} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl">Save Changes</Button></DialogFooter></DialogContent>
       </Dialog>
