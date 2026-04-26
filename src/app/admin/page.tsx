@@ -75,16 +75,6 @@ export default function AdminDashboard() {
   const drivers = useMemo(() => allUsers?.filter(u => u.role === 'driver') || [], [allUsers]);
   const customers = useMemo(() => allUsers?.filter(u => u.role === 'rider' || u.role === 'customer') || [], [allUsers]);
 
-  const ensureDate = (val: any): Date => {
-    if (!val) return new Date(0);
-    if (val instanceof Date) return val;
-    if (typeof val === 'string') {
-      try { return parseISO(val); } catch (e) { return new Date(val); }
-    }
-    if (val && typeof val.toDate === 'function') return val.toDate();
-    return new Date(val);
-  };
-
   const stats = useMemo(() => {
     if (!allUsers) return { totalCustomers: 0, totalDrivers: 0, activeDrivers: 0, avgNps: 8.8, repeatRate: 0 };
     const completedTrips = (trips || []).filter(t => t.status === 'completed');
@@ -112,16 +102,35 @@ export default function AdminDashboard() {
     }
   };
 
+  const getCapacityByVehicle = (type: string) => {
+    if (type === '5 Seater') return 4;
+    if (type === '7 Seater') return 6;
+    return 6;
+  };
+
   const availableDriversForTrip = useMemo(() => {
     if (!selectedTrip || !drivers) return [];
-    return drivers.filter(d => d.isVerified && !d.isBlocked && !trips?.some(t => t.driverId === d.uid && t.status !== 'completed' && t.scheduledDate === selectedTrip.scheduledDate && t.scheduledTime === selectedTrip.scheduledTime));
+    return drivers.filter(d => {
+      const isVerified = d.isVerified && !d.isBlocked;
+      const capacity = getCapacityByVehicle(d.vehicleType);
+      const canFitRiders = (selectedTrip.riderCount || 0) <= capacity;
+      const isNotBusy = !trips?.some(t => t.driverId === d.uid && t.status !== 'completed' && t.scheduledDate === selectedTrip.scheduledDate && t.scheduledTime === selectedTrip.scheduledTime);
+      return isVerified && canFitRiders && isNotBusy;
+    });
   }, [selectedTrip, drivers, trips]);
 
   const handleAssignDriver = async (driver: any) => {
     if (!db || !selectedTrip) return;
     try {
-      await updateDoc(doc(db, 'trips', selectedTrip.id), { driverId: driver.uid, driverName: driver.fullName, driverPhoto: driver.photoUrl || null, vehicleNumber: driver.vehicleNumber });
-      toast({ title: "Driver Duty Assigned" });
+      const capacity = getCapacityByVehicle(driver.vehicleType);
+      await updateDoc(doc(db, 'trips', selectedTrip.id), { 
+        driverId: driver.uid, 
+        driverName: driver.fullName, 
+        driverPhoto: driver.photoUrl || null, 
+        vehicleNumber: driver.vehicleNumber,
+        maxCapacity: capacity
+      });
+      toast({ title: "Driver Duty Assigned", description: `Max riders set to ${capacity} for comfort.` });
       setIsAllocating(false);
     } catch (e) { toast({ variant: 'destructive', title: "Error" }); }
   };
@@ -136,13 +145,22 @@ export default function AdminDashboard() {
 
       for (const trip of unassignedTrips) {
         const candidate = verifiedDrivers.find(d => {
+          const capacity = getCapacityByVehicle(d.vehicleType);
+          const fits = trip.riderCount <= capacity;
           const isPreferringRoute = d.preferredRoute === trip.routeName;
           const isFree = !trips.some(t => t.driverId === d.uid && t.status !== 'completed' && t.scheduledDate === trip.scheduledDate && t.scheduledTime === trip.scheduledTime);
-          return isPreferringRoute && isFree;
+          return fits && isPreferringRoute && isFree;
         });
 
         if (candidate) {
-          await updateDoc(doc(db, 'trips', trip.id), { driverId: candidate.uid, driverName: candidate.fullName, driverPhoto: candidate.photoUrl || null, vehicleNumber: candidate.vehicleNumber });
+          const cap = getCapacityByVehicle(candidate.vehicleType);
+          await updateDoc(doc(db, 'trips', trip.id), { 
+            driverId: candidate.uid, 
+            driverName: candidate.fullName, 
+            driverPhoto: candidate.photoUrl || null, 
+            vehicleNumber: candidate.vehicleNumber,
+            maxCapacity: cap
+          });
           assignedCount++;
         }
       }
@@ -314,9 +332,9 @@ export default function AdminDashboard() {
 
           {activeTab === 'rides' && (
             <div className="space-y-10 animate-in slide-in-from-right-8">
-              <div className="flex items-center justify-between"><h3 className="text-2xl font-black italic uppercase text-primary border-l-4 border-primary pl-4">Booking Interest</h3><p className="text-[10px] font-black uppercase text-muted-foreground italic">Filling 7-seater vans efficiently.</p></div>
+              <div className="flex items-center justify-between"><h3 className="text-2xl font-black italic uppercase text-primary border-l-4 border-primary pl-4">Booking Interest</h3><p className="text-[10px] font-black uppercase text-muted-foreground italic">N-1 Seating applied for comfort.</p></div>
               <Card className="bg-white/5 border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl"><Table><TableHeader className="bg-white/5"><TableRow className="border-white/5"><TableHead className="text-[10px] font-black uppercase italic h-16">Ride Details</TableHead><TableHead className="text-[10px] font-black uppercase italic h-16">Seat Usage</TableHead><TableHead className="text-[10px] font-black uppercase italic h-16">Assigned Driver</TableHead><TableHead className="text-[10px] font-black uppercase italic h-16 text-right">Action</TableHead></TableRow></TableHeader><TableBody>{trips?.map((t: any) => (
-                      <TableRow key={t.id} className="border-white/5 hover:bg-white/5 transition-colors"><TableCell className="py-6"><div className="space-y-1"><p className="font-black italic text-lg uppercase leading-none">{t.routeName}</p><p className="text-[10px] font-bold text-muted-foreground uppercase">{t.scheduledDate} • {t.scheduledTime}</p></div></TableCell><TableCell><div className="flex items-center gap-3"><div className="h-10 w-24 bg-white/5 rounded-full overflow-hidden relative shadow-inner"><div className="h-full bg-primary transition-all duration-1000" style={{ width: `${(t.riderCount / t.maxCapacity) * 100}%` }} /></div><span className="font-black italic text-sm">{t.riderCount} / {t.maxCapacity}</span></div></TableCell><TableCell>{t.driverName ? <div className="flex items-center gap-3"><div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden border border-primary/30">{t.driverPhoto ? <img src={t.driverPhoto} className="h-full w-full object-cover" /> : <Car className="h-4 w-4 text-primary" />}</div><span className="font-black italic text-sm">{t.driverName}</span></div> : <Badge variant="outline" className="text-[8px] border-destructive/20 text-destructive font-black uppercase italic px-3 py-1">NO DUTY</Badge>}</TableCell><TableCell className="text-right"><Button onClick={() => { setSelectedTrip(t); setIsAllocating(true); }} className="h-11 px-6 rounded-xl bg-primary text-black font-black uppercase italic text-xs shadow-xl active:scale-95 transition-all">Assign Duty</Button></TableCell></TableRow>
+                      <TableRow key={t.id} className="border-white/5 hover:bg-white/5 transition-colors"><TableCell className="py-6"><div className="space-y-1"><p className="font-black italic text-lg uppercase leading-none">{t.routeName}</p><p className="text-[10px] font-bold text-muted-foreground uppercase">{t.scheduledDate} • {t.scheduledTime}</p></div></TableCell><TableCell><div className="flex items-center gap-3"><div className="h-10 w-24 bg-white/5 rounded-full overflow-hidden relative shadow-inner"><div className="h-full bg-primary transition-all duration-1000" style={{ width: `${(t.riderCount / t.maxCapacity) * 100}%` }} /></div><span className="font-black italic text-sm">{t.riderCount} / {t.maxCapacity}</span></div></TableCell><TableCell>{t.driverName ? <div className="flex items-center gap-3"><div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden border border-primary/30">{t.driverPhoto ? <img src={t.driverPhoto} className="h-full w-full object-cover" /> : <Car className="h-4 w-4 text-primary" />}</div><span className="font-black italic text-sm">{t.driverName}</span></div> : <Badge variant="outline" className="text-[8px] border-destructive/20 text-destructive font-black uppercase italic px-3 py-1">NO DUTY pool</Badge>}</TableCell><TableCell className="text-right"><Button onClick={() => { setSelectedTrip(t); setIsAllocating(true); }} className="h-11 px-6 rounded-xl bg-primary text-black font-black uppercase italic text-xs shadow-xl active:scale-95 transition-all">Assign Duty</Button></TableCell></TableRow>
                     ))}{(!trips || trips.length === 0) && <TableRow><TableCell colSpan={4} className="text-center py-20 text-muted-foreground uppercase font-bold italic opacity-40">No scheduled rides</TableCell></TableRow>}</TableBody></Table></Card>
             </div>
           )}
@@ -329,7 +347,7 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === 'analytics' && (
-            <div className="space-y-10 animate-in slide-in-from-right-8 pb-20"><Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 shadow-2xl"><div className="flex items-center justify-between mb-10"><h3 className="text-2xl font-black italic uppercase text-primary border-l-4 border-primary pl-4">Corridor Performance</h3></div><Table><TableHeader><TableRow className="border-white/5 hover:bg-transparent"><TableHead className="text-[10px] font-black uppercase italic">Route</TableHead><TableHead className="text-[10px] font-black uppercase italic">Total Rides</TableHead><TableHead className="text-[10px] font-black uppercase italic">Passengers</TableHead><TableHead className="text-[10px) font-black uppercase italic">Earnings</TableHead></TableRow></TableHeader><TableBody>{allRoutes?.map((r: any) => { const rTrips = trips?.filter(t => t.routeName === r.routeName) || []; const rCount = rTrips.reduce((a, c) => a + (c.riderCount || 0), 0); return (<TableRow key={r.id} className="border-white/5 hover:bg-white/5 transition-colors"><TableCell className="font-black italic py-6">{r.routeName}</TableCell><TableCell className="font-bold italic">{rTrips.length}</TableCell><TableCell className="font-bold italic text-primary">{rCount}</TableCell><TableCell className="font-black italic text-lg">₹{(rCount * r.baseFare).toFixed(0)}</TableCell></TableRow>); })}</TableBody></Table></Card></div>
+            <div className="space-y-10 animate-in slide-in-from-right-8 pb-20"><Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 shadow-2xl"><div className="flex items-center justify-between mb-10"><h3 className="text-2xl font-black italic uppercase text-primary border-l-4 border-primary pl-4">Corridor Performance</h3></div><Table><TableHeader><TableRow className="border-white/5 hover:bg-transparent"><TableHead className="text-[10px] font-black uppercase italic">Route</TableHead><TableHead className="text-[10px] font-black uppercase italic">Total Rides</TableHead><TableHead className="text-[10px] font-black uppercase italic">Passengers</TableHead><TableHead className="text-[10px] font-black uppercase italic">Earnings</TableHead></TableRow></TableHeader><TableBody>{allRoutes?.map((r: any) => { const rTrips = trips?.filter(t => t.routeName === r.routeName) || []; const rCount = rTrips.reduce((a, c) => a + (c.riderCount || 0), 0); return (<TableRow key={r.id} className="border-white/5 hover:bg-white/5 transition-colors"><TableCell className="font-black italic py-6">{r.routeName}</TableCell><TableCell className="font-bold italic">{rTrips.length}</TableCell><TableCell className="font-bold italic text-primary">{rCount}</TableCell><TableCell className="font-black italic text-lg">₹{(rCount * r.baseFare).toFixed(0)}</TableCell></TableRow>); })}</TableBody></Table></Card></div>
           )}
 
           {activeTab === 'coupons' && (
@@ -383,18 +401,18 @@ export default function AdminDashboard() {
 
       <Dialog open={isAllocating} onOpenChange={setIsAllocating}>
         <DialogContent className="bg-background border-white/10 rounded-[2.5rem] p-10 max-w-2xl h-[80vh] flex flex-col shadow-2xl">
-          <DialogHeader><DialogTitle className="text-3xl font-black uppercase italic text-primary">Assign Driver Duty</DialogTitle><DialogDescription className="text-[10px] font-bold uppercase text-muted-foreground mt-2 italic">Showing free verified drivers for this time.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle className="text-3xl font-black uppercase italic text-primary">Assign Driver Duty</DialogTitle><DialogDescription className="text-[10px] font-bold uppercase text-muted-foreground mt-2 italic">Showing free verified drivers who fit this rider count.</DialogDescription></DialogHeader>
           <div className="flex-1 overflow-y-auto space-y-4 py-8 custom-scrollbar">
             {availableDriversForTrip.length > 0 ? availableDriversForTrip.map((d: any) => (
                 <div key={d.id} className="p-6 bg-white/5 rounded-2xl border border-white/5 flex items-center justify-between group hover:border-primary/30 transition-all shadow-sm"><div className="flex items-center gap-4"><div className="h-12 w-12 rounded-full bg-white/10 overflow-hidden border border-white/5 shadow-inner">{d.photoUrl ? <img src={d.photoUrl} className="h-full w-full object-cover" /> : <Car className="h-6 w-6 text-muted-foreground p-3" />}</div><div><p className="font-black italic uppercase text-lg leading-none">{d.fullName}</p><p className="text-[9px] font-bold text-muted-foreground uppercase mt-2">{d.vehicleNumber} • {d.vehicleType}</p></div></div><Button onClick={() => handleAssignDriver(d)} className="h-11 px-6 bg-primary text-black font-black uppercase italic rounded-xl text-xs shadow-lg active:scale-95 transition-all">Assign</Button></div>
-              )) : <div className="flex flex-col items-center justify-center h-full text-center space-y-4 opacity-40"><ShieldAlert className="h-12 w-12 text-destructive" /><p className="text-xs font-black uppercase italic">No free drivers for this time.</p></div>}
+              )) : <div className="flex flex-col items-center justify-center h-full text-center space-y-4 opacity-40"><ShieldAlert className="h-12 w-12 text-destructive" /><p className="text-xs font-black uppercase italic">No free drivers found (or vehicle is too small for current rider count).</p></div>}
           </div>
           <DialogFooter><Button variant="ghost" onClick={() => setIsAllocating(false)} className="w-full h-14 rounded-xl font-black uppercase italic">Cancel</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="bg-background border-white/10 rounded-3xl p-8 max-w-md shadow-2xl"><DialogHeader><DialogTitle className="text-2xl font-black uppercase italic text-primary">Edit Profile</DialogTitle></DialogHeader><div className="space-y-5 py-6"><div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground">Full Name</Label><Input value={editFormData.fullName} onChange={e => setEditFormData({...editFormData, fullName: e.target.value})} className="h-14 bg-white/5 border-white/10 font-black italic" /></div><div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground">Phone No.</Label><Input value={editFormData.phoneNumber} onChange={e => setEditFormData({...editFormData, phoneNumber: e.target.value})} className="h-14 bg-white/5 border-white/10 font-black italic" /></div><div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground">ID Number</Label><Input value={editFormData.identityNumber} onChange={e => setEditFormData({...editFormData, identityNumber: e.target.value})} className="h-14 bg-white/5 border-white/10 font-black italic" /></div></div><DialogFooter><Button onClick={handleSaveEdit} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl">Save Changes</Button></DialogFooter></DialogContent>
+        <DialogContent className="bg-background border-white/10 rounded-3xl p-8 max-md shadow-2xl"><DialogHeader><DialogTitle className="text-2xl font-black uppercase italic text-primary">Edit Profile</DialogTitle></DialogHeader><div className="space-y-5 py-6"><div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground">Full Name</Label><Input value={editFormData.fullName} onChange={e => setEditFormData({...editFormData, fullName: e.target.value})} className="h-14 bg-white/5 border-white/10 font-black italic" /></div><div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground">Phone No.</Label><Input value={editFormData.phoneNumber} onChange={e => setEditFormData({...editFormData, phoneNumber: e.target.value})} className="h-14 bg-white/5 border-white/10 font-black italic" /></div><div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground">ID Number</Label><Input value={editFormData.identityNumber} onChange={e => setEditFormData({...editFormData, identityNumber: e.target.value})} className="h-14 bg-white/5 border-white/10 font-black italic" /></div></div><DialogFooter><Button onClick={handleSaveEdit} className="w-full bg-primary text-black h-16 rounded-2xl font-black uppercase italic shadow-xl">Save Changes</Button></DialogFooter></DialogContent>
       </Dialog>
 
       <Dialog open={isCleaning} onOpenChange={setIsCleaning}>

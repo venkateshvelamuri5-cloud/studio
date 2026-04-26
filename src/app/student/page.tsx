@@ -28,7 +28,8 @@ import {
   LogOut,
   MapPin,
   Search,
-  MessageSquare
+  MessageSquare,
+  XCircle
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
 import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc } from 'firebase/firestore';
@@ -65,6 +66,7 @@ export default function CustomerDashboard() {
   const [voucherCode, setVoucherCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [isPaying, setIsPaying] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const userRef = useMemo(() => (db && user?.uid) ? doc(db, 'users', user.uid) : null, [db, user?.uid]);
   const { data: profile, loading: profileLoading } = useDoc(userRef);
@@ -157,6 +159,27 @@ export default function CustomerDashboard() {
     }
   };
 
+  const handleCancelTicket = async (trip: any) => {
+    if (!db || !user?.uid) return;
+    const isAlreadyVerified = trip.verifiedPassengers?.includes(user.uid);
+    if (isAlreadyVerified) {
+      toast({ variant: "destructive", title: "Cannot Cancel", description: "You have already onboarded for this trip." });
+      return;
+    }
+
+    setIsCancelling(true);
+    try {
+      const newManifest = trip.passengerManifest.filter((m: any) => m.uid !== user.uid);
+      await updateDoc(doc(db, 'trips', trip.id), { 
+        passengerManifest: newManifest, 
+        riderCount: increment(-1) 
+      });
+      toast({ title: "Ticket Cancelled", description: "Your ride has been cancelled successfully." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Cancellation Failed" });
+    } finally { setIsCancelling(false); }
+  };
+
   const applyDiscount = async () => {
     if (!db || !voucherCode || !user?.uid) return;
     const q = query(collection(db, 'vouchers'), where('code', '==', voucherCode.toUpperCase()));
@@ -193,7 +216,9 @@ export default function CustomerDashboard() {
       
       const q = query(collection(db, 'trips'), where('routeName', '==', selectedRoute.routeName), where('scheduledDate', '==', bookingDate), where('scheduledTime', '==', bookingTime), where('status', '==', 'active'));
       const snap = await getDocs(q);
-      const existingTrip = snap.docs.find(d => (d.data().riderCount || 0) < 7);
+      
+      // Look for existing trip with space based on its maxCapacity
+      const existingTrip = snap.docs.find(d => (d.data().riderCount || 0) < (d.data().maxCapacity || 7));
       
       if (existingTrip) {
         await updateDoc(doc(db, 'trips', existingTrip.id), { 
@@ -207,7 +232,7 @@ export default function CustomerDashboard() {
           scheduledTime: bookingTime, 
           status: 'active', 
           riderCount: 1, 
-          maxCapacity: 7, 
+          maxCapacity: 6, // Default to 6 (7-seater N-1)
           farePerRider: selectedRoute.baseFare, 
           passengerManifest: [entry], 
           verifiedPassengers: [], 
@@ -259,7 +284,7 @@ export default function CustomerDashboard() {
       if (order.error) throw new Error(order.error);
       
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SeqhV0hEn1PXnz',
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: order.amount,
         currency: order.currency,
         name: "AAGO",
@@ -275,7 +300,7 @@ export default function CustomerDashboard() {
       rzp.open();
     } catch (e: any) { 
       console.error("Payment Start Error:", e);
-      toast({ variant: "destructive", title: "Payment Failed", description: e.message || "Could not start payment." });
+      toast({ variant: "destructive", title: "Payment Gateway Error", description: "Could not connect to Razorpay. Check your internet." });
       setIsPaying(false); 
     }
   };
@@ -332,6 +357,9 @@ export default function CustomerDashboard() {
                        <Button onClick={() => setActiveTab('status')} className="w-full h-14 bg-primary text-black rounded-2xl font-black uppercase italic shadow-xl">Check Ride Info</Button>
                        <Button onClick={handleShare} variant="outline" className="w-full h-14 border-white/10 text-white rounded-2xl font-black uppercase italic">
                          <MessageSquare className="mr-2 h-5 w-5 text-primary" /> Share With Family
+                       </Button>
+                       <Button onClick={() => handleCancelTicket(currentRide)} disabled={isCancelling} variant="ghost" className="text-destructive h-10 font-black uppercase italic text-xs hover:bg-destructive/10">
+                         {isCancelling ? <Loader2 className="animate-spin" /> : "Cancel My Ticket"}
                        </Button>
                     </div>
                  </div>
@@ -514,10 +542,13 @@ export default function CustomerDashboard() {
                          {currentRide.status === 'on-trip' ? 'Driver has started the trip.' : 'Wait for boarding time.'}
                        </p>
                     </div>
-                    <div className="p-8 bg-black/60 rounded-[2.5rem] border border-white/5">
+                    <div className="p-8 bg-black/60 rounded-[2.5rem] border border-white/5 space-y-4">
                        <p className="text-[11px] font-bold text-white/60 uppercase leading-relaxed italic">
                          Vehicle number and Ride Code (OTP) unlock 3 hours before start for your safety.
                        </p>
+                       <Button onClick={() => handleCancelTicket(currentRide)} disabled={isCancelling} variant="ghost" className="w-full h-12 text-destructive font-black uppercase italic text-xs border border-destructive/20 rounded-xl hover:bg-destructive/10">
+                         {isCancelling ? <Loader2 className="animate-spin h-4 w-4" /> : "Cancel Ticket"}
+                       </Button>
                     </div>
                  </Card>
                  <div className="space-y-4">
@@ -546,14 +577,21 @@ export default function CustomerDashboard() {
             <h2 className="text-4xl font-black italic uppercase text-foreground tracking-tighter">My Travels</h2>
             <div className="space-y-4">
                {allTrips?.filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid)).map((trip: any) => (
-                 <Card key={trip.id} className="p-8 bg-white/5 border border-white/10 rounded-[2.5rem] flex justify-between items-center group hover:border-primary/20 transition-all shadow-xl">
-                    <div className="space-y-2">
-                       <h4 className="text-xl font-black italic uppercase leading-none group-hover:text-primary transition-colors">{trip.routeName}</h4>
-                       <p className="text-[9px] font-bold text-muted-foreground uppercase">{trip.scheduledDate} • {trip.scheduledTime}</p>
+                 <Card key={trip.id} className="p-8 bg-white/5 border border-white/10 rounded-[2.5rem] flex flex-col gap-6 group hover:border-primary/20 transition-all shadow-xl">
+                    <div className="flex justify-between items-center w-full">
+                        <div className="space-y-2">
+                        <h4 className="text-xl font-black italic uppercase leading-none group-hover:text-primary transition-colors">{trip.routeName}</h4>
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase">{trip.scheduledDate} • {trip.scheduledTime}</p>
+                        </div>
+                        <Badge className={`${trip.status === 'completed' ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary'} border-none uppercase text-[8px] font-black px-5 py-2 rounded-full shadow-inner`}>
+                        {trip.status === 'completed' ? 'DONE' : 'PAKKA'}
+                        </Badge>
                     </div>
-                    <Badge className={`${trip.status === 'completed' ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary'} border-none uppercase text-[8px] font-black px-5 py-2 rounded-full shadow-inner`}>
-                       {trip.status === 'completed' ? 'DONE' : 'PAKKA'}
-                    </Badge>
+                    {trip.status === 'active' && (
+                        <Button onClick={() => handleCancelTicket(trip)} disabled={isCancelling} variant="ghost" className="w-full h-10 border border-destructive/20 text-destructive font-black uppercase italic text-[10px] rounded-xl hover:bg-destructive/10">
+                            {isCancelling ? <Loader2 className="animate-spin h-3 w-3" /> : "Cancel This Booking"}
+                        </Button>
+                    )}
                  </Card>
                ))}
                {(!allTrips || allTrips.filter(t => t.passengerManifest?.some((m: any) => m.uid === user?.uid)).length === 0) && (
@@ -602,4 +640,3 @@ export default function CustomerDashboard() {
     </div>
   );
 }
-

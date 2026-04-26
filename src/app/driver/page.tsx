@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { 
-  Power, Loader2, LogOut, CheckCircle2, Wallet, User as UserIcon, Trophy, ShieldAlert, Clock, ChevronRight, Briefcase, MapIcon, MapPin
+  Power, Loader2, LogOut, CheckCircle2, Wallet, User as UserIcon, Trophy, ShieldAlert, Clock, ChevronRight, Briefcase, MapIcon, MapPin, XCircle
 } from 'lucide-react';
 import { useUser, useDoc, useFirestore, useAuth, useCollection } from '@/firebase';
 import { doc, updateDoc, collection, onSnapshot, query, where, arrayUnion, getDocs, increment } from 'firebase/firestore';
@@ -75,6 +75,25 @@ export default function DriverApp() {
     } finally { setIsUpdating(false); }
   };
 
+  const cancelDuty = async (trip: any) => {
+    if (!db || !userRef) return;
+    if (trip.status === 'on-trip') {
+      toast({ variant: "destructive", title: "Cannot Cancel", description: "Ride is already live." });
+      return;
+    }
+    setIsUpdating(true);
+    try {
+      await updateDoc(doc(db, 'trips', trip.id), { 
+        driverId: null, 
+        driverName: null, 
+        driverPhoto: null, 
+        vehicleNumber: null,
+        maxCapacity: 7 // Reset to default pool capacity
+      });
+      toast({ title: "Duty Cancelled", description: "The trip is back in the pool." });
+    } finally { setIsUpdating(false); }
+  };
+
   const verifyCustomer = async () => {
     if (!db || !activeTrip || !otpCode) return;
     setIsVerifying(true);
@@ -112,7 +131,6 @@ export default function DriverApp() {
 
   if (authLoading || profileLoading) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin text-primary h-12 w-12" /></div>;
 
-  // Unverified Driver Screen
   if (profile && !profile.isVerified) return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 text-center font-body safe-area-inset">
        <div className="mb-10 flex flex-col items-center gap-6 animate-in zoom-in duration-500">
@@ -147,7 +165,7 @@ export default function DriverApp() {
             <Card className="rounded-[3.5rem] p-8 space-y-8 border-primary/30 relative shadow-2xl bg-card/60 backdrop-blur-md">
                <div className="flex justify-between items-start"><div className="space-y-1"><h2 className="text-4xl font-black italic uppercase leading-none text-primary">{activeTrip.routeName}</h2><p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mt-2">Active Ride</p></div><Badge className="bg-primary/20 text-primary border-none text-[10px] font-black uppercase px-5 py-2 rounded-full">LIVE</Badge></div>
                <div className="bg-black/60 p-8 rounded-[3rem] border border-white/10 space-y-4">
-                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-4">Passenger OTP</Label>
+                  <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-4">Passenger Ride Code (OTP)</Label>
                   <div className="flex gap-4"><input value={otpCode} onChange={e => setOtpCode(e.target.value)} placeholder="000000" className="h-16 w-full text-center font-black tracking-[0.5em] text-2xl rounded-2xl bg-white/5 border border-white/10 text-primary outline-none focus:border-primary" maxLength={6} /><Button onClick={verifyCustomer} disabled={isVerifying || !otpCode} className="h-16 w-16 rounded-2xl bg-primary text-black shadow-xl"><CheckCircle2 className="h-8 w-8" /></Button></div>
                </div>
                <Button onClick={finishRide} disabled={isUpdating} className="w-full h-20 bg-primary/10 border-2 border-primary/50 text-primary rounded-[3rem] font-black uppercase italic text-xl active:scale-95 transition-all">End Ride</Button>
@@ -176,8 +194,11 @@ export default function DriverApp() {
                        const ready = isReadyToStart(trip.scheduledDate, trip.scheduledTime);
                        return (
                          <Card key={trip.id} className="p-8 bg-white/5 border border-white/10 rounded-[2.5rem] space-y-6">
-                            <div className="flex justify-between items-start"><div className="space-y-2"><h4 className="text-2xl font-black italic uppercase leading-none">{trip.routeName}</h4><p className="text-[10px] font-bold text-muted-foreground uppercase">{trip.scheduledDate} • {trip.scheduledTime}</p><Badge className="bg-primary/10 text-primary border-none text-[8px] font-black px-2 py-1 rounded-full uppercase mt-2">{trip.riderCount} Seats Full</Badge></div><Badge className={`text-[8px] font-black uppercase px-3 py-1 rounded-full ${ready ? 'bg-green-500/20 text-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]' : 'bg-white/10 text-muted-foreground'}`}>{ready ? 'PAKKA' : 'LOCKED'}</Badge></div>
-                            {ready ? <Button onClick={() => startRide(trip)} disabled={profile?.status === 'offline' || isUpdating} className="w-full h-16 bg-primary text-black rounded-2xl font-black uppercase italic text-lg shadow-xl active:scale-95 transition-all">Start Ride</Button> : <div className="w-full h-16 bg-white/5 border border-dashed border-white/10 rounded-2xl flex items-center justify-center gap-3"><Clock className="h-5 w-5 text-muted-foreground" /><span className="text-[10px] font-black uppercase text-muted-foreground">Unlocks 3 hrs before time</span></div>}
+                            <div className="flex justify-between items-start"><div className="space-y-2"><h4 className="text-2xl font-black italic uppercase leading-none">{trip.routeName}</h4><p className="text-[10px] font-bold text-muted-foreground uppercase">{trip.scheduledDate} • {trip.scheduledTime}</p><Badge className="bg-primary/10 text-primary border-none text-[8px] font-black px-2 py-1 rounded-full uppercase mt-2">{trip.riderCount} / {trip.maxCapacity} Full</Badge></div><Badge className={`text-[8px] font-black uppercase px-3 py-1 rounded-full ${ready ? 'bg-green-500/20 text-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]' : 'bg-white/10 text-muted-foreground'}`}>{ready ? 'PAKKA' : 'LOCKED'}</Badge></div>
+                            <div className="flex flex-col gap-3">
+                                {ready ? <Button onClick={() => startRide(trip)} disabled={profile?.status === 'offline' || isUpdating} className="w-full h-16 bg-primary text-black rounded-2xl font-black uppercase italic text-lg shadow-xl active:scale-95 transition-all">Start Ride</Button> : <div className="w-full h-16 bg-white/5 border border-dashed border-white/10 rounded-2xl flex items-center justify-center gap-3"><Clock className="h-5 w-5 text-muted-foreground" /><span className="text-[10px] font-black uppercase text-muted-foreground">Unlocks 3 hrs before time</span></div>}
+                                <Button onClick={() => cancelDuty(trip)} variant="ghost" className="h-12 text-destructive font-black uppercase italic rounded-xl hover:bg-destructive/10"><XCircle className="mr-2 h-4 w-4" /> Cancel Duty</Button>
+                            </div>
                          </Card>
                        );
                      })}
@@ -189,7 +210,7 @@ export default function DriverApp() {
                <div className="space-y-8 animate-in fade-in"><div className="flex items-center justify-between px-2"><h3 className="text-3xl font-black italic uppercase text-foreground">My Earnings</h3><Badge className="bg-primary text-black font-black text-[10px] px-4 py-1.5 rounded-full shadow-lg">₹{(profile?.totalEarnings || 0).toFixed(0)}</Badge></div><Card className="bg-white/5 border-white/10 rounded-[2.5rem] p-10 space-y-6 text-center"><div className="p-3 bg-primary/10 rounded-2xl text-primary w-fit mx-auto shadow-inner"><Trophy className="h-10 w-10" /></div><Progress value={Math.min(100, ((profile?.totalEarnings || 0) / 2000) * 100)} className="h-3 bg-white/5 [&>div]:bg-primary" /><p className="text-[10px] font-black uppercase text-muted-foreground italic">You get 90% of total ticket fares.</p></Card></div>
              )}
              {activeTab === 'profile' && (
-               <div className="space-y-12 text-center pb-24 pt-10 animate-in fade-in"><div className="flex flex-col items-center gap-6"><div className="h-40 w-40 rounded-full border-[8px] border-white/5 bg-primary/5 flex items-center justify-center overflow-hidden shadow-2xl relative">{profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : <div className="h-full w-full bg-primary/5 flex items-center justify-center text-primary/20"><UserIcon className="h-12 w-12" /></div>}</div><div className="space-y-2"><h2 className="text-5xl font-black italic uppercase text-foreground leading-none">{profile?.fullName}</h2><Badge className="bg-primary/20 text-primary border-none uppercase text-[9px] font-black px-6 py-1.5 rounded-full shadow-lg">{profile?.vehicleNumber}</Badge></div></div><Button onClick={handleSignOut} className="w-full max-w-sm mx-auto h-20 bg-destructive/10 text-destructive rounded-[2.5rem] font-black uppercase italic border border-destructive/20 text-xl shadow-lg active:scale-95 transition-all"><LogOut className="mr-3 h-6 w-6" /> Logout</Button></div>
+               <div className="space-y-12 text-center pb-24 pt-10 animate-in fade-in"><div className="flex flex-col items-center gap-6"><div className="h-40 w-40 rounded-full border-[8px] border-white/5 bg-primary/5 flex items-center justify-center overflow-hidden shadow-2xl relative">{profile?.photoUrl ? <img src={profile.photoUrl} className="h-full w-full object-cover" /> : <div className="h-full w-full bg-primary/5 flex items-center justify-center text-primary/20"><UserIcon className="h-12 w-12" /></div>}</div><div className="space-y-2"><h2 className="text-5xl font-black italic uppercase text-foreground leading-none">{profile?.fullName}</h2><Badge className="bg-primary/20 text-primary border-none uppercase text-[9px] font-black px-6 py-1.5 rounded-full shadow-lg">{profile?.vehicleNumber} • {profile?.vehicleType}</Badge></div></div><Button onClick={handleSignOut} className="w-full max-w-sm mx-auto h-20 bg-destructive/10 text-destructive rounded-[2.5rem] font-black uppercase italic border border-destructive/20 text-xl shadow-lg active:scale-95 transition-all"><LogOut className="mr-3 h-6 w-6" /> Logout</Button></div>
              )}
           </div>
         )}
