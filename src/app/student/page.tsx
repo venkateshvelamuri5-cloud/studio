@@ -32,7 +32,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { useUser, useDoc, useAuth, useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc } from 'firebase/firestore';
+import { doc, updateDoc, increment, collection, query, where, arrayUnion, getDocs, addDoc, deleteDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -126,13 +126,15 @@ export default function CustomerDashboard() {
     if (!bookingDate) return times;
     
     const today = format(new Date(), 'yyyy-MM-dd');
-    if (bookingDate !== today) return times;
-
     const now = new Date();
+
     return times.filter(t => {
       try {
         const scheduledTime = parse(`${bookingDate} ${t}`, 'yyyy-MM-dd hh:mm a', new Date());
-        return isAfter(scheduledTime, now);
+        if (bookingDate === today) {
+          return isAfter(scheduledTime, now);
+        }
+        return true;
       } catch (e) {
         return true;
       }
@@ -149,7 +151,7 @@ export default function CustomerDashboard() {
   const handleShare = async () => {
     const text = isShowOtpAllowed 
       ? `My AAGO Ride is Pakka! Route: ${currentRide?.routeName}. Ride Code (OTP): ${profile?.activeOtp}. Boarding at ${currentRide?.scheduledTime}.`
-      : `I have booked a ticket with AAGO! Route: ${currentRide?.routeName} at ${currentRide?.scheduledTime}. All details will unlock 3 hours before trip starts.`;
+      : `I have booked a ticket with AAGO! Route: ${currentRide?.routeName} at ${currentRide?.scheduledTime}. Boarding details will unlock 3 hours before start.`;
     
     if (navigator.share) {
       navigator.share({ title: 'AAGO - My Trip', text, url: window.location.href });
@@ -170,10 +172,15 @@ export default function CustomerDashboard() {
     setIsCancelling(true);
     try {
       const newManifest = trip.passengerManifest.filter((m: any) => m.uid !== user.uid);
-      await updateDoc(doc(db, 'trips', trip.id), { 
-        passengerManifest: newManifest, 
-        riderCount: increment(-1) 
-      });
+      if (newManifest.length === 0 && !trip.driverId) {
+          // If it was the only person and no driver assigned, delete the placeholder trip
+          await deleteDoc(doc(db, 'trips', trip.id));
+      } else {
+          await updateDoc(doc(db, 'trips', trip.id), { 
+            passengerManifest: newManifest, 
+            riderCount: increment(-1) 
+          });
+      }
       toast({ title: "Ticket Cancelled", description: "Your ride has been cancelled successfully." });
     } catch (e) {
       toast({ variant: "destructive", title: "Cancellation Failed" });
@@ -232,7 +239,7 @@ export default function CustomerDashboard() {
           scheduledTime: bookingTime, 
           status: 'active', 
           riderCount: 1, 
-          maxCapacity: 6, // Default to 6 (7-seater N-1)
+          maxCapacity: 6, // Default to 6 (7-seater N-1 Rule)
           farePerRider: selectedRoute.baseFare, 
           passengerManifest: [entry], 
           verifiedPassengers: [], 
@@ -284,7 +291,7 @@ export default function CustomerDashboard() {
       if (order.error) throw new Error(order.error);
       
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_Si1THYFbgZTQOp',
         amount: order.amount,
         currency: order.currency,
         name: "AAGO",
@@ -506,7 +513,7 @@ export default function CustomerDashboard() {
                          <div className="space-y-4 px-4">
                            <h3 className="text-4xl font-black italic uppercase text-primary leading-none">Pakka Booked!</h3>
                            <p className="text-[11px] font-bold text-white/70 uppercase leading-relaxed mt-4 italic">
-                             Congratulations! Your ticket is confirmed. Van details and Ride Code (OTP) will unlock 3 hours before start time.
+                             Congratulations! Your ticket is confirmed. Boarding details and Ride Code (OTP) will unlock 3 hours before start time.
                            </p>
                          </div>
                          <div className="w-full flex flex-col gap-4">

@@ -22,7 +22,6 @@ import { collection, query, doc, orderBy, addDoc, deleteDoc, getDocs, updateDoc,
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { analyzeDemandIntelligence, DemandIntelligenceOutput } from '@/ai/flows/admin-demand-intelligence-flow';
-import { parseISO, isSameDay, format, subDays } from 'date-fns';
 
 const Logo = ({ className = "h-8 w-8" }: { className?: string }) => (
   <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -103,6 +102,7 @@ export default function AdminDashboard() {
   };
 
   const getCapacityByVehicle = (type: string) => {
+    // Comfort Capacity (N-1 Passengers)
     if (type === '5 Seater') return 4;
     if (type === '7 Seater') return 6;
     return 6;
@@ -132,7 +132,7 @@ export default function AdminDashboard() {
       });
       toast({ title: "Driver Duty Assigned", description: `Max riders set to ${capacity} for comfort.` });
       setIsAllocating(false);
-    } catch (e) { toast({ variant: 'destructive', title: "Error" }); }
+    } catch (e) { toast({ variant: "destructive", title: "Error" }); }
   };
 
   const handleSmartAllocate = async () => {
@@ -166,7 +166,7 @@ export default function AdminDashboard() {
       }
       toast({ title: "Auto Assignment Done", description: `Gave duty to ${assignedCount} drivers.` });
     } catch (e) {
-      toast({ variant: 'destructive', title: "Error", description: "Algorithm failed." });
+      toast({ variant: "destructive", title: "Error", description: "Algorithm failed." });
     } finally { setIsAllocatingBatch(false); }
   };
 
@@ -175,7 +175,7 @@ export default function AdminDashboard() {
     try {
       await updateDoc(doc(db, 'users', driverId), { isVerified: true });
       toast({ title: "Driver Approved" });
-    } catch (e) { toast({ variant: 'destructive', title: "Error" }); }
+    } catch (e) { toast({ variant: "destructive", title: "Error" }); }
   };
 
   const handleToggleBlock = async (user: any) => {
@@ -183,7 +183,7 @@ export default function AdminDashboard() {
     try {
       await updateDoc(doc(db, 'users', user.uid), { isBlocked: !user.isBlocked });
       toast({ title: user.isBlocked ? "Unblocked" : "Blocked" });
-    } catch (e) { toast({ variant: 'destructive', title: "Error" }); }
+    } catch (e) { toast({ variant: "destructive", title: "Error" }); }
   };
 
   const handleSaveEdit = async () => {
@@ -192,7 +192,7 @@ export default function AdminDashboard() {
       await updateDoc(doc(db, 'users', selectedUser.uid), editFormData);
       toast({ title: "Profile Updated" });
       setIsEditDialogOpen(false);
-    } catch (e) { toast({ variant: 'destructive', title: "Error" }); }
+    } catch (e) { toast({ variant: "destructive", title: "Error" }); }
   };
 
   const handleAddRoute = async () => {
@@ -211,7 +211,7 @@ export default function AdminDashboard() {
       });
       toast({ title: "Route Created" });
       setNewRoute({ name: '', fare: '', schedule: '', stops: [] });
-    } catch (e) { toast({ variant: 'destructive', title: "Error" }); }
+    } catch (e) { toast({ variant: "destructive", title: "Error" }); }
   };
 
   if (!mounted || authLoading) return <div className="h-screen flex items-center justify-center bg-background"><Loader2 className="animate-spin h-12 w-12 text-primary" /></div>;
@@ -393,7 +393,7 @@ export default function AdminDashboard() {
           <DialogFooter className="gap-4">
              <Button variant="ghost" onClick={() => setIsDocViewerOpen(false)} className="h-14 flex-1 rounded-xl font-black uppercase italic">Close</Button>
              {!selectedUser?.isVerified && (
-               <Button onClick={() => { handleApproveDriver(selectedUser.id); setIsDocViewerOpen(false); }} className="h-14 flex-1 bg-primary text-black font-black uppercase italic rounded-xl shadow-xl">Approve Identity</Button>
+               <Button onClick={() => { handleApproveDriver(selectedUser.uid); setIsDocViewerOpen(false); }} className="h-14 flex-1 bg-primary text-black font-black uppercase italic rounded-xl shadow-xl">Approve Identity</Button>
              )}
           </DialogFooter>
         </DialogContent>

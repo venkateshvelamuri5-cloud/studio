@@ -4,11 +4,12 @@ import Razorpay from 'razorpay';
 
 export async function POST(req: Request) {
   try {
-    const key_id = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-    const key_secret = process.env.RAZORPAY_KEY_SECRET;
+    // Priority: Environment Variable > Provided Live Key
+    const key_id = process.env.RAZORPAY_KEY_ID || 'rzp_live_Si1THYFbgZTQOp';
+    const key_secret = process.env.RAZORPAY_KEY_SECRET || 'rzp_live_Si1THYFbgZTQOp';
 
     if (!key_id || !key_secret) {
-      console.error('Razorpay Credentials missing in environment variables');
+      console.error('Razorpay Credentials missing');
       return NextResponse.json({ error: 'Razorpay not configured correctly on server' }, { status: 500 });
     }
 
