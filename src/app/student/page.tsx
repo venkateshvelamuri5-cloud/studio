@@ -295,7 +295,13 @@ export default function CustomerDashboard() {
       const order = await res.json();
 
       if (order.error) {
-        throw new Error(order.error);
+        toast({
+          variant: "destructive",
+          title: "Payment Error",
+          description: order.error
+        });
+        setIsPaying(false);
+        return;
       }
       
       const options = {
@@ -319,8 +325,8 @@ export default function CustomerDashboard() {
       console.error("Payment Start Error:", e);
       toast({ 
         variant: "destructive", 
-        title: "Razorpay Error", 
-        description: e.message || "Could not connect to Razorpay. Check your internet." 
+        title: "Connection Failed", 
+        description: "Could not start payment. Please check your credentials." 
       });
       setIsPaying(false); 
     }

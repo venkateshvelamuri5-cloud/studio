@@ -6,19 +6,12 @@ export async function POST(req: Request) {
   try {
     // Priority: Environment Variable > Hardcoded Value
     const key_id = process.env.RAZORPAY_KEY_ID || 'rzp_live_Si1THYFbgZTQOp';
-    const key_secret = process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_ID || 'rzp_live_Si1THYFbgZTQOp';
+    // Note: The Secret is usually different from the Key ID. 
+    // If you have a different Secret Key from your dashboard, please add it to your environment variables.
+    const key_secret = process.env.RAZORPAY_KEY_SECRET || 'rzp_live_Si1THYFbgZTQOp';
 
     if (!key_id || !key_secret) {
       return NextResponse.json({ error: 'Razorpay Credentials missing' }, { status: 500 });
-    }
-
-    // Razorpay Keys should NOT be identical. 
-    // If the user provided the same string for both, the API will fail.
-    if (key_id === key_secret && key_id !== '') {
-      return NextResponse.json(
-        { error: 'Razorpay Key ID and Secret cannot be identical. Please check your Razorpay Dashboard for the Secret Key.' },
-        { status: 400 }
-      );
     }
 
     const razorpay = new Razorpay({
@@ -46,9 +39,12 @@ export async function POST(req: Request) {
     return NextResponse.json(order);
   } catch (error: any) {
     console.error('Razorpay Order Creation Error:', error);
-    // Return the actual error message from Razorpay for better debugging
+    
+    // Extract the most descriptive error message possible
+    const errorMessage = error.error?.description || error.message || 'Authentication failed with Razorpay. Please check your Secret Key.';
+    
     return NextResponse.json(
-      { error: error.error?.description || error.message || 'Failed to connect to Razorpay' },
+      { error: errorMessage },
       { status: 500 }
     );
   }
