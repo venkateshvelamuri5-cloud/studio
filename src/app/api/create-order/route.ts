@@ -5,12 +5,12 @@ import Razorpay from 'razorpay';
 export async function POST(req: Request) {
   try {
     // Priority: Environment Variable > Provided Live Key
+    // NOTE: Using the key provided by the user. If they are identical, Razorpay might return an error.
     const key_id = process.env.RAZORPAY_KEY_ID || 'rzp_live_Si1THYFbgZTQOp';
     const key_secret = process.env.RAZORPAY_KEY_SECRET || 'rzp_live_Si1THYFbgZTQOp';
 
     if (!key_id || !key_secret) {
-      console.error('Razorpay Credentials missing');
-      return NextResponse.json({ error: 'Razorpay not configured correctly on server' }, { status: 500 });
+      return NextResponse.json({ error: 'Razorpay Credentials missing on server' }, { status: 500 });
     }
 
     const razorpay = new Razorpay({

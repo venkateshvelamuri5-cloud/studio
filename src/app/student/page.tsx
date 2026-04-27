@@ -280,6 +280,7 @@ export default function CustomerDashboard() {
         return;
       }
       
+      // Exact calculation in Paise
       const amountInPaise = Math.round(finalAmountInRupees * 100);
 
       const res = await fetch('/api/create-order', { 
@@ -290,28 +291,37 @@ export default function CustomerDashboard() {
           receipt: `ride_${Date.now()}` 
         }) 
       });
+      
       const order = await res.json();
 
-      if (order.error) throw new Error(order.error);
+      if (order.error) {
+        throw new Error(order.error);
+      }
       
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_Si1THYFbgZTQOp',
         amount: order.amount,
         currency: order.currency,
-        name: "AAGO",
+        name: "AAGO Hub",
         description: `Ticket for ${selectedRoute.routeName}`,
         order_id: order.id,
         handler: (res: any) => processPayment(res),
         prefill: { name: profile?.fullName || "", contact: profile?.phoneNumber || "" },
         theme: { color: "#EAB308" },
-        modal: { ondismiss: () => setIsPaying(false) }
+        modal: { 
+          ondismiss: () => setIsPaying(false) 
+        }
       };
       
       const rzp = new (window as any).Razorpay(options);
       rzp.open();
     } catch (e: any) { 
       console.error("Payment Start Error:", e);
-      toast({ variant: "destructive", title: "Payment Gateway Error", description: "Could not connect to Razorpay. Check your internet." });
+      toast({ 
+        variant: "destructive", 
+        title: "Razorpay Error", 
+        description: e.message || "Could not connect to Razorpay. Check your internet." 
+      });
       setIsPaying(false); 
     }
   };
