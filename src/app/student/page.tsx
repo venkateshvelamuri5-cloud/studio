@@ -173,7 +173,6 @@ export default function CustomerDashboard() {
     try {
       const newManifest = trip.passengerManifest.filter((m: any) => m.uid !== user.uid);
       if (newManifest.length === 0 && !trip.driverId) {
-          // If it was the only person and no driver assigned, delete the placeholder trip
           await deleteDoc(doc(db, 'trips', trip.id));
       } else {
           await updateDoc(doc(db, 'trips', trip.id), { 
@@ -224,7 +223,6 @@ export default function CustomerDashboard() {
       const q = query(collection(db, 'trips'), where('routeName', '==', selectedRoute.routeName), where('scheduledDate', '==', bookingDate), where('scheduledTime', '==', bookingTime), where('status', '==', 'active'));
       const snap = await getDocs(q);
       
-      // Look for existing trip with space based on its maxCapacity
       const existingTrip = snap.docs.find(d => (d.data().riderCount || 0) < (d.data().maxCapacity || 7));
       
       if (existingTrip) {
@@ -239,7 +237,7 @@ export default function CustomerDashboard() {
           scheduledTime: bookingTime, 
           status: 'active', 
           riderCount: 1, 
-          maxCapacity: 6, // Default to 6 (7-seater N-1 Rule)
+          maxCapacity: 6, 
           farePerRider: selectedRoute.baseFare, 
           passengerManifest: [entry], 
           verifiedPassengers: [], 
@@ -267,6 +265,12 @@ export default function CustomerDashboard() {
 
   const startPayment = async () => {
     if (typeof window === 'undefined' || !selectedRoute) return;
+
+    if (!(window as any).Razorpay) {
+      toast({ title: "Connecting to gateway...", description: "Please wait a few seconds and try again." });
+      return;
+    }
+
     setIsPaying(true);
     try {
       const finalAmountInRupees = Math.max(0, calculatedFare - appliedDiscount);

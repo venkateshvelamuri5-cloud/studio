@@ -20,6 +20,7 @@ export async function POST(req: Request) {
 
     const { amount, currency = 'INR', receipt } = await req.json();
 
+    // Amount is in Paise. Minimum 100 paise (1 Rupee)
     if (!amount || typeof amount !== 'number' || amount < 100) {
       return NextResponse.json(
         { error: 'Invalid amount. Minimum ₹1 is required.' },

@@ -55,7 +55,7 @@ export default function RootLayout({
         <Script 
           id="razorpay-checkout-js"
           src="https://checkout.razorpay.com/v1/checkout.js" 
-          strategy="lazyOnload" 
+          strategy="afterInteractive" 
         />
       </body>
     </html>
