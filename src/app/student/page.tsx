@@ -267,7 +267,7 @@ export default function CustomerDashboard() {
     if (typeof window === 'undefined' || !selectedRoute) return;
 
     if (!(window as any).Razorpay) {
-      toast({ title: "Connecting to gateway...", description: "Please wait a few seconds and try again." });
+      toast({ title: "Connecting to gateway...", description: "The payment system is loading. Please try again in 5 seconds." });
       return;
     }
 
@@ -280,7 +280,6 @@ export default function CustomerDashboard() {
         return;
       }
       
-      // Exact calculation in Paise
       const amountInPaise = Math.round(finalAmountInRupees * 100);
 
       const res = await fetch('/api/create-order', { 
@@ -297,7 +296,7 @@ export default function CustomerDashboard() {
       if (order.error) {
         toast({
           variant: "destructive",
-          title: "Payment Error",
+          title: "Payment Gateway Error",
           description: order.error
         });
         setIsPaying(false);
@@ -326,7 +325,7 @@ export default function CustomerDashboard() {
       toast({ 
         variant: "destructive", 
         title: "Connection Failed", 
-        description: "Could not start payment. Please check your credentials." 
+        description: e.message || "Could not start payment. Please check your credentials." 
       });
       setIsPaying(false); 
     }

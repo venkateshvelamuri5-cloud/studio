@@ -4,10 +4,8 @@ import Razorpay from 'razorpay';
 
 export async function POST(req: Request) {
   try {
-    // Priority: Environment Variable > Hardcoded Value
+    // Priority: Environment Variable > Hardcoded Value provided by user
     const key_id = process.env.RAZORPAY_KEY_ID || 'rzp_live_Si1THYFbgZTQOp';
-    // Note: The Secret is usually different from the Key ID. 
-    // If you have a different Secret Key from your dashboard, please add it to your environment variables.
     const key_secret = process.env.RAZORPAY_KEY_SECRET || 'rzp_live_Si1THYFbgZTQOp';
 
     if (!key_id || !key_secret) {
@@ -19,7 +17,8 @@ export async function POST(req: Request) {
       key_secret,
     });
 
-    const { amount, currency = 'INR', receipt } = await req.json();
+    const body = await req.json();
+    const { amount, currency = 'INR', receipt } = body;
 
     // Amount is in Paise. Minimum 100 paise (1 Rupee)
     if (!amount || typeof amount !== 'number' || amount < 100) {
@@ -41,11 +40,20 @@ export async function POST(req: Request) {
     console.error('Razorpay Order Creation Error:', error);
     
     // Extract the most descriptive error message possible
-    const errorMessage = error.error?.description || error.message || 'Authentication failed with Razorpay. Please check your Secret Key.';
+    // Razorpay often returns 401 for incorrect key_secret
+    let errorMessage = 'Failed to create payment order.';
+    
+    if (error.statusCode === 401) {
+      errorMessage = 'Authorization Failed: The Razorpay Key Secret is likely incorrect. Please double-check your Razorpay Dashboard.';
+    } else if (error.error?.description) {
+      errorMessage = error.error.description;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
     
     return NextResponse.json(
       { error: errorMessage },
-      { status: 500 }
+      { status: error.statusCode || 500 }
     );
   }
 }
