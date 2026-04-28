@@ -4,9 +4,9 @@ import Razorpay from 'razorpay';
 
 export async function POST(req: Request) {
   try {
-    // Priority: Environment Variable > Hardcoded Value provided by user
+    // Priority: Environment Variable > Hardcoded Live Key
     const key_id = process.env.RAZORPAY_KEY_ID || 'rzp_live_Si1THYFbgZTQOp';
-    const key_secret = process.env.RAZORPAY_KEY_SECRET || 'rzp_live_Si1THYFbgZTQOp';
+    const key_secret = process.env.RAZORPAY_KEY_SECRET || 'SaGFSITwIAgJcX'; // Using the provided merchant/secret candidate
 
     if (!key_id || !key_secret) {
       return NextResponse.json({ error: 'Razorpay Credentials missing' }, { status: 500 });
@@ -40,11 +40,10 @@ export async function POST(req: Request) {
     console.error('Razorpay Order Creation Error:', error);
     
     // Extract the most descriptive error message possible
-    // Razorpay often returns 401 for incorrect key_secret
     let errorMessage = 'Failed to create payment order.';
     
     if (error.statusCode === 401) {
-      errorMessage = 'Authorization Failed: The Razorpay Key Secret is likely incorrect. Please double-check your Razorpay Dashboard.';
+      errorMessage = 'Authorization Failed: The Razorpay Key Secret is likely incorrect. Please ensure the Secret Key in your Dashboard matches what is provided.';
     } else if (error.error?.description) {
       errorMessage = error.error.description;
     } else if (error.message) {

@@ -304,7 +304,7 @@ export default function CustomerDashboard() {
       }
       
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_Si1THYFbgZTQOp',
+        key: 'rzp_live_Si1THYFbgZTQOp',
         amount: order.amount,
         currency: order.currency,
         name: "AAGO Hub",
@@ -312,6 +312,7 @@ export default function CustomerDashboard() {
         order_id: order.id,
         handler: (res: any) => processPayment(res),
         prefill: { name: profile?.fullName || "", contact: profile?.phoneNumber || "" },
+        notes: { merchant_id: "SaGFSITwIAgJcX" },
         theme: { color: "#EAB308" },
         modal: { 
           ondismiss: () => setIsPaying(false) 
@@ -453,7 +454,7 @@ export default function CustomerDashboard() {
                                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Dropping Point (Destination)</Label>
                                 <div className="grid grid-cols-2 gap-3 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
                                    {filteredLandmarks.map((stop: any, idx: number) => (
-                                     <Button key={idx} variant="outline" onClick={() => setDroppingPoint(stop.name)} className={`h-16 justify-center text-center px-4 rounded-xl font-black italic text-[11px] leading-tight border-2 transition-all ${droppingPoint === stop.name ? 'bg-primary border-primary text-black' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}>
+                                     <Button key={idx} variant="outline" onClick={() => setBoardingPoint(stop.name)} className={`h-16 justify-center text-center px-4 rounded-xl font-black italic text-[11px] leading-tight border-2 transition-all ${boardingPoint === stop.name ? 'bg-primary border-primary text-black' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}>
                                        {stop.name}
                                      </Button>
                                    ))}
