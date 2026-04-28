@@ -5,8 +5,8 @@ import Razorpay from 'razorpay';
 export async function POST(req: Request) {
   try {
     // Priority: Environment Variable > Hardcoded Live Key
-    const key_id = process.env.RAZORPAY_KEY_ID || 'rzp_live_Si1THYFbgZTQOp';
-    const key_secret = process.env.RAZORPAY_KEY_SECRET || 'SaGFSITwIAgJcX'; // Using the provided merchant/secret candidate
+    const key_id = process.env.RAZORPAY_KEY_ID || 'rzp_live_SitPhIjtlgfKso';
+    const key_secret = process.env.RAZORPAY_KEY_SECRET || 'b5kPlbiPcaabF5t3KiLi61sY';
 
     if (!key_id || !key_secret) {
       return NextResponse.json({ error: 'Razorpay Credentials missing' }, { status: 500 });

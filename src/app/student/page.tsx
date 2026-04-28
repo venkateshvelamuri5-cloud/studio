@@ -304,7 +304,7 @@ export default function CustomerDashboard() {
       }
       
       const options = {
-        key: 'rzp_live_Si1THYFbgZTQOp',
+        key: 'rzp_live_SitPhIjtlgfKso',
         amount: order.amount,
         currency: order.currency,
         name: "AAGO Hub",
